@@ -26,9 +26,9 @@ import pandas as pd  # noqa: E402
 
 from quant.data.factory import get_provider  # noqa: E402
 from quant.portfolio.constructor import PortfolioConstructor, PortfolioItem  # noqa: E402
+from quant.quality.pipeline_gate import run_gated_scan  # noqa: E402
 from quant.report.daily_report import generate_daily_report, save_report  # noqa: E402
 from quant.research_db.db import ResearchDB  # noqa: E402
-from quant.scanner.scanner import DailyScanner  # noqa: E402
 
 
 def _recent_ranking(db: ResearchDB, market: str) -> pd.DataFrame:
@@ -53,30 +53,41 @@ def main() -> int:
     as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
     db = ResearchDB()
 
+    # Every market's scan goes through the Fail-Closed Data Quality gate
+    # (spec section 2) -- a market whose data failed mandatory validation
+    # contributes no scan/candidates/allocation to this report; the report
+    # still renders (dashboard 배포 is never blocked by a research
+    # failure), just with an explicit DATA VALIDATION FAILED section for
+    # that market instead of stale or fabricated candidates.
     scans = {}
+    block_reasons = {}
     for market in ("korea", "us"):
         provider = get_provider(market, demo=args.demo)
-        scanner = DailyScanner(market, provider)
-        scans[market] = scanner.run(as_of=as_of, top_n=args.top_n)
+        gated = run_gated_scan(market, provider=provider, as_of=as_of, demo=args.demo, top_n=args.top_n)
+        scans[market] = gated.scan
+        block_reasons[market] = gated.block_reason if gated.blocked else None
 
     combined_ranking = pd.concat(
         [r for r in (_recent_ranking(db, m) for m in ("korea", "us")) if not r.empty]
     ) if db.count() > 0 else pd.DataFrame()
 
     kr_scan = scans["korea"]
-    items = [
-        PortfolioItem(
-            symbol=c.symbol, market="korea", strategy_id="scanner", sector=None,
-            signal_strength=max(c.composite_score, 0.0), volatility=c.volatility,
-        )
-        for c in kr_scan.top_candidates
-    ]
-    allocation = PortfolioConstructor().compute_weights(items)
+    allocation = None
+    if kr_scan is not None:
+        items = [
+            PortfolioItem(
+                symbol=c.symbol, market="korea", strategy_id="scanner", sector=None,
+                signal_strength=max(c.composite_score, 0.0), volatility=c.volatility,
+            )
+            for c in kr_scan.top_candidates
+        ]
+        allocation = PortfolioConstructor().compute_weights(items)
 
     report_text = generate_daily_report(
         as_of=as_of, kr_scan=scans["korea"], us_scan=scans["us"],
         strategy_ranking=combined_ranking if not combined_ranking.empty else None,
         portfolio_allocation=allocation,
+        kr_block_reason=block_reasons["korea"], us_block_reason=block_reasons["us"],
     )
     path = save_report(report_text, as_of)
     print(f"Report written to: {path}")

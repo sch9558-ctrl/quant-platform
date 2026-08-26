@@ -37,10 +37,10 @@ import pandas as pd  # noqa: E402
 from quant import config  # noqa: E402
 from quant.data.factory import get_provider  # noqa: E402
 from quant.pipeline.research_pipeline import _build_backtest_inputs  # noqa: E402
+from quant.quality.pipeline_gate import run_gated_scan  # noqa: E402
 from quant.ranking.overfitting import assess_overfitting  # noqa: E402
 from quant.research_db.db import ResearchDB  # noqa: E402
 from quant.research_db.models import ExperimentRecord, current_code_version, dataset_version_tag  # noqa: E402
-from quant.scanner.scanner import DailyScanner  # noqa: E402
 from quant.strategy import registry  # noqa: E402
 from quant.validation.walk_forward import WalkForwardAnalyzer  # noqa: E402
 
@@ -83,8 +83,19 @@ def main() -> int:
     as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
     provider = get_provider(args.market, demo=args.demo)
 
-    scanner = DailyScanner(args.market, provider)
-    scan = scanner.run(as_of=as_of, top_n=args.top_n_universe)
+    # Today's screened universe still goes through the Fail-Closed Data
+    # Quality gate (spec section 2) -- a manual/exploratory backtest should
+    # not silently build its symbol universe from data that failed
+    # mandatory validation. (The multi-year backtest history fetched below
+    # by `_build_backtest_inputs` is a separate concern -- historical data
+    # quality over an 8-year window -- not yet covered by this same gate;
+    # see run_backtest.py's module docstring / project TODOs.)
+    gated = run_gated_scan(args.market, provider=provider, as_of=as_of, demo=args.demo, top_n=args.top_n_universe)
+    if gated.blocked:
+        print(f"DATA VALIDATION: FAIL\n⛔ {gated.block_reason}")
+        print(f"No backtest run for {args.market} as_of={as_of} -- today's screened universe could not be validated.")
+        return 1
+    scan = gated.scan
     symbols = [c.symbol for c in scan.all_candidates] or [c.symbol for c in scan.top_candidates]
     if not symbols:
         print(f"No symbols passed screening for {args.market} as_of={as_of} -- nothing to backtest.")
