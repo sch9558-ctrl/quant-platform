@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quant Research Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #161d2e; --panel-2: #1c2438; --border: #2a3348;
+    --text: #e6e9f0; --text-dim: #9aa4bb; --text-faint: #6b7590;
+    --pass: #2ea043; --pass-bg: #103a1b; --warn: #d29922; --warn-bg: #3a2e0c;
+    --fail: #f85149; --fail-bg: #3a1414; --info: #58a6ff; --info-bg: #10233d;
+    --accent: #58a6ff;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+  body { font-size: 15px; line-height: 1.5; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+  header.top h1 { font-size: 1.4rem; margin: 0; }
+  header.top .meta { color: var(--text-dim); font-size: 0.85rem; }
+
+  .disclaimer-banner {
+    background: var(--panel-2); border: 1px solid var(--border); border-left: 4px solid var(--info);
+    padding: 10px 14px; border-radius: 6px; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 18px;
+  }
+  .disclaimer-banner strong { color: var(--text); }
+
+  .badge-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .badge {
+    flex: 1 1 160px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; min-width: 150px;
+  }
+  .badge .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); margin-bottom: 6px; }
+  .badge .value { font-size: 1.05rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .status-PASS, .status-ELIGIBLE_FOR_MANUAL_REVIEW { color: var(--pass); }
+  .status-PASS .dot, .status-ELIGIBLE_FOR_MANUAL_REVIEW .dot { background: var(--pass); }
+  .status-WARNING { color: var(--warn); }
+  .status-WARNING .dot { background: var(--warn); }
+  .status-FAIL, .status-DATA_INVALID, .status-NOT_READY { color: var(--fail); }
+  .status-FAIL .dot, .status-DATA_INVALID .dot, .status-NOT_READY .dot { background: var(--fail); }
+  .status-INFO, .status-DATA_VERIFIED, .status-RESEARCH_VALIDATED, .status-OOS_VALIDATED,
+  .status-PAPER_TRADING, .status-PAPER_VERIFIED, .status-SKIPPED { color: var(--info); }
+  .status-INFO .dot, .status-DATA_VERIFIED .dot, .status-RESEARCH_VALIDATED .dot, .status-OOS_VALIDATED .dot,
+  .status-PAPER_TRADING .dot, .status-PAPER_VERIFIED .dot, .status-SKIPPED .dot { background: var(--info); }
+
+  nav.tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; -webkit-overflow-scrolling: touch; }
+  nav.tabs button {
+    flex: 0 0 auto; background: none; border: none; color: var(--text-dim); padding: 10px 14px; font-size: 0.88rem;
+    cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
+  }
+  nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+  nav.tabs button:hover { color: var(--text); }
+
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .panel h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  .panel h3 { font-size: 0.95rem; margin: 18px 0 8px; color: var(--text-dim); }
+  .subtle { color: var(--text-faint); font-size: 0.82rem; }
+
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--text-faint); font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.03em; }
+  tr:hover td { background: var(--panel-2); }
+  td.num { font-family: var(--mono); text-align: right; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+  .pill-PASS { background: var(--pass-bg); color: var(--pass); }
+  .pill-WARNING { background: var(--warn-bg); color: var(--warn); }
+  .pill-FAIL, .pill-QUARANTINED, .pill-REJECTED { background: var(--fail-bg); color: var(--fail); }
+  .pill-REVIEW { background: var(--warn-bg); color: var(--warn); }
+  .pill-VALID { background: var(--pass-bg); color: var(--pass); }
+  .pill-SKIPPED { background: var(--info-bg); color: var(--info); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .provenance { font-size: 0.78rem; color: var(--text-faint); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; }
+  .provenance code { color: var(--text-dim); }
+
+  .empty-state { color: var(--text-faint); font-style: italic; padding: 20px 0; }
+  .block-banner { background: var(--fail-bg); border: 1px solid var(--fail); color: var(--fail); border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; }
+  .block-banner strong { display: block; margin-bottom: 4px; font-size: 1rem; }
+
+  .warn-list { margin: 4px 0 0; padding-left: 18px; color: var(--warn); font-size: 0.82rem; }
+
+  footer.site-footer { margin-top: 28px; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
+
+  code { font-family: var(--mono); }
+  .sparkline-row { display: flex; gap: 3px; align-items: flex-end; height: 40px; margin-top: 8px; }
+  .spark-bar { flex: 1; min-width: 2px; border-radius: 1px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>📊 Quant Research Dashboard</h1>
+    <div class="meta" id="meta-line">Loading…</div>
+  </header>
+
+  <div class="disclaimer-banner" id="disclaimer-banner"></div>
+
+  <div class="badge-row" id="overview-badges"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="data-quality">Data Quality</button>
+    <button data-tab="korea">Korea Market</button>
+    <button data-tab="us">US Market</button>
+    <button data-tab="strategies">Strategies</button>
+    <button data-tab="backtests">Backtests</button>
+    <button data-tab="paper">Paper Trading</button>
+    <button data-tab="risk">Risk</button>
+    <button data-tab="validation">Validation</button>
+    <button data-tab="audit">Audit Log</button>
+  </nav>
+
+  <section class="tab active" id="tab-overview">
+    <div class="panel">
+      <h2>System Status</h2>
+      <div id="overview-detail"></div>
+    </div>
+    <div class="panel">
+      <h2>30/90/365-Day Validation History</h2>
+      <div id="history-charts"></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-data-quality">
+    <div class="panel"><h2>Korea</h2><div id="dq-korea"></div></div>
+    <div class="panel"><h2>US</h2><div id="dq-us"></div></div>
+  </section>
+
+  <section class="tab" id="tab-korea"><div class="panel"><h2>Korea Market Scan</h2><div id="market-korea"></div></div></section>
+  <section class="tab" id="tab-us"><div class="panel"><h2>US Market Scan</h2><div id="market-us"></div></div></section>
+
+  <section class="tab" id="tab-strategies">
+    <div class="panel"><h2>Korea Strategies</h2><div id="strategies-korea"></div></div>
+    <div class="panel"><h2>US Strategies</h2><div id="strategies-us"></div></div>
+  </section>
+
+  <section class="tab" id="tab-backtests">
+    <div class="panel"><h2>Korea Backtests</h2><div id="backtests-korea"></div></div>
+    <div class="panel"><h2>US Backtests</h2><div id="backtests-us"></div></div>
+  </section>
+
+  <section class="tab" id="tab-paper">
+    <div class="grid-2">
+      <div class="panel"><h2>Korea Paper Broker</h2><div id="paper-korea"></div></div>
+      <div class="panel"><h2>US Paper Broker</h2><div id="paper-us"></div></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-risk">
+    <div class="panel"><h2>Korea Risk Checks</h2><div id="risk-korea"></div></div>
+    <div class="panel"><h2>US Risk Checks</h2><div id="risk-us"></div></div>
+  </section>
+
+  <section class="tab" id="tab-validation">
+    <div class="panel"><h2>Investment Readiness</h2><div id="validation-readiness"></div></div>
+    <div class="panel"><h2>Test Buckets &amp; Pipeline</h2><div id="validation-tests"></div></div>
+  </section>
+
+  <section class="tab" id="tab-audit">
+    <div class="panel"><h2>Audit Trail (most recent)</h2><div id="audit-log"></div></div>
+  </section>
+
+  <footer class="site-footer">
+    Research output only. Not investment advice. This system never places real orders and Live Trading is hard-disabled by default.
+  </footer>
+</div>
+
+<script>
+const fmtPct = (v, digits=1) => (v === null || v === undefined || Number.isNaN(v)) ? "N/A" : (v * 100).toFixed(digits) + "%";
+const fmtNum = (v, digits=2) => (v === null || v === undefined || Number.isNaN(v)) ? "N/A" : Number(v).toFixed(digits);
+const fmtPrice = (v) => (v === null || v === undefined) ? "N/A" : Number(v).toLocaleString(undefined, {maximumFractionDigits: 2});
+const esc = (s) => (s === null || s === undefined) ? "" : String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function statusClass(v) { return "status-" + String(v).replace(/[^A-Za-z0-9_]/g, "_"); }
+function pillClass(v) { return "pill pill-" + String(v).replace(/[^A-Za-z0-9_]/g, "_"); }
+
+function badge(label, value, cls) {
+  return `<div class="badge"><div class="label">${esc(label)}</div>
+    <div class="value ${cls}"><span class="dot"></span>${esc(value)}</div></div>`;
+}
+
+function provenanceBlock(p) {
+  if (!p) return "";
+  return `<div class="provenance">Source: <code>${esc(p.source)}</code> &middot; Version: <code>${esc(p.data_version)}</code>
+    &middot; Validation: <span class="${pillClass(p.validation_status)}">${esc(p.validation_status)}</span>
+    &middot; Generated: <code>${esc(p.generated_at)}</code></div>`;
+}
+
+function renderOverview(d) {
+  const ov = d.overview;
+  document.getElementById("meta-line").textContent =
+    `as_of: ${d.as_of}  ·  generated: ${d.generated_at}`;
+  document.getElementById("disclaimer-banner").innerHTML =
+    `<strong>Read this first:</strong> ${esc(ov.disclaimer)}`;
+
+  document.getElementById("overview-badges").innerHTML = [
+    badge("Data Integrity", ov.data_integrity, statusClass(ov.data_integrity)),
+    badge("Mandatory Validation Pass Rate", ov.mandatory_validation_pass_rate + "%", statusClass(ov.data_integrity)),
+    badge("Pipeline Health", ov.pipeline_health, statusClass(ov.pipeline_health)),
+    badge("Strategy Validation", ov.strategy_validation, statusClass(ov.strategy_validation)),
+    badge("Investment Readiness", ov.investment_readiness.replace(/_/g, " "), statusClass(ov.investment_readiness)),
+  ].join("");
+
+  const reasons = (ov.investment_readiness_reasons || []).map(r => `<li>${esc(r)}</li>`).join("");
+  document.getElementById("overview-detail").innerHTML = `
+    <table>
+      <tr><td>Unit Tests</td><td><span class="${pillClass(ov.unit_tests)}">${esc(ov.unit_tests)}</span></td></tr>
+      <tr><td>Integration Tests</td><td><span class="${pillClass(ov.integration_tests)}">${esc(ov.integration_tests)}</span></td></tr>
+      <tr><td>Regression Tests</td><td><span class="${pillClass(ov.regression_tests)}">${esc(ov.regression_tests)}</span></td></tr>
+    </table>
+    <h3>Why this readiness level</h3>
+    <ul class="warn-list">${reasons}</ul>
+    <p class="subtle">Investment Readiness never advances past ELIGIBLE FOR MANUAL REVIEW automatically. This system does not place real orders and Live Trading is disabled in code by default.</p>
+  `;
+}
+
+function renderHistory(history) {
+  const el = document.getElementById("history-charts");
+  if (!history || !history.length) { el.innerHTML = '<div class="empty-state">No history recorded yet.</div>'; return; }
+  const windows = [["Last 30 days", 30], ["Last 90 days", 90], ["Last 365 days", 365]];
+  el.innerHTML = windows.map(([label, n]) => {
+    const rows = history.slice(-n);
+    const passCount = rows.filter(r => r.data_integrity === "PASS").length;
+    const bars = rows.map(r => {
+      const color = r.data_integrity === "PASS" ? "var(--pass)" : "var(--fail)";
+      const h = r.data_integrity === "PASS" ? "100%" : "35%";
+      return `<div class="spark-bar" style="height:${h}; background:${color}" title="${esc(r.as_of)}: ${esc(r.data_integrity)}"></div>`;
+    }).join("");
+    return `<h3>${label} (${rows.length} runs, ${passCount}/${rows.length} data-quality PASS)</h3>
+      <div class="sparkline-row">${bars}</div>`;
+  }).join("");
+}
+
+function renderDataQuality(containerId, report) {
+  const el = document.getElementById(containerId);
+  if (!report) { el.innerHTML = '<div class="empty-state">No report available.</div>'; return; }
+  const checkRows = (report.checks_detail || []).map(c => `
+    <tr>
+      <td>${esc(c.check)}</td>
+      <td>${c.mandatory ? "yes" : "no"}</td>
+      <td><span class="${pillClass(c.passed ? 'PASS' : 'FAIL')}">${c.passed ? "PASS" : "FAIL"}</span></td>
+      <td class="num">${c.issue_count}</td>
+    </tr>`).join("");
+  el.innerHTML = `
+    <table>
+      <tr><td>Overall Status</td><td><span class="${pillClass(report.overall_status)}">${esc(report.overall_status)}</span></td></tr>
+      <tr><td>Mandatory Validation Pass Rate</td><td>${report.mandatory_validation_pass_rate}%</td></tr>
+      <tr><td>Data Integrity Score (informational only)</td><td>${fmtNum(report.data_integrity_score, 4)}</td></tr>
+      <tr><td>Symbols Checked</td><td>${report.n_symbols_checked}</td></tr>
+      <tr><td>Data Version</td><td><code>${esc(report.data_version)}</code></td></tr>
+    </table>
+    <h3>Checks</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Check</th><th>Mandatory</th><th>Result</th><th>Issues</th></tr></thead>
+      <tbody>${checkRows}</tbody>
+    </table></div>
+  `;
+}
+
+function renderMarket(containerId, market) {
+  const el = document.getElementById(containerId);
+  if (!market || market.blocked) {
+    el.innerHTML = `<div class="block-banner"><strong>⛔ DATA VALIDATION FAILED / 오늘의 투자 후보 생성 중단</strong>
+      ${esc(market ? market.block_reason : "No data available.")}</div>
+      <p class="subtle">No candidates are shown for this market today. Previous-day results are never reused as if current.</p>`;
+    return;
+  }
+  const regime = market.regime
+    ? `${esc(market.regime.summary)} &middot; 6m return ${fmtPct(market.regime.index_return_6m)} &middot; ann. vol ${fmtPct(market.regime.index_vol_annualized)}`
+    : "N/A";
+  const rows = (market.candidates || []).map(c => `
+    <tr>
+      <td class="num">${c.rank}</td>
+      <td>${esc(c.symbol)}</td>
+      <td>${esc(c.company)}</td>
+      <td class="num">${fmtPrice(c.price)}</td>
+      <td class="num">${fmtNum(c.momentum)}</td>
+      <td class="num">${fmtNum(c.trend)}</td>
+      <td class="num">${fmtNum(c.relative_strength)}</td>
+      <td class="num">${fmtNum(c.volume)}</td>
+      <td class="num">${fmtPct(c.volatility)}</td>
+      <td class="num">${fmtNum(c.fundamental_score)}</td>
+      <td>${esc(c.strategy_signal)}</td>
+      <td class="num">${fmtNum(c.risk_score)}</td>
+      <td class="num">${c.historical_signal_performance && c.historical_signal_performance.n_obs >= 5 ? fmtPct(c.historical_signal_performance.mean_fwd_20d_return) + " (n=" + c.historical_signal_performance.n_obs + ")" : "N/A"}</td>
+      <td class="num">${fmtNum(c.composite_score, 3)}</td>
+    </tr>`).join("");
+  el.innerHTML = `
+    <p><strong>Regime:</strong> ${regime}</p>
+    <p class="subtle">Universe size: ${market.universe_size} (excluded for data quality: ${market.excluded_for_quality})</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Rank</th><th>Symbol</th><th>Company</th><th>Price</th><th>Momentum</th><th>Trend</th>
+        <th>Rel. Strength</th><th>Volume</th><th>Volatility</th><th>Fundamental</th><th>Signal</th>
+        <th>Risk</th><th>Hist. Signal Perf.</th><th>Composite</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="14" class="empty-state">No candidates today.</td></tr>'}</tbody>
+    </table></div>
+  `;
+}
+
+function renderStrategies(containerId, rows) {
+  const el = document.getElementById(containerId);
+  if (!rows || !rows.length) { el.innerHTML = '<div class="empty-state">No strategies evaluated.</div>'; return; }
+  const body = rows.map(r => `
+    <tr>
+      <td>${esc(r.strategy_id)}</td>
+      <td class="num">${fmtNum(r.composite_score, 3)}</td>
+      <td>${r.meets_minimum_requirements ? '<span class="pill pill-PASS">yes</span>' : '<span class="pill pill-WARNING">no</span>'}</td>
+      <td class="num">${fmtNum(r.aggregate_oos_sharpe)}</td>
+      <td class="num">${fmtNum(r.aggregate_oos_sortino)}</td>
+      <td class="num">${fmtPct(r.aggregate_oos_cagr)}</td>
+      <td class="num">${fmtPct(r.aggregate_oos_mdd)}</td>
+      <td class="num">${fmtNum(r.aggregate_oos_calmar)}</td>
+      <td class="num">${r.n_oos_trades ?? "N/A"}</td>
+      <td class="num">${r.n_folds ?? "N/A"}</td>
+      <td>${(r.overfitting_warnings || []).map(w => `<div>&#9888; ${esc(w)}</div>`).join("") || "&mdash;"}</td>
+    </tr>`).join("");
+  el.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr><th>Strategy</th><th>Composite</th><th>Min. Req. Met</th><th>OOS Sharpe</th><th>OOS Sortino</th>
+      <th>OOS CAGR</th><th>OOS MaxDD</th><th>OOS Calmar</th><th>OOS Trades</th><th>Folds</th><th>Overfitting Warnings</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table></div>`;
+}
+
+function renderBacktests(containerId, rows) {
+  const el = document.getElementById(containerId);
+  if (!rows || !rows.length) { el.innerHTML = '<div class="empty-state">No backtests available.</div>'; return; }
+  el.innerHTML = rows.map(r => {
+    const foldRows = (r.folds || []).map(f => `
+      <tr>
+        <td>${f.fold_id}</td>
+        <td>${esc(f.is_period[0])} → ${esc(f.is_period[1])}</td>
+        <td>${esc(f.oos_period[0])} → ${esc(f.oos_period[1])}</td>
+        <td class="num">${fmtNum(f.is_metrics.sharpe)}</td>
+        <td class="num">${fmtNum(f.oos_metrics.sharpe)}</td>
+        <td class="num">${fmtPct(f.oos_metrics.max_drawdown)}</td>
+        <td>${f.parameter_stable === null ? "N/A" : (f.parameter_stable ? '<span class="pill pill-PASS">stable</span>' : '<span class="pill pill-WARNING">unstable</span>')}</td>
+      </tr>`).join("");
+    return `<h3>${esc(r.strategy_id)} &mdash; ${r.n_folds} fold(s)</h3>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Fold</th><th>IS Period</th><th>OOS Period</th><th>IS Sharpe</th><th>OOS Sharpe</th><th>OOS MaxDD</th><th>Param Stability</th></tr></thead>
+        <tbody>${foldRows}</tbody>
+      </table></div>`;
+  }).join("");
+}
+
+function renderPaper(containerId, p) {
+  const el = document.getElementById(containerId);
+  if (!p || p.error) { el.innerHTML = '<div class="empty-state">Paper trading data unavailable.</div>'; return; }
+  const positions = Object.entries(p.positions || {}).map(([sym, pos]) => `
+    <tr><td>${esc(sym)}</td><td class="num">${pos.quantity}</td><td class="num">${fmtPrice(pos.avg_cost)}</td></tr>
+  `).join("");
+  el.innerHTML = `
+    <table>
+      <tr><td>Cash</td><td class="num">${fmtPrice(p.cash)}</td></tr>
+      <tr><td>Open Positions</td><td class="num">${p.n_positions}</td></tr>
+      <tr><td>Sessions Completed (real wall-clock days)</td><td class="num">${p.sessions_progress_label}</td></tr>
+    </table>
+    <h3>Positions</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Symbol</th><th>Quantity</th><th>Avg Cost</th></tr></thead>
+      <tbody>${positions || '<tr><td colspan="3" class="empty-state">No open positions.</td></tr>'}</tbody>
+    </table></div>
+    <p class="subtle">Paper trading only. This system never places real orders and Live Trading is hard-disabled by default. Session counts are real elapsed trading days, never backfilled.</p>
+  `;
+}
+
+function renderRisk(containerId, rows) {
+  const el = document.getElementById(containerId);
+  if (!rows || !rows.length) { el.innerHTML = '<div class="empty-state">No risk checks recorded.</div>'; return; }
+  const body = rows.map(r => `
+    <tr>
+      <td>${esc(r.symbol)}</td>
+      <td class="num">${fmtPct(r.requested_weight)}</td>
+      <td class="num">${fmtPct(r.approved_weight)}</td>
+      <td>${r.approved ? '<span class="pill pill-PASS">approved</span>' : '<span class="pill pill-FAIL">rejected</span>'}</td>
+      <td>${(r.reasons || []).join("; ") || "&mdash;"}</td>
+    </tr>`).join("");
+  el.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr><th>Symbol</th><th>Requested Weight</th><th>Approved Weight</th><th>Status</th><th>Reasons</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table></div>`;
+}
+
+function renderValidation(v) {
+  const readinessEl = document.getElementById("validation-readiness");
+  readinessEl.innerHTML = `
+    <p><span class="${statusClass(v.investment_readiness.level)}"><span class="dot"></span>
+      <strong>${esc(v.investment_readiness.level.replace(/_/g, " "))}</strong></span></p>
+    <ul class="warn-list">${(v.investment_readiness.reasons || []).map(r => `<li>${esc(r)}</li>`).join("")}</ul>
+    <p class="subtle">${esc(v.investment_readiness.disclaimer)}</p>
+  `;
+  const testsEl = document.getElementById("validation-tests");
+  const marketRows = Object.entries(v.markets || {}).map(([m, r]) => r ? `
+    <tr><td>${esc(m)}</td><td><span class="${pillClass(r.overall_status)}">${esc(r.overall_status)}</span></td>
+      <td class="num">${r.mandatory_validation_pass_rate}%</td><td class="num">${fmtNum(r.data_integrity_score, 4)}</td></tr>
+  ` : "").join("");
+  testsEl.innerHTML = `
+    <table>
+      <tr><td>Unit Tests</td><td><span class="${pillClass(v.test_buckets.unit_tests)}">${esc(v.test_buckets.unit_tests)}</span></td></tr>
+      <tr><td>Integration Tests</td><td><span class="${pillClass(v.test_buckets.integration_tests)}">${esc(v.test_buckets.integration_tests)}</span></td></tr>
+      <tr><td>Regression Tests</td><td><span class="${pillClass(v.test_buckets.regression_tests)}">${esc(v.test_buckets.regression_tests)}</span></td></tr>
+      <tr><td>Pipeline Health</td><td><span class="${pillClass(v.pipeline_health)}">${esc(v.pipeline_health)}</span></td></tr>
+    </table>
+    <h3>Per-Market Data Quality</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Market</th><th>Status</th><th>Mandatory Pass Rate</th><th>Integrity Score</th></tr></thead>
+      <tbody>${marketRows}</tbody>
+    </table></div>
+  `;
+}
+
+function renderAuditLog(rows) {
+  const el = document.getElementById("audit-log");
+  if (!rows || !rows.length) { el.innerHTML = '<div class="empty-state">No audit records yet.</div>'; return; }
+  const body = rows.slice().reverse().map(r => `
+    <tr>
+      <td>${esc(r.timestamp)}</td>
+      <td>${esc(r.market)}</td>
+      <td>${esc(r.check)}</td>
+      <td><span class="${pillClass(r.result)}">${esc(r.result)}</span></td>
+      <td><code>${esc(r.data_version)}</code></td>
+      <td>${esc(r.source)}</td>
+      <td>${esc(r.error) || "&mdash;"}</td>
+    </tr>`).join("");
+  el.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr><th>Timestamp</th><th>Market</th><th>Check</th><th>Result</th><th>Data Version</th><th>Source</th><th>Error</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table></div>`;
+}
+
+function setupTabs() {
+  document.querySelectorAll("nav.tabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("nav.tabs button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("section.tab").forEach(s => s.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+}
+
+async function loadData() {
+  setupTabs();
+  try {
+    const [dashRes, histRes] = await Promise.all([
+      fetch("data/dashboard.json", {cache: "no-store"}),
+      fetch("data/history.json", {cache: "no-store"}).catch(() => null),
+    ]);
+    if (!dashRes.ok) throw new Error("dashboard.json HTTP " + dashRes.status);
+    const d = await dashRes.json();
+    const history = histRes && histRes.ok ? await histRes.json() : [];
+
+    renderOverview(d);
+    renderHistory(history);
+    renderDataQuality("dq-korea", d.data_quality.korea);
+    renderDataQuality("dq-us", d.data_quality.us);
+    renderMarket("market-korea", d.markets.korea);
+    renderMarket("market-us", d.markets.us);
+    document.getElementById("market-korea").insertAdjacentHTML("beforeend", provenanceBlock(d.provenance.korea));
+    document.getElementById("market-us").insertAdjacentHTML("beforeend", provenanceBlock(d.provenance.us));
+    renderStrategies("strategies-korea", d.strategies.korea);
+    renderStrategies("strategies-us", d.strategies.us);
+    renderBacktests("backtests-korea", d.backtests.korea);
+    renderBacktests("backtests-us", d.backtests.us);
+    renderPaper("paper-korea", d.paper_trading.korea);
+    renderPaper("paper-us", d.paper_trading.us);
+    renderRisk("risk-korea", d.risk.korea);
+    renderRisk("risk-us", d.risk.us);
+    renderValidation(d.validation);
+    renderAuditLog(d.audit_log);
+  } catch (err) {
+    document.getElementById("meta-line").textContent = "Failed to load dashboard data.";
+    document.getElementById("disclaimer-banner").innerHTML =
+      `<strong>Error:</strong> Could not load site/data/dashboard.json (${esc(err.message)}). ` +
+      `Run <code>python generate_dashboard_data.py</code> to generate it, or check that this page is served over HTTP (not opened as a local file://).`;
+    console.error(err);
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
