@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-26T06:15:54.364020+00:00",
+  "generated_at": "2026-08-26T06:30:34.313635+00:00",
   "as_of": "2022-06-01",
   "overview": {
     "data_integrity": "PASS",
@@ -20,7 +20,7 @@
     "korea": {
       "market": "korea",
       "as_of": "2022-06-01",
-      "generated_at": "2026-08-26T06:15:37.530294+00:00",
+      "generated_at": "2026-08-26T06:30:15.712058+00:00",
       "n_symbols_checked": 25,
       "data_integrity_score": 1.0,
       "mandatory_validation_pass_rate": 100.0,
@@ -194,7 +194,7 @@
     "us": {
       "market": "us",
       "as_of": "2022-06-01",
-      "generated_at": "2026-08-26T06:15:53.743817+00:00",
+      "generated_at": "2026-08-26T06:30:33.594230+00:00",
       "n_symbols_checked": 57,
       "data_integrity_score": 1.0,
       "mandatory_validation_pass_rate": 100.0,
@@ -3950,20 +3950,573 @@
       }
     ]
   },
+  "validation": {
+    "investment_readiness": {
+      "level": "DATA_VERIFIED",
+      "reasons": [
+        "Data is valid, but not all software tests pass yet: ['unit tests', 'integration tests', 'critical pipeline tests']"
+      ],
+      "disclaimer": "Data Validation 100% means all mandatory data-quality checks passed. It does not mean that future investment returns can be predicted with 100% accuracy or that loss is impossible."
+    },
+    "test_buckets": {
+      "unit_tests": "SKIPPED",
+      "integration_tests": "SKIPPED",
+      "regression_tests": "SKIPPED"
+    },
+    "pipeline_health": "PASS",
+    "markets": {
+      "korea": {
+        "market": "korea",
+        "as_of": "2022-06-01",
+        "generated_at": "2026-08-26T06:30:15.712058+00:00",
+        "n_symbols_checked": 25,
+        "data_integrity_score": 1.0,
+        "mandatory_validation_pass_rate": 100.0,
+        "overall_status": "PASS",
+        "outlier_counts": {
+          "VALID": 15025,
+          "REVIEW": 0,
+          "QUARANTINED": 0,
+          "REJECTED": 0
+        },
+        "data_version": "korea_2022-06-01_v1",
+        "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+        "checks": {
+          "schema": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "ohlc_integrity": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "duplicates": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "corporate_action_consistency": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "missing_sessions": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "freshness": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "timezone": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "cross_source": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          }
+        }
+      },
+      "us": {
+        "market": "us",
+        "as_of": "2022-06-01",
+        "generated_at": "2026-08-26T06:30:33.594230+00:00",
+        "n_symbols_checked": 57,
+        "data_integrity_score": 1.0,
+        "mandatory_validation_pass_rate": 100.0,
+        "overall_status": "PASS",
+        "outlier_counts": {
+          "VALID": 34257,
+          "REVIEW": 0,
+          "QUARANTINED": 0,
+          "REJECTED": 0
+        },
+        "data_version": "us_2022-06-01_v1",
+        "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+        "checks": {
+          "schema": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "ohlc_integrity": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "duplicates": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "corporate_action_consistency": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "missing_sessions": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "freshness": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "timezone": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "cross_source": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          }
+        }
+      }
+    }
+  },
+  "audit_log": [
+    {
+      "timestamp": "2026-08-26T06:24:19.723243+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "schema",
+      "result": "PASS",
+      "rule": "schema",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:24:19.723427+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "ohlc_integrity",
+      "result": "PASS",
+      "rule": "ohlc_integrity",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:24:19.723494+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "duplicates",
+      "result": "PASS",
+      "rule": "duplicates",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:24:19.723540+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "corporate_action_consistency",
+      "result": "PASS",
+      "rule": "corporate_action_consistency",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:24:19.723583+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "missing_sessions",
+      "result": "PASS",
+      "rule": "missing_sessions",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:24:19.723633+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "freshness",
+      "result": "PASS",
+      "rule": "freshness",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:24:19.723675+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "timezone",
+      "result": "PASS",
+      "rule": "timezone",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:24:19.723771+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "cross_source",
+      "result": "PASS",
+      "rule": "cross_source",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:27:01.301249+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "schema",
+      "result": "PASS",
+      "rule": "schema",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:27:01.301614+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "ohlc_integrity",
+      "result": "PASS",
+      "rule": "ohlc_integrity",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:27:01.301731+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "duplicates",
+      "result": "PASS",
+      "rule": "duplicates",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:27:01.301814+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "corporate_action_consistency",
+      "result": "PASS",
+      "rule": "corporate_action_consistency",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:27:01.301907+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "missing_sessions",
+      "result": "PASS",
+      "rule": "missing_sessions",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:27:01.301985+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "freshness",
+      "result": "PASS",
+      "rule": "freshness",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:27:01.302047+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "timezone",
+      "result": "PASS",
+      "rule": "timezone",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:27:01.302105+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "cross_source",
+      "result": "PASS",
+      "rule": "cross_source",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:15.896541+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "schema",
+      "result": "PASS",
+      "rule": "schema",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:15.896839+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "ohlc_integrity",
+      "result": "PASS",
+      "rule": "ohlc_integrity",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:15.896896+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "duplicates",
+      "result": "PASS",
+      "rule": "duplicates",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:15.896939+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "corporate_action_consistency",
+      "result": "PASS",
+      "rule": "corporate_action_consistency",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:15.896978+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "missing_sessions",
+      "result": "PASS",
+      "rule": "missing_sessions",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:15.897013+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "freshness",
+      "result": "PASS",
+      "rule": "freshness",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:15.897048+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "timezone",
+      "result": "PASS",
+      "rule": "timezone",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:15.897094+00:00",
+      "market": "korea",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "check": "cross_source",
+      "result": "PASS",
+      "rule": "cross_source",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:34.164512+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "schema",
+      "result": "PASS",
+      "rule": "schema",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:34.164787+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "ohlc_integrity",
+      "result": "PASS",
+      "rule": "ohlc_integrity",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:34.164919+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "duplicates",
+      "result": "PASS",
+      "rule": "duplicates",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:34.164993+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "corporate_action_consistency",
+      "result": "PASS",
+      "rule": "corporate_action_consistency",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:34.165101+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "missing_sessions",
+      "result": "PASS",
+      "rule": "missing_sessions",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:34.165167+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "freshness",
+      "result": "PASS",
+      "rule": "freshness",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:34.165209+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "timezone",
+      "result": "PASS",
+      "rule": "timezone",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    },
+    {
+      "timestamp": "2026-08-26T06:30:34.165246+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "SyntheticDataProvider",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "check": "cross_source",
+      "result": "PASS",
+      "rule": "cross_source",
+      "error": null,
+      "canonical_source": "SyntheticDataProvider"
+    }
+  ],
   "provenance": {
     "korea": {
       "source": "SyntheticDataProvider (demo/offline mode)",
       "data_version": "korea_2022-06-01_v1",
       "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
       "validation_status": "PASS",
-      "generated_at": "2026-08-26T06:15:37.530294+00:00"
+      "generated_at": "2026-08-26T06:30:15.712058+00:00"
     },
     "us": {
       "source": "SyntheticDataProvider (demo/offline mode)",
       "data_version": "us_2022-06-01_v1",
       "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
       "validation_status": "PASS",
-      "generated_at": "2026-08-26T06:15:53.743817+00:00"
+      "generated_at": "2026-08-26T06:30:33.594230+00:00"
     }
   },
   "disclaimer": "Data Validation 100% means all mandatory data-quality checks passed. It does not mean that future investment returns can be predicted with 100% accuracy or that loss is impossible."

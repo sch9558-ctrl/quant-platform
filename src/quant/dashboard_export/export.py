@@ -236,6 +236,47 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int = 250
     }
 
 
+def _audit_log_section(max_records: int = 200) -> list[dict]:
+    """Tail of the append-only audit trail (spec section 15) -- read-only,
+    never rewritten. Returns [] rather than raising if the audit log
+    doesn't exist yet (e.g. a brand-new environment before the first
+    validation run)."""
+    from quant.quality.audit import AuditLog
+
+    try:
+        path = config.resolve_path(config.settings()["paths"]["db_dir"]) / "audit_log.jsonl"
+        records = AuditLog(path).read_all()
+    except Exception as e:  # noqa: BLE001 -- dashboard build must never crash on a missing/corrupt audit file
+        logger.warning("Audit log section skipped: %s", e)
+        return []
+    return records[-max_records:]
+
+
+def _validation_section(status: SystemStatus) -> dict:
+    """A dedicated, self-contained view of "how do we know this is
+    trustworthy" -- deliberately repeats data already present in
+    `data_quality`/`overview` (built from the exact same SystemStatus
+    object in the same call, so it can never disagree) so the dashboard's
+    Validation tab doesn't need to cross-reference three other tabs."""
+    return {
+        "investment_readiness": {
+            "level": status.readiness.level,
+            "reasons": status.readiness.reasons,
+            "disclaimer": status.readiness.disclaimer,
+        },
+        "test_buckets": {
+            "unit_tests": status.label(status.unit_tests_pass),
+            "integration_tests": status.label(status.integration_tests_pass),
+            "regression_tests": status.label(status.regression_tests_pass),
+        },
+        "pipeline_health": "PASS" if status.pipeline_ok else "FAIL",
+        "markets": {
+            m: (report.summary() if (report := status.reports.get(m)) is not None else None)
+            for m in status.markets
+        },
+    }
+
+
 def _overview(markets: dict[str, MarketResearchResult], status: SystemStatus) -> dict:
     strategy_statuses = [_strategy_validation_status(m) for m in markets.values()]
     order = {"FAIL": 2, "WARNING": 1, "PASS": 0}
@@ -310,6 +351,8 @@ def build_dashboard_data(
         "backtests": backtests,
         "paper_trading": paper_trading,
         "risk": risk,
+        "validation": _validation_section(status),
+        "audit_log": _audit_log_section(),
         "provenance": provenance,
         "disclaimer": DISCLAIMER,
     }

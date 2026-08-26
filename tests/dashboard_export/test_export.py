@@ -14,11 +14,15 @@ from quant.strategy import registry
 
 
 @pytest.fixture(scope="module")
-def _pipeline_result_and_status():
+def dashboard_data():
     # Built once per module (expensive: runs a real walk-forward pass) --
     # tmp_path isolation happens per-call inside run_market_research via
     # quant.config.resolve_path, which module-scoped fixtures can't
     # monkeypatch, so this fixture patches it directly for its own scope.
+    # build_dashboard_data() itself must run INSIDE this patched block too
+    # (not in the test body afterward) -- it reads the audit log via the
+    # same quant.config.resolve_path, which would otherwise point back at
+    # the real project db_dir once this fixture's finally: block restores it.
     from quant import config as quant_config
     import tempfile
     from pathlib import Path
@@ -42,16 +46,16 @@ def _pipeline_result_and_status():
             demo=True, as_of="2022-06-01", top_n=5, use_param_search=False, markets=("korea",),
         )
         status = compute_system_status(["korea"], demo=True, as_of="2022-06-01", run_tests=False)
+        data = build_dashboard_data(pipeline_result, status, demo=True)
     finally:
         real_registry.enabled_strategy_ids = orig_ids
         quant_config.resolve_path = original_resolve_path
         research_pipeline.ResearchDB = original_research_db
-    return pipeline_result, status
+    return data
 
 
-def test_build_dashboard_data_end_to_end(_pipeline_result_and_status):
-    pipeline_result, status = _pipeline_result_and_status
-    data = build_dashboard_data(pipeline_result, status, demo=True)
+def test_build_dashboard_data_end_to_end(dashboard_data):
+    data = dashboard_data
 
     assert data["as_of"] == "2022-06-01"
     assert data["overview"]["data_integrity"] == "PASS"
@@ -88,6 +92,13 @@ def test_build_dashboard_data_end_to_end(_pipeline_result_and_status):
     assert data["provenance"]["korea"]["validation_status"] == "PASS"
     assert data["provenance"]["korea"]["data_version"] is not None
 
+    assert data["validation"]["investment_readiness"]["level"] == data["overview"]["investment_readiness"]
+    assert "100%" in data["validation"]["investment_readiness"]["disclaimer"]
+    assert data["validation"]["markets"]["korea"]["overall_status"] == "PASS"
+    assert isinstance(data["audit_log"], list)
+    assert len(data["audit_log"]) > 0
+    assert {"check", "result", "market"}.issubset(data["audit_log"][0])
+
 
 def test_blocked_market_renders_fail_not_stale_candidates():
     fake_blocked = research_pipeline.MarketResearchResult(
@@ -119,9 +130,8 @@ def test_forbidden_phrase_detection_raises():
         _assert_no_forbidden_phrases({"note": f"this strategy has {FORBIDDEN_PHRASES[0]}"})
 
 
-def test_write_dashboard_json_and_append_history_idempotent(tmp_path, _pipeline_result_and_status):
-    pipeline_result, status = _pipeline_result_and_status
-    data = build_dashboard_data(pipeline_result, status, demo=True)
+def test_write_dashboard_json_and_append_history_idempotent(tmp_path, dashboard_data):
+    data = dashboard_data
 
     path = write_dashboard_json(data, tmp_path)
     assert path.exists()
