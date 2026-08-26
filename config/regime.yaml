@@ -1,0 +1,28 @@
+# Market Regime Detection thresholds (src/quant/regime/detector.py).
+# Applied per-market to a representative index (KOSPI for Korea, S&P 500 for US).
+
+trend:
+  fast_ma: 50
+  slow_ma: 200
+  momentum_lookback_days: 126        # ~6 months
+
+volatility:
+  lookback_days: 20
+  annualization_factor: 252
+  high_vol_percentile: 0.75          # vs trailing 3y history
+  low_vol_percentile: 0.25
+
+breadth:
+  advance_decline_lookback_days: 20
+  new_high_low_lookback_days: 252
+
+classification:
+  bull_momentum_threshold: 0.05      # index 6m return above this -> bullish tilt
+  bear_momentum_threshold: -0.05
+  sideways_band: 0.03                # |6m return| below this and price near MAs -> sideways
+
+risk_on_off:
+  # simple proxy: breadth + volatility + momentum combined; refined later
+  # with rates/FX macro data (see ARCHITECTURE.md future expansion).
+  risk_off_vol_percentile: 0.80
+  risk_off_breadth_threshold: 0.40   # advancers / (advancers+decliners)

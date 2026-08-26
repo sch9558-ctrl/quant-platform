@@ -1,0 +1,29 @@
+# Global application settings.
+# NOTE: LIVE_TRADING here is advisory only for humans reading this file.
+# The actual authoritative switch is in src/quant/config.py, which defaults
+# to False regardless of this file and requires an explicit code change
+# (not a config edit) plus the LIVE_TRADING=true env var to ever go True.
+live_trading: false
+
+markets:
+  - korea
+  - us
+
+paths:
+  data_raw: "data/raw"
+  data_processed: "data/processed"
+  data_cache: "data/cache"
+  db_dir: "data/db"
+  reports_dir: "reports"
+  logs_dir: "logs"
+
+research_db:
+  path: "data/db/research.sqlite"
+
+logging:
+  level: "INFO"
+  file: "logs/quant.log"
+
+trading_calendar:
+  korea_timezone: "Asia/Seoul"
+  us_timezone: "America/New_York"

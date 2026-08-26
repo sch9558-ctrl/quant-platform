@@ -1,0 +1,27 @@
+# Korea (KOSPI/KOSDAQ + KR-listed ETF) universe construction rules.
+# Nothing here hardcodes individual tickers - only screening thresholds.
+
+markets:
+  - KOSPI
+  - KOSDAQ
+
+include_etf: true
+
+filters:
+  min_price_krw: 1000              # exclude penny stocks below this price
+  min_avg_trading_value_krw: 300000000   # 3억원, 20-trading-day average
+  min_market_cap_krw: 50000000000  # 500억원
+  min_listed_days: 252             # at least ~1 year of listing history
+  exclude_administrative_issue: true   # 관리종목 제외
+  exclude_trading_halt: true           # 거래정지 제외
+  exclude_delisting_risk: true         # 상장폐지 위험(투자유의/정리매매 등) 제외
+  max_days_since_last_trade: 5         # exclude effectively untraded names
+
+  liquidity_lookback_days: 20
+
+etf_filters:
+  min_aum_krw: 10000000000         # 100억원
+  min_avg_trading_value_krw: 100000000
+
+rebalance:
+  universe_refresh_frequency: "daily"

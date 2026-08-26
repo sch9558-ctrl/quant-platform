@@ -1,0 +1,21 @@
+# Portfolio construction defaults (src/quant/portfolio/constructor.py).
+
+weighting:
+  method: "inverse_volatility"   # equal_weight | signal_weight | volatility_weight | inverse_volatility | risk_parity
+  vol_lookback_days: 20
+
+constraints:
+  max_position_weight: 0.10
+  max_sector_weight: 0.30
+  max_strategy_weight: 0.40
+  max_market_weight: 0.70
+  min_cash_weight: 0.05
+  max_gross_exposure: 1.0
+
+allocation:
+  # top-level market split suggested to the daily report when no stronger
+  # regime signal overrides it; the report always shows the model's actual
+  # computed split too.
+  default_cash_pct: 0.20
+  default_korea_pct: 0.35
+  default_us_pct: 0.45

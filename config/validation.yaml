@@ -1,0 +1,20 @@
+# Train/Validation/Out-of-Sample split and Walk-Forward Analysis config.
+
+split:
+  method: "walk_forward"     # walk_forward | fixed_split
+  in_sample_years: 4
+  validation_years: 1
+  out_of_sample_years: 1
+  step_years: 1               # how far the window advances each walk-forward fold
+  min_total_years: 6          # minimum history required to run walk-forward at all
+
+fixed_split_fallback:
+  # used only when history is shorter than min_total_years
+  in_sample_pct: 0.6
+  validation_pct: 0.2
+  out_of_sample_pct: 0.2
+
+parameter_stability:
+  perturbation_pct: 0.15      # +/- range around a candidate parameter to test neighbors
+  n_neighbors: 4               # neighbors sampled per parameter per direction
+  max_metric_degradation_pct: 0.35  # neighbor Sharpe more than this % worse -> unstable

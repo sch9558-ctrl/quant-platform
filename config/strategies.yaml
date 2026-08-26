@@ -1,0 +1,89 @@
+# Registry of strategies the Research Engine runs automatically, with their
+# default parameter grids for Parameter Research (src/quant/validation and
+# src/quant/pipeline/research_pipeline.py). "enabled: true" strategies are
+# included in `python run_research.py` and `python run_backtest.py --strategy all`.
+
+strategies:
+  - id: ma_crossover
+    module: trend_following
+    class: DualMovingAverageStrategy
+    enabled: true
+    default_params: { fast_window: 20, slow_window: 60 }
+    param_grid: { fast_window: [10, 20, 30], slow_window: [50, 60, 100, 150] }
+
+  - id: donchian_breakout
+    module: trend_following
+    class: DonchianBreakoutStrategy
+    enabled: true
+    default_params: { entry_window: 55, exit_window: 20 }
+    param_grid: { entry_window: [30, 40, 55, 70], exit_window: [10, 20, 30] }
+
+  - id: ts_momentum
+    module: momentum
+    class: TimeSeriesMomentumStrategy
+    enabled: true
+    default_params: { lookback_days: 126, skip_days: 5 }
+    param_grid: { lookback_days: [63, 126, 189, 252], skip_days: [0, 5, 10] }
+
+  - id: cs_momentum
+    module: momentum
+    class: CrossSectionalMomentumStrategy
+    enabled: true
+    default_params: { lookback_days: 126, skip_days: 5, top_pct: 0.2 }
+    param_grid: { lookback_days: [63, 126, 189], top_pct: [0.1, 0.2, 0.3] }
+
+  - id: rsi_reversal
+    module: mean_reversion
+    class: RSIReversalStrategy
+    enabled: true
+    default_params: { rsi_window: 14, oversold: 30, overbought: 70 }
+    param_grid: { rsi_window: [7, 14, 21], oversold: [20, 25, 30], overbought: [70, 75, 80] }
+
+  - id: bollinger_reversion
+    module: mean_reversion
+    class: BollingerReversionStrategy
+    enabled: true
+    default_params: { window: 20, num_std: 2.0 }
+    param_grid: { window: [10, 20, 30], num_std: [1.5, 2.0, 2.5] }
+
+  - id: zscore_reversion
+    module: mean_reversion
+    class: ZScoreReversionStrategy
+    enabled: true
+    default_params: { window: 20, entry_z: -1.5, exit_z: 0.0 }
+    param_grid: { window: [10, 20, 30], entry_z: [-1.0, -1.5, -2.0] }
+
+  - id: volatility_breakout
+    module: volatility
+    class: VolatilityBreakoutStrategy
+    enabled: true
+    default_params: { atr_window: 20, k: 0.5 }
+    param_grid: { atr_window: [10, 20, 30], k: [0.3, 0.5, 0.7, 1.0] }
+
+  - id: vol_contraction
+    module: volatility
+    class: VolatilityContractionStrategy
+    enabled: true
+    default_params: { bb_window: 20, contraction_percentile: 0.2, breakout_window: 20 }
+    param_grid: { bb_window: [10, 20, 30], contraction_percentile: [0.1, 0.2, 0.3] }
+
+  - id: value_quality
+    module: factor
+    class: ValueQualityFactorStrategy
+    enabled: true
+    default_params: { top_pct: 0.2 }
+    param_grid: { top_pct: [0.1, 0.2, 0.3] }
+
+  - id: momentum_quality
+    module: multi_factor
+    class: MomentumQualityStrategy
+    enabled: true
+    default_params: { momentum_lookback: 126, top_pct: 0.2 }
+    param_grid: { momentum_lookback: [63, 126, 189], top_pct: [0.1, 0.2, 0.3] }
+
+  - id: momentum_lowvol
+    module: multi_factor
+    class: MomentumLowVolStrategy
+    enabled: true
+    default_params: { momentum_lookback: 126, vol_lookback: 60, top_pct: 0.2 }
+    param_grid: { momentum_lookback: [63, 126, 189], top_pct: [0.1, 0.2, 0.3] }

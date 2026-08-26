@@ -1,0 +1,30 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ipynb_checkpoints/
+
+# data & artifacts (regenerable / user-specific)
+data/raw/*
+data/processed/*
+data/cache/*
+data/db/*.sqlite
+data/db/*.sqlite3
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/cache/.gitkeep
+!data/db/.gitkeep
+
+reports/*
+!reports/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# secrets - NEVER commit
+.env
+*.key
+secrets.yaml
+config/broker_secrets.yaml
+
+.DS_Store

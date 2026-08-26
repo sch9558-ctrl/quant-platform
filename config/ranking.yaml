@@ -1,0 +1,35 @@
+# Weights for the composite "Quant Strategy Score" (src/quant/ranking/scorer.py)
+# and for the daily candidate score (src/quant/scanner/scanner.py).
+# All sub-scores are normalized to [0, 1] (cross-sectionally, via percentile
+# rank) before weighting, so these weights are directly comparable.
+
+strategy_score_weights:
+  return_score: 0.15
+  risk_adjusted_return_score: 0.20   # Sharpe/Sortino/Calmar based
+  stability_score: 0.15              # parameter neighborhood stability
+  oos_score: 0.25                    # out-of-sample / walk-forward performance
+  robustness_score: 0.10             # trade count, exposure, regime coverage
+  drawdown_penalty: 0.10
+  overfitting_penalty: 0.05
+  cost_efficiency_penalty: 0.05      # turnover / cost drag
+
+minimum_requirements:
+  min_trades: 30
+  min_oos_periods: 2
+  min_is_oos_ratio_trades: 0.2       # OOS must have at least this fraction of IS trade count
+
+candidate_score_weights:
+  momentum: 0.20
+  trend: 0.20
+  volume: 0.10
+  mean_reversion: 0.10
+  volatility_penalty: 0.10
+  relative_strength: 0.15
+  fundamental: 0.10
+  risk_penalty: 0.05
+
+overfitting_thresholds:
+  max_is_oos_sharpe_ratio_gap: 0.5    # warn if IS Sharpe - OOS Sharpe exceeds this
+  min_oos_is_sharpe_ratio: 0.4        # warn if OOS Sharpe < 40% of IS Sharpe
+  min_trades_for_confidence: 30
+  param_neighbor_perturbation_pct: 0.15  # +/-15% parameter perturbation for stability check

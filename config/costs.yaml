@@ -1,0 +1,26 @@
+# Transaction cost assumptions used by the backtester. These are
+# deliberately conservative defaults; tune them as you learn your real
+# broker's schedule.
+
+korea:
+  commission_rate: 0.00015          # 0.015% per side, typical discount brokerage
+  securities_transaction_tax:
+    kospi: 0.0018                   # 0.18% sell-side tax (KOSPI, 2024+ schedule)
+    kosdaq: 0.0018                  # 0.18% sell-side tax (KOSDAQ)
+    etf: 0.0                        # ETFs are tax-exempt on the transaction tax
+  slippage_bps: 5                   # 5bp assumed slippage per trade
+  min_commission_krw: 0
+
+us:
+  commission_rate: 0.0              # most US brokers today are commission-free
+  sec_fee_rate: 0.0000278           # SEC Section 31 fee, sell-side only (approx, changes periodically)
+  finra_taf_per_share: 0.000166     # FINRA Trading Activity Fee, sell-side only
+  slippage_bps: 5
+  min_commission_usd: 0.0
+
+general:
+  fill_delay_bars: 1                # signal at close of day T -> filled at close/open of T+1
+  fill_price: "next_open"           # next_open | next_close | same_close
+  max_participation_of_volume: 0.05 # don't assume you can trade more than 5% of a day's volume
+  apply_corporate_actions: true
+  apply_dividends: true

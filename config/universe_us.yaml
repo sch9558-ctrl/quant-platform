@@ -1,0 +1,38 @@
+# US (NYSE/NASDAQ/AMEX + US-listed ETF) universe construction rules.
+# Nothing here hardcodes individual tickers - constituent lists (S&P 500,
+# NASDAQ-100) are fetched dynamically at run time by
+# src/quant/universe/us_constituents.py and cached under data/cache/.
+
+exchanges:
+  - NYSE
+  - NASDAQ
+  - AMEX
+
+include_etf: true
+
+index_universes:
+  - sp500
+  - nasdaq100
+  - major_etfs   # curated-by-rule list of the most liquid broad ETFs, see below
+
+major_etf_rule:
+  # instead of hardcoding tickers, the major-ETF universe is any US-listed
+  # ETF that passes these liquidity/AUM screens (a small seed list of the
+  # most common tickers is used only as a discovery starting point in
+  # src/quant/universe/us_constituents.py, not as the final universe).
+  min_aum_usd: 1000000000
+  min_avg_dollar_volume_usd: 20000000
+
+filters:
+  min_price_usd: 5.0
+  min_avg_dollar_volume_usd: 5000000     # 20-trading-day average
+  min_market_cap_usd: 300000000
+  min_listed_days: 252
+  exclude_trading_halt: true
+  liquidity_lookback_days: 20
+
+future_expansion:
+  full_market_universe: false   # flip on later to expand beyond S&P500/NASDAQ100/ETFs
+
+rebalance:
+  universe_refresh_frequency: "daily"
