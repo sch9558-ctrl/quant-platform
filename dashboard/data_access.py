@@ -83,8 +83,9 @@ def get_paper_broker(market: str):
 def run_paper_rebalance(market: str, demo: bool = True, top_n: int = 10):
     """Simple equal-weight paper rebalance across today's top scanner
     candidates -- a convenience for the dashboard's Paper Trading page.
-    `scripts/run_paper.py` is the more complete CLI version that also runs
-    the full portfolio/risk pipeline."""
+    `run_paper.py` (repo root) is the more complete CLI version that sizes
+    positions via the full `PortfolioConstructor` instead of flat equal
+    weight."""
     provider = get_provider(market, demo=demo)
     scanner = DailyScanner(market, provider)
     as_of = pd.Timestamp.today().strftime("%Y-%m-%d")
