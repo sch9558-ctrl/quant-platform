@@ -44,6 +44,19 @@ def test_report_contains_all_required_sections(kr_scan):
     assert "Cash: 50%" in report
 
 
+def test_report_handles_missing_composite_score_gracefully(kr_scan):
+    # e.g. a manual `run_backtest.py --save` run that didn't compute a
+    # cross-sectional composite score (only ranked among other strategies
+    # does that make sense) -- must render "N/A" rather than raising.
+    ranking_df = pd.DataFrame({
+        "market": ["korea"],
+        "composite_score": [None],
+    }, index=pd.Index(["ma_crossover"], name="strategy_id"))
+
+    report = generate_daily_report(as_of="2022-06-01", kr_scan=kr_scan, strategy_ranking=ranking_df)
+    assert "Composite Score: N/A" in report
+
+
 def test_report_handles_missing_data_gracefully():
     report = generate_daily_report(as_of="2022-06-01")
     assert "스캔 결과 없음" in report

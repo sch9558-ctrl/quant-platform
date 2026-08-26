@@ -69,9 +69,11 @@ def _strategy_section(ranking_df: pd.DataFrame | None, top_n: int = 5) -> str:
         flag = "" if row.get("meets_minimum_requirements", True) else " ⚠ (표본 부족)"
         warn = row.get("overfitting_warnings") or []
         warn_str = f" — 과최적화 경고: {'; '.join(warn)}" if warn else ""
+        composite = row.get("composite_score")
+        composite_str = f"{composite:.3f}" if composite is not None and pd.notna(composite) else "N/A"
         lines.append(
             f"{i}. **{strategy_id}** [{row.get('market', '')}] "
-            f"— Composite Score: {row.get('composite_score', float('nan')):.3f}{flag}{warn_str}"
+            f"— Composite Score: {composite_str}{flag}{warn_str}"
         )
     return "\n".join(lines)
 
