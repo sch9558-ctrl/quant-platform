@@ -113,6 +113,23 @@ class FeatureEngine:
                 out[sym] = feat_df.assign(**{column_name: pd.NA})
         return out
 
+    @staticmethod
+    def attach_fundamental_scores(
+        feature_map: dict[str, pd.DataFrame], fundamental_series_map: dict[str, pd.DataFrame]
+    ) -> dict[str, pd.DataFrame]:
+        """Merge per-symbol fundamental score time series (from
+        `features.fundamental.build_fundamental_score_series`) into each
+        symbol's technical feature DataFrame, aligned by date."""
+        out = {}
+        for sym, feat_df in feature_map.items():
+            fund_ts = fundamental_series_map.get(sym)
+            if fund_ts is None:
+                out[sym] = feat_df
+                continue
+            aligned = fund_ts.reindex(feat_df.index).ffill()
+            out[sym] = pd.concat([feat_df, aligned], axis=1)
+        return out
+
     # -- persistence --------------------------------------------------
     def _dir(self, base_dir: Path | None = None) -> Path:
         base = base_dir or config.resolve_path(config.settings()["paths"]["data_processed"])

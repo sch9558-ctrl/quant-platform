@@ -70,6 +70,54 @@ def dividend_score(fund_df: pd.DataFrame) -> pd.Series:
     return z.iloc[:, 0].rename("dividend_score") if not z.empty else pd.Series(dtype=float, name="dividend_score")
 
 
+def build_fundamental_score_series(
+    provider,
+    symbols: list[str],
+    dates: pd.DatetimeIndex,
+    rebalance_dates: list[str] | pd.DatetimeIndex,
+) -> dict[str, pd.DataFrame]:
+    """Build a daily (forward-filled) time series of fundamental scores per
+    symbol, by actually querying `provider.get_fundamentals` only at
+    `rebalance_dates` (e.g. monthly) and holding each snapshot's scores
+    constant until the next rebalance date.
+
+    This is NOT look-ahead: between two rebalance dates we only ever
+    forward-fill a value that was already known at the earlier date. It
+    mirrors reality too -- fundamentals (EPS, revenue, etc.) update
+    discretely with quarterly filings, not continuously.
+    """
+    snapshots: dict[pd.Timestamp, pd.DataFrame] = {}
+    for d in sorted(pd.Timestamp(x) for x in rebalance_dates):
+        fund_df = provider.get_fundamentals(symbols, d.strftime("%Y-%m-%d"))
+        if fund_df is None or fund_df.empty:
+            continue
+        snapshots[d] = pd.DataFrame({
+            "value_score": value_score(fund_df),
+            "quality_score": quality_score(fund_df),
+            "growth_score": growth_score(fund_df),
+            "size_score": size_score(fund_df),
+            "dividend_score": dividend_score(fund_df),
+        })
+
+    if not snapshots:
+        return {}
+
+    all_dates = pd.DatetimeIndex(sorted(pd.Timestamp(d) for d in dates))
+    out: dict[str, pd.DataFrame] = {}
+    for sym in symbols:
+        rows = []
+        for d, df in sorted(snapshots.items()):
+            if sym in df.index:
+                rows.append(df.loc[sym].rename(d))
+        if not rows:
+            continue
+        sym_snap_df = pd.DataFrame(rows).sort_index()
+        combined_idx = all_dates.union(sym_snap_df.index)
+        sym_ts = sym_snap_df.reindex(combined_idx).ffill()
+        out[sym] = sym_ts.reindex(all_dates)
+    return out
+
+
 def size_score(fund_df: pd.DataFrame) -> pd.Series:
     """Small-cap tilt: higher score = smaller market cap (the classic Size
     factor direction), using log market cap to reduce skew before z-scoring.
