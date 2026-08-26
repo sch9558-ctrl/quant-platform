@@ -98,6 +98,10 @@ def strategies_config() -> dict[str, Any]:
     return _load_yaml("strategies.yaml")
 
 
+def quality_config() -> dict[str, Any]:
+    return _load_yaml("quality.yaml")
+
+
 def resolve_path(relative: str) -> Path:
     """Resolve a path from settings.yaml's `paths` section relative to repo root."""
     p = Path(relative)

@@ -1,0 +1,74 @@
+# Data Quality Engine thresholds (spec sections 3-21).
+#
+# `mandatory_checks` lists the checks that MUST ALL pass for
+# `mandatory_validation_pass_rate` to be reported as 100%. If even one
+# fails for even one symbol, the overall status is FAIL -- there is no
+# partial credit (spec section 14: "99.99%라도 FAIL이다").
+mandatory_checks:
+  - schema
+  - ohlc_integrity
+  - duplicates
+  - missing_sessions
+  - freshness
+  - timezone
+  - corporate_action_consistency
+  # cross_source is mandatory only when a secondary provider actually
+  # returned data for comparison -- see cross_source.require_secondary
+  - cross_source
+
+schema:
+  required_columns: [symbol, market, date, open, high, low, close, volume, currency, source, retrieved_at]
+  optional_columns: [adjusted_close, dividend, split, market_cap]
+  numeric_columns: [open, high, low, close, volume]
+
+ohlc:
+  # hard rules (spec section 4) -- zero tolerance, not configurable
+  # (high>=open,close,low ; low<=open,close ; volume>=0 ; price>0)
+  abnormal_return_review_threshold: 0.35   # |daily return| beyond this -> REVIEW
+  abnormal_return_reject_threshold: 0.90   # |daily return| beyond this -> REJECTED (unless corporate-action-explained)
+  extended_zero_volume_review_days: 5
+
+duplicates:
+  key_columns: [market, symbol, date]
+
+missing_sessions:
+  # any real (non-holiday, non-weekend) trading session with no row for a
+  # symbol that was listed and not-yet-delisted on that date is FATAL by
+  # default -- exceptions are handled via each symbol's listing/delisting
+  # date, not via a tolerance percentage.
+  allow_missing_before_listing: true
+  allow_missing_after_delisting: true
+
+freshness:
+  # data must be current as of this many completed trading sessions ago
+  max_lag_sessions: 0
+  # grace window (hours after market close) before same-day data is
+  # considered "should already be available" -- avoids a false FAIL in the
+  # few hours between close and a provider's EOD data being published.
+  grace_hours_after_close: 4
+
+timezone:
+  korea_timezone: "Asia/Seoul"
+  us_timezone: "America/New_York"
+
+cross_source:
+  require_secondary: false   # true would make a missing secondary source itself a FATAL condition
+  tolerance:
+    price_relative_pct: 0.5      # open/high/low/close allowed relative difference
+    volume_relative_pct: 8.0     # volume reporting conventions vary more across sources
+  corporate_action_grace_days: 3  # widen tolerance for `grace_days` around a known ex-date/split
+
+outlier:
+  # classification bands, applied after corporate-action-aware adjustment
+  valid_max_abs_return: 0.35
+  review_max_abs_return: 0.90
+  # beyond review_max_abs_return with no corporate action explanation -> REJECTED
+
+revision:
+  lookback_sessions: 30
+  revision_tolerance_pct: 1.0   # a stored value changing by more than this -> HISTORICAL_DATA_REVISION
+
+data_age_display:
+  # thresholds purely for dashboard coloring, not gating decisions
+  ok_hours: 24
+  warning_hours: 48
