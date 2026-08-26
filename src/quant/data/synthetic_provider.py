@@ -17,6 +17,8 @@ realistic market simulator, just a stable, non-degenerate fixture.
 """
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 import pandas as pd
 
@@ -97,7 +99,14 @@ class SyntheticDataProvider(MarketDataProvider):
             dates = self._dates[-2:]
             n = len(dates)
 
-        rng = np.random.default_rng(abs(hash(symbol)) % (2**32))
+        # NOTE: builtin `hash(str)` is randomized per-process (PYTHONHASHSEED
+        # salting) unless explicitly disabled, so it must never be used for
+        # a seed that needs to reproduce across separate runs/processes --
+        # that would silently break the "same seed -> same data" guarantee
+        # this whole class exists to provide (spec section 30,
+        # reproducibility). Use a stable, process-independent hash instead.
+        stable_seed = int(hashlib.md5(symbol.encode("utf-8")).hexdigest(), 16) % (2**32)
+        rng = np.random.default_rng(stable_seed)
         annual_drift = rng.normal(0.06, 0.10)
         base_vol = rng.uniform(0.15, 0.45)
 
