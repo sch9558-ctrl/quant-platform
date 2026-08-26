@@ -1,0 +1,32 @@
+[
+  {
+    "as_of": "2022-06-01",
+    "generated_at": "2026-08-26T06:15:54.364020+00:00",
+    "data_integrity": "PASS",
+    "pipeline_health": "PASS",
+    "strategy_validation": "WARNING",
+    "investment_readiness": "DATA_VERIFIED",
+    "outlier_counts": {
+      "korea": {
+        "VALID": 15025,
+        "REVIEW": 0,
+        "QUARANTINED": 0,
+        "REJECTED": 0
+      },
+      "us": {
+        "VALID": 34257,
+        "REVIEW": 0,
+        "QUARANTINED": 0,
+        "REJECTED": 0
+      }
+    },
+    "n_source_mismatch": {
+      "korea": 0,
+      "us": 0
+    },
+    "historical_revisions": {
+      "korea": 0,
+      "us": 0
+    }
+  }
+]

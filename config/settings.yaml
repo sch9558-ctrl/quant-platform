@@ -16,6 +16,7 @@ paths:
   db_dir: "data/db"
   reports_dir: "reports"
   logs_dir: "logs"
+  site_data_dir: "site/data"
 
 research_db:
   path: "data/db/research.sqlite"

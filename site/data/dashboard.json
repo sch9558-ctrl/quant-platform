@@ -1,0 +1,3970 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-26T06:15:54.364020+00:00",
+  "as_of": "2022-06-01",
+  "overview": {
+    "data_integrity": "PASS",
+    "mandatory_validation_pass_rate": 100.0,
+    "pipeline_health": "PASS",
+    "strategy_validation": "WARNING",
+    "investment_readiness": "DATA_VERIFIED",
+    "investment_readiness_reasons": [
+      "Data is valid, but not all software tests pass yet: ['unit tests', 'integration tests', 'critical pipeline tests']"
+    ],
+    "unit_tests": "SKIPPED",
+    "integration_tests": "SKIPPED",
+    "regression_tests": "SKIPPED",
+    "disclaimer": "Data Validation 100% means all mandatory data-quality checks passed. It does not mean that future investment returns can be predicted with 100% accuracy or that loss is impossible."
+  },
+  "data_quality": {
+    "korea": {
+      "market": "korea",
+      "as_of": "2022-06-01",
+      "generated_at": "2026-08-26T06:15:37.530294+00:00",
+      "n_symbols_checked": 25,
+      "data_integrity_score": 1.0,
+      "mandatory_validation_pass_rate": 100.0,
+      "overall_status": "PASS",
+      "outlier_counts": {
+        "VALID": 15025,
+        "REVIEW": 0,
+        "QUARANTINED": 0,
+        "REJECTED": 0
+      },
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "checks": {
+        "schema": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "ohlc_integrity": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "duplicates": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "corporate_action_consistency": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "missing_sessions": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "freshness": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "timezone": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "cross_source": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        }
+      },
+      "checks_detail": [
+        {
+          "check": "schema",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "required_columns": [
+              "symbol",
+              "market",
+              "date",
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume",
+              "currency",
+              "source",
+              "retrieved_at"
+            ],
+            "found_columns": [
+              "adj_close",
+              "close",
+              "currency",
+              "date",
+              "high",
+              "low",
+              "market",
+              "open",
+              "retrieved_at",
+              "source",
+              "symbol",
+              "volume"
+            ]
+          }
+        },
+        {
+          "check": "ohlc_integrity",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "rows_checked": 15025,
+            "violations": 0
+          }
+        },
+        {
+          "check": "duplicates",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "duplicate_rows": 0
+          }
+        },
+        {
+          "check": "corporate_action_consistency",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "splits_checked": 0
+          }
+        },
+        {
+          "check": "missing_sessions",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "total_missing_sessions": 0,
+            "expected_sessions": 570
+          }
+        },
+        {
+          "check": "freshness",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "latest_present_date": "2022-06-01",
+            "latest_expected_session": "2022-05-31",
+            "lag_sessions": 0
+          }
+        },
+        {
+          "check": "timezone",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "naive_timestamp_count": 0
+          }
+        },
+        {
+          "check": "cross_source",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "secondary_available": true,
+            "overlapping_rows": 15025,
+            "mismatched_rows": 0,
+            "agreement_rate": 1.0
+          }
+        }
+      ]
+    },
+    "us": {
+      "market": "us",
+      "as_of": "2022-06-01",
+      "generated_at": "2026-08-26T06:15:53.743817+00:00",
+      "n_symbols_checked": 57,
+      "data_integrity_score": 1.0,
+      "mandatory_validation_pass_rate": 100.0,
+      "overall_status": "PASS",
+      "outlier_counts": {
+        "VALID": 34257,
+        "REVIEW": 0,
+        "QUARANTINED": 0,
+        "REJECTED": 0
+      },
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "checks": {
+        "schema": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "ohlc_integrity": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "duplicates": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "corporate_action_consistency": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "missing_sessions": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "freshness": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "timezone": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "cross_source": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        }
+      },
+      "checks_detail": [
+        {
+          "check": "schema",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "required_columns": [
+              "symbol",
+              "market",
+              "date",
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume",
+              "currency",
+              "source",
+              "retrieved_at"
+            ],
+            "found_columns": [
+              "adj_close",
+              "close",
+              "currency",
+              "date",
+              "high",
+              "low",
+              "market",
+              "open",
+              "retrieved_at",
+              "source",
+              "symbol",
+              "volume"
+            ]
+          }
+        },
+        {
+          "check": "ohlc_integrity",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "rows_checked": 34257,
+            "violations": 0
+          }
+        },
+        {
+          "check": "duplicates",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "duplicate_rows": 0
+          }
+        },
+        {
+          "check": "corporate_action_consistency",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "splits_checked": 0
+          }
+        },
+        {
+          "check": "missing_sessions",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "total_missing_sessions": 0,
+            "expected_sessions": 581
+          }
+        },
+        {
+          "check": "freshness",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "latest_present_date": "2022-06-01",
+            "latest_expected_session": "2022-06-01",
+            "lag_sessions": 0
+          }
+        },
+        {
+          "check": "timezone",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "naive_timestamp_count": 0
+          }
+        },
+        {
+          "check": "cross_source",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "secondary_available": true,
+            "overlapping_rows": 34257,
+            "mismatched_rows": 0,
+            "agreement_rate": 1.0
+          }
+        }
+      ]
+    }
+  },
+  "markets": {
+    "korea": {
+      "market": "korea",
+      "label": "Korea (KOSPI/KOSDAQ)",
+      "status": "OK",
+      "blocked": false,
+      "block_reason": null,
+      "as_of": "2022-06-01",
+      "regime": {
+        "summary": "Bull / Normal-Vol / Risk-On",
+        "trend_regime": "bull",
+        "volatility_regime": "normal_vol",
+        "risk_regime": "risk_on",
+        "index_return_6m": 0.2137635073387052,
+        "index_vol_annualized": 0.11900170516268994
+      },
+      "universe_size": 25,
+      "excluded_for_quality": 0,
+      "candidates": [
+        {
+          "rank": 1,
+          "symbol": "KETF0061",
+          "company": "KETF0061 Fund",
+          "market": "korea",
+          "price": 43418.65870512543,
+          "momentum": 0.88,
+          "trend": 0.42483473446088726,
+          "relative_strength": 6.037506775685111,
+          "volume": 0.03399465149040644,
+          "volatility": 0.421798284498854,
+          "fundamental_score": null,
+          "strategy_signal": "trend_up+momentum_top_quintile+oversold_reversion",
+          "risk_score": 0.3220074595908259,
+          "historical_signal_performance": {
+            "n_obs": 58,
+            "mean_fwd_20d_return": 0.7003309028751581,
+            "win_rate": 0.9137931034482759
+          },
+          "composite_score": 0.7580743922945579
+        },
+        {
+          "rank": 2,
+          "symbol": "KETF0067",
+          "company": "KETF0067 Fund",
+          "market": "korea",
+          "price": 2124.887214067641,
+          "momentum": 1.0,
+          "trend": 0.4403985389889412,
+          "relative_strength": 15.600999582933632,
+          "volume": 0.7066864698126266,
+          "volatility": 0.45167009938462915,
+          "fundamental_score": null,
+          "strategy_signal": "trend_up+momentum_top_quintile",
+          "risk_score": 0.2753991841671659,
+          "historical_signal_performance": {
+            "n_obs": 112,
+            "mean_fwd_20d_return": 0.4699589414579683,
+            "win_rate": 0.9464285714285714
+          },
+          "composite_score": 0.7517463998995857
+        },
+        {
+          "rank": 3,
+          "symbol": "KEQ0019",
+          "company": "KEQ0019 Corp",
+          "market": "korea",
+          "price": 123946.49488120804,
+          "momentum": 0.8,
+          "trend": 0.3364483433402269,
+          "relative_strength": 3.3101805385724123,
+          "volume": -0.17169434475078796,
+          "volatility": 0.3505463716441342,
+          "fundamental_score": 0.5118000432375365,
+          "strategy_signal": "trend_up+momentum_top_quintile+oversold_reversion",
+          "risk_score": 0.2573704359298927,
+          "historical_signal_performance": {
+            "n_obs": 153,
+            "mean_fwd_20d_return": 0.2689556648013695,
+            "win_rate": 0.6601307189542484
+          },
+          "composite_score": 0.7397478467908273
+        },
+        {
+          "rank": 4,
+          "symbol": "KEQ0053",
+          "company": "KEQ0053 Corp",
+          "market": "korea",
+          "price": 5043.190962867644,
+          "momentum": 0.92,
+          "trend": 0.4403985389889412,
+          "relative_strength": 5.4379845241970495,
+          "volume": -0.4739050888589507,
+          "volatility": 0.3718571511937587,
+          "fundamental_score": 0.0687610875547392,
+          "strategy_signal": "trend_up+momentum_top_quintile",
+          "risk_score": 0.24077267025757337,
+          "historical_signal_performance": {
+            "n_obs": 84,
+            "mean_fwd_20d_return": 0.4625624807911725,
+            "win_rate": 1.0
+          },
+          "composite_score": 0.7168704283456215
+        },
+        {
+          "rank": 5,
+          "symbol": "KEQ0001",
+          "company": "KEQ0001 Corp",
+          "market": "korea",
+          "price": 135688.3047486072,
+          "momentum": 0.84,
+          "trend": 0.33105416542824173,
+          "relative_strength": 3.6816176901345585,
+          "volume": 0.020200688770548328,
+          "volatility": 0.4707642065122369,
+          "fundamental_score": 0.5924463580550591,
+          "strategy_signal": "trend_up+momentum_top_quintile",
+          "risk_score": 0.30440749478037915,
+          "historical_signal_performance": {
+            "n_obs": 161,
+            "mean_fwd_20d_return": 0.3421253062550608,
+            "win_rate": 0.8136645962732919
+          },
+          "composite_score": 0.7049523352473476
+        },
+        {
+          "rank": 6,
+          "symbol": "KEQ0011",
+          "company": "KEQ0011 Corp",
+          "market": "korea",
+          "price": 73334.51696047958,
+          "momentum": 0.72,
+          "trend": 0.38620431064351046,
+          "relative_strength": 2.7037789717145673,
+          "volume": 0.9507674735162452,
+          "volatility": 0.32368439071515004,
+          "fundamental_score": -0.7742775920862416,
+          "strategy_signal": "trend_up+volume_breakout",
+          "risk_score": 0.20870981244165032,
+          "historical_signal_performance": {
+            "n_obs": 72,
+            "mean_fwd_20d_return": 0.12268967084750321,
+            "win_rate": 0.6527777777777778
+          },
+          "composite_score": 0.7046222539028416
+        },
+        {
+          "rank": 7,
+          "symbol": "KETF0060",
+          "company": "KETF0060 Fund",
+          "market": "korea",
+          "price": 103873.28603990532,
+          "momentum": 0.96,
+          "trend": 0.4403985389889412,
+          "relative_strength": 9.389434583100249,
+          "volume": -0.2922193213156776,
+          "volatility": 0.487744294097975,
+          "fundamental_score": null,
+          "strategy_signal": "trend_up+momentum_top_quintile",
+          "risk_score": 0.3238128081992391,
+          "historical_signal_performance": {
+            "n_obs": 52,
+            "mean_fwd_20d_return": 0.07749444431858346,
+            "win_rate": 0.4423076923076923
+          },
+          "composite_score": 0.6838545688095864
+        },
+        {
+          "rank": 8,
+          "symbol": "KEQ0005",
+          "company": "KEQ0005 Corp",
+          "market": "korea",
+          "price": 12560.388432810276,
+          "momentum": 0.68,
+          "trend": 0.39802460338555856,
+          "relative_strength": 0.7023452836149544,
+          "volume": 0.7251874387742203,
+          "volatility": 0.5198388661807484,
+          "fundamental_score": 0.039620442011487955,
+          "strategy_signal": "trend_up",
+          "risk_score": 0.33734628231235264,
+          "historical_signal_performance": {
+            "n_obs": 141,
+            "mean_fwd_20d_return": 0.2081354215212025,
+            "win_rate": 0.7163120567375887
+          },
+          "composite_score": 0.6664305335986359
+        },
+        {
+          "rank": 9,
+          "symbol": "KEQ0054",
+          "company": "KEQ0054 Corp",
+          "market": "korea",
+          "price": 3568.263880021472,
+          "momentum": 0.76,
+          "trend": 0.4403985389889412,
+          "relative_strength": 2.0598499945569753,
+          "volume": 0.48762753472045994,
+          "volatility": 0.5310007648571571,
+          "fundamental_score": -0.669643254660588,
+          "strategy_signal": "trend_up",
+          "risk_score": 0.29259099643322356,
+          "historical_signal_performance": {
+            "n_obs": 17,
+            "mean_fwd_20d_return": -0.32952889231086113,
+            "win_rate": 0.0
+          },
+          "composite_score": 0.6652753356205591
+        },
+        {
+          "rank": 10,
+          "symbol": "KEQ0007",
+          "company": "KEQ0007 Corp",
+          "market": "korea",
+          "price": 1468329.7396993646,
+          "momentum": 0.56,
+          "trend": 0.3716767512490096,
+          "relative_strength": 0.5982917064145306,
+          "volume": -0.27317951473691743,
+          "volatility": 0.40456754949683765,
+          "fundamental_score": 0.29404302040962116,
+          "strategy_signal": "trend_up+oversold_reversion",
+          "risk_score": 0.28812750326962105,
+          "historical_signal_performance": {
+            "n_obs": 104,
+            "mean_fwd_20d_return": 0.09073531671634189,
+            "win_rate": 0.75
+          },
+          "composite_score": 0.6463180054383024
+        }
+      ]
+    },
+    "us": {
+      "market": "us",
+      "label": "US (NYSE/NASDAQ/AMEX)",
+      "status": "OK",
+      "blocked": false,
+      "block_reason": null,
+      "as_of": "2022-06-01",
+      "regime": {
+        "summary": "Bull / Normal-Vol / Risk-On",
+        "trend_regime": "bull",
+        "volatility_regime": "normal_vol",
+        "risk_regime": "risk_on",
+        "index_return_6m": 0.2171575200063145,
+        "index_vol_annualized": 0.16974505541070276
+      },
+      "universe_size": 57,
+      "excluded_for_quality": 0,
+      "candidates": [
+        {
+          "rank": 1,
+          "symbol": "USEQ0019",
+          "company": "USEQ0019 Corp",
+          "market": "us",
+          "price": 951.6590329030765,
+          "momentum": 0.7719298245614035,
+          "trend": 0.33808957099808096,
+          "relative_strength": 1.4354704136381582,
+          "volume": 0.4795187938963591,
+          "volatility": 0.2438865406942461,
+          "fundamental_score": 0.4634202047347822,
+          "strategy_signal": "trend_up+oversold_reversion",
+          "risk_score": 0.174135100600513,
+          "historical_signal_performance": {
+            "n_obs": 42,
+            "mean_fwd_20d_return": 0.005352231988881282,
+            "win_rate": 0.30952380952380953
+          },
+          "composite_score": 0.7758420002569604
+        },
+        {
+          "rank": 2,
+          "symbol": "USEQ0006",
+          "company": "USEQ0006 Corp",
+          "market": "us",
+          "price": 229.3520375044579,
+          "momentum": 0.9649122807017544,
+          "trend": 0.4403985389889412,
+          "relative_strength": 4.958541923444148,
+          "volume": 0.30192247445468146,
+          "volatility": 0.3700478300323246,
+          "fundamental_score": 0.3280510818144931,
+          "strategy_signal": "trend_up+momentum_top_quintile",
+          "risk_score": 0.2429538574284849,
+          "historical_signal_performance": {
+            "n_obs": 75,
+            "mean_fwd_20d_return": 0.36992871258117976,
+            "win_rate": 0.9866666666666667
+          },
+          "composite_score": 0.7733213333352833
+        },
+        {
+          "rank": 3,
+          "symbol": "USETF0060",
+          "company": "USETF0060 Fund",
+          "market": "us",
+          "price": 56125579.39603877,
+          "momentum": 0.9122807017543859,
+          "trend": 0.4403985389889412,
+          "relative_strength": 3.756722037376467,
+          "volume": 0.6470935278676613,
+          "volatility": 0.2413142510070599,
+          "fundamental_score": null,
+          "strategy_signal": "trend_up+momentum_top_quintile",
+          "risk_score": 0.13605201621230772,
+          "historical_signal_performance": {
+            "n_obs": 310,
+            "mean_fwd_20d_return": 0.2272847390824685,
+            "win_rate": 0.6096774193548387
+          },
+          "composite_score": 0.7633953394711108
+        },
+        {
+          "rank": 4,
+          "symbol": "USEQ0047",
+          "company": "USEQ0047 Corp",
+          "market": "us",
+          "price": 127246.09096450183,
+          "momentum": 0.8070175438596491,
+          "trend": -0.05638428748127319,
+          "relative_strength": 2.5480894763089763,
+          "volume": 0.4832943661711336,
+          "volatility": 0.24443259539250878,
+          "fundamental_score": -0.4359875713834158,
+          "strategy_signal": "momentum_top_quintile+oversold_reversion",
+          "risk_score": 0.1942117253025145,
+          "historical_signal_performance": {
+            "n_obs": 163,
+            "mean_fwd_20d_return": 0.17406734909458763,
+            "win_rate": 0.6687116564417178
+          },
+          "composite_score": 0.7329809929268604
+        },
+        {
+          "rank": 5,
+          "symbol": "USEQ0029",
+          "company": "USEQ0029 Corp",
+          "market": "us",
+          "price": 1053480.5426255935,
+          "momentum": 0.8771929824561403,
+          "trend": 0.3580782779062651,
+          "relative_strength": 2.2199213118213903,
+          "volume": -0.17631142165759545,
+          "volatility": 0.39535125252739384,
+          "fundamental_score": -0.8288751113476925,
+          "strategy_signal": "trend_up+momentum_top_quintile+oversold_reversion",
+          "risk_score": 0.31209826023522413,
+          "historical_signal_performance": {
+            "n_obs": 279,
+            "mean_fwd_20d_return": 0.22411536563443163,
+            "win_rate": 0.6057347670250897
+          },
+          "composite_score": 0.71134388699399
+        },
+        {
+          "rank": 6,
+          "symbol": "USEQ0017",
+          "company": "USEQ0017 Corp",
+          "market": "us",
+          "price": 326002.17502427526,
+          "momentum": 0.9824561403508771,
+          "trend": 0.4403985389889412,
+          "relative_strength": 5.783922704599536,
+          "volume": 0.826595224008413,
+          "volatility": 1.032592313199011,
+          "fundamental_score": 0.05244483206048208,
+          "strategy_signal": "trend_up+momentum_top_quintile",
+          "risk_score": 0.7130827977274024,
+          "historical_signal_performance": {
+            "n_obs": 80,
+            "mean_fwd_20d_return": 0.3342174417855353,
+            "win_rate": 0.6875
+          },
+          "composite_score": 0.7094704219561021
+        },
+        {
+          "rank": 7,
+          "symbol": "USEQ0046",
+          "company": "USEQ0046 Corp",
+          "market": "us",
+          "price": 997.2936977917759,
+          "momentum": 0.9298245614035088,
+          "trend": 0.4403985389889412,
+          "relative_strength": 4.448651751378343,
+          "volume": -0.3715714217606187,
+          "volatility": 0.39195574393793614,
+          "fundamental_score": 0.4736658014763484,
+          "strategy_signal": "trend_up+momentum_top_quintile",
+          "risk_score": 0.2172972744988063,
+          "historical_signal_performance": {
+            "n_obs": 205,
+            "mean_fwd_20d_return": 0.29287101826425455,
+            "win_rate": 0.751219512195122
+          },
+          "composite_score": 0.7056207257890107
+        },
+        {
+          "rank": 8,
+          "symbol": "USEQ0049",
+          "company": "USEQ0049 Corp",
+          "market": "us",
+          "price": 4474.916117789874,
+          "momentum": 0.7192982456140351,
+          "trend": 0.35709187992130065,
+          "relative_strength": 0.8364217379510184,
+          "volume": 0.6281780112924369,
+          "volatility": 0.7941479609697433,
+          "fundamental_score": -0.2532422076041657,
+          "strategy_signal": "trend_up+oversold_reversion",
+          "risk_score": 0.5554006275554662,
+          "historical_signal_performance": {
+            "n_obs": 13,
+            "mean_fwd_20d_return": -0.35703942600586736,
+            "win_rate": 0.0
+          },
+          "composite_score": 0.6976297726850367
+        },
+        {
+          "rank": 9,
+          "symbol": "USEQ0033",
+          "company": "USEQ0033 Corp",
+          "market": "us",
+          "price": 7214.676957704405,
+          "momentum": 0.6666666666666666,
+          "trend": 0.32715860464740754,
+          "relative_strength": 1.0637427093753613,
+          "volume": -0.6941715667794537,
+          "volatility": 0.21522992720685638,
+          "fundamental_score": 0.3300493108461093,
+          "strategy_signal": "trend_up+oversold_reversion",
+          "risk_score": 0.16465327064914392,
+          "historical_signal_performance": {
+            "n_obs": 88,
+            "mean_fwd_20d_return": 0.05348407031158036,
+            "win_rate": 0.5454545454545454
+          },
+          "composite_score": 0.6893079746086652
+        },
+        {
+          "rank": 10,
+          "symbol": "USEQ0043",
+          "company": "USEQ0043 Corp",
+          "market": "us",
+          "price": 1428.2464649412777,
+          "momentum": 1.0,
+          "trend": 0.4403985389889412,
+          "relative_strength": 9.750325471116138,
+          "volume": -0.36287892520236265,
+          "volatility": 0.5848792209078398,
+          "fundamental_score": -0.1852206952440545,
+          "strategy_signal": "trend_up+momentum_top_quintile",
+          "risk_score": 0.32709846229359946,
+          "historical_signal_performance": {
+            "n_obs": 108,
+            "mean_fwd_20d_return": -0.005568101415003941,
+            "win_rate": 0.3888888888888889
+          },
+          "composite_score": 0.6892282810192694
+        }
+      ]
+    }
+  },
+  "strategies": {
+    "korea": [
+      {
+        "strategy_id": "volatility_breakout",
+        "market": "korea",
+        "composite_score": 0.6791666666666667,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [
+          "large IS/OOS Sharpe gap (3.84 > 0.5)"
+        ],
+        "aggregate_oos_sharpe": 20.762965139696583,
+        "aggregate_oos_sortino": 51.16744842928414,
+        "aggregate_oos_cagr": 22.796828986632036,
+        "aggregate_oos_mdd": -0.03081092087913484,
+        "aggregate_oos_calmar": 739.894437951384,
+        "n_oos_trades": 1422,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "donchian_breakout",
+        "market": "korea",
+        "composite_score": 0.6083333333333334,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [
+          "large IS/OOS Sharpe gap (0.67 > 0.5)"
+        ],
+        "aggregate_oos_sharpe": 15.150722107742945,
+        "aggregate_oos_sortino": 27.154042154724966,
+        "aggregate_oos_cagr": 11.607526614813011,
+        "aggregate_oos_mdd": -0.10303836427681523,
+        "aggregate_oos_calmar": 112.65247363233651,
+        "n_oos_trades": 194,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "vol_contraction",
+        "market": "korea",
+        "composite_score": 0.55,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [
+          "large IS/OOS Sharpe gap (2.51 > 0.5)"
+        ],
+        "aggregate_oos_sharpe": 12.635178840809935,
+        "aggregate_oos_sortino": 21.973848762221913,
+        "aggregate_oos_cagr": 8.996511970625619,
+        "aggregate_oos_mdd": -0.17240522596846164,
+        "aggregate_oos_calmar": 52.182362339012656,
+        "n_oos_trades": 192,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "ma_crossover",
+        "market": "korea",
+        "composite_score": 0.5041666666666668,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 11.792302515166533,
+        "aggregate_oos_sortino": 22.773533626455364,
+        "aggregate_oos_cagr": 4.47162039845835,
+        "aggregate_oos_mdd": -0.1143319908439826,
+        "aggregate_oos_calmar": 39.11084172898136,
+        "n_oos_trades": 190,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "momentum_lowvol",
+        "market": "korea",
+        "composite_score": 0.44791666666666663,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 10.118761896716538,
+        "aggregate_oos_sortino": 20.744388542007496,
+        "aggregate_oos_cagr": 6.758969032330149,
+        "aggregate_oos_mdd": -0.20246929944316383,
+        "aggregate_oos_calmar": 33.38268592284774,
+        "n_oos_trades": 236,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "ts_momentum",
+        "market": "korea",
+        "composite_score": 0.4208333333333334,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 9.355684281790435,
+        "aggregate_oos_sortino": 19.144585007490576,
+        "aggregate_oos_cagr": 2.7806798250565996,
+        "aggregate_oos_mdd": -0.08570716068197692,
+        "aggregate_oos_calmar": 32.44396154219282,
+        "n_oos_trades": 170,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "momentum_quality",
+        "market": "korea",
+        "composite_score": 0.3916666666666666,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 7.950595976526725,
+        "aggregate_oos_sortino": 16.30902553575112,
+        "aggregate_oos_cagr": 8.06108338978841,
+        "aggregate_oos_mdd": -0.17707018202506242,
+        "aggregate_oos_calmar": 45.524793037415236,
+        "n_oos_trades": 89,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "cs_momentum",
+        "market": "korea",
+        "composite_score": 0.3000000000000001,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 6.933538115263612,
+        "aggregate_oos_sortino": 13.548836939424097,
+        "aggregate_oos_cagr": 5.306764083887674,
+        "aggregate_oos_mdd": -0.409090611966916,
+        "aggregate_oos_calmar": 12.972099404512473,
+        "n_oos_trades": 133,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "value_quality",
+        "market": "korea",
+        "composite_score": 0.2333333333333333,
+        "meets_minimum_requirements": false,
+        "overfitting_warnings": [
+          "insufficient trades for statistical confidence (12 < 30)"
+        ],
+        "aggregate_oos_sharpe": 5.514165780321511,
+        "aggregate_oos_sortino": 9.295477309052753,
+        "aggregate_oos_cagr": 3.203504949966886,
+        "aggregate_oos_mdd": -0.38940394955726154,
+        "aggregate_oos_calmar": 8.226688387750452,
+        "n_oos_trades": 12,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "rsi_reversal",
+        "market": "korea",
+        "composite_score": 0.175,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": -6.280864991990144,
+        "aggregate_oos_sortino": -9.152920357987156,
+        "aggregate_oos_cagr": -0.6778808226812206,
+        "aggregate_oos_mdd": -0.9676079543481618,
+        "aggregate_oos_calmar": -0.7005738425723065,
+        "n_oos_trades": 149,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "bollinger_reversion",
+        "market": "korea",
+        "composite_score": 0.10208333333333329,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": -12.975274511834542,
+        "aggregate_oos_sortino": -17.547971760332814,
+        "aggregate_oos_cagr": -0.9328890353659455,
+        "aggregate_oos_mdd": -0.9996938025591969,
+        "aggregate_oos_calmar": -0.933174771092676,
+        "n_oos_trades": 236,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "zscore_reversion",
+        "market": "korea",
+        "composite_score": 0.0875,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": -13.319864764572984,
+        "aggregate_oos_sortino": -17.92496961855678,
+        "aggregate_oos_cagr": -0.9210582230678315,
+        "aggregate_oos_mdd": -0.9995020291055879,
+        "aggregate_oos_calmar": -0.9215171117681947,
+        "n_oos_trades": 311,
+        "n_folds": 3
+      }
+    ],
+    "us": [
+      {
+        "strategy_id": "volatility_breakout",
+        "market": "us",
+        "composite_score": 0.6791666666666667,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [
+          "large IS/OOS Sharpe gap (0.98 > 0.5)"
+        ],
+        "aggregate_oos_sharpe": 36.397475589106165,
+        "aggregate_oos_sortino": 108.70502627132821,
+        "aggregate_oos_cagr": 53.2702995842044,
+        "aggregate_oos_mdd": -0.009637937566799093,
+        "aggregate_oos_calmar": 5527.147194614614,
+        "n_oos_trades": 3978,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "donchian_breakout",
+        "market": "us",
+        "composite_score": 0.6333333333333334,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 25.61568283322144,
+        "aggregate_oos_sortino": 53.965124585059414,
+        "aggregate_oos_cagr": 15.20303543857463,
+        "aggregate_oos_mdd": -0.017247781049995248,
+        "aggregate_oos_calmar": 881.4487727149585,
+        "n_oos_trades": 408,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "vol_contraction",
+        "market": "us",
+        "composite_score": 0.5916666666666667,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 23.217305142699153,
+        "aggregate_oos_sortino": 59.014346739810904,
+        "aggregate_oos_cagr": 11.059399378019219,
+        "aggregate_oos_mdd": -0.018547524531981496,
+        "aggregate_oos_calmar": 596.273608316274,
+        "n_oos_trades": 417,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "ma_crossover",
+        "market": "us",
+        "composite_score": 0.5458333333333334,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 14.891639734655437,
+        "aggregate_oos_sortino": 31.634077259215097,
+        "aggregate_oos_cagr": 3.2595772793195694,
+        "aggregate_oos_mdd": -0.031273848667635495,
+        "aggregate_oos_calmar": 104.22693138797536,
+        "n_oos_trades": 432,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "ts_momentum",
+        "market": "us",
+        "composite_score": 0.43750000000000006,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 9.463608612098401,
+        "aggregate_oos_sortino": 18.991884969990494,
+        "aggregate_oos_cagr": 1.2896623099112245,
+        "aggregate_oos_mdd": -0.05477923287981701,
+        "aggregate_oos_calmar": 23.542905625215333,
+        "n_oos_trades": 372,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "momentum_lowvol",
+        "market": "us",
+        "composite_score": 0.3916666666666667,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 8.86318045824778,
+        "aggregate_oos_sortino": 17.700616370423703,
+        "aggregate_oos_cagr": 2.022987878962936,
+        "aggregate_oos_mdd": -0.11396978973931504,
+        "aggregate_oos_calmar": 17.750211556853348,
+        "n_oos_trades": 557,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "momentum_quality",
+        "market": "us",
+        "composite_score": 0.3458333333333333,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 7.512695075731979,
+        "aggregate_oos_sortino": 15.06622822995926,
+        "aggregate_oos_cagr": 2.7625162372379575,
+        "aggregate_oos_mdd": -0.11176691537905292,
+        "aggregate_oos_calmar": 24.716761913568043,
+        "n_oos_trades": 258,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "cs_momentum",
+        "market": "us",
+        "composite_score": 0.3375000000000001,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 7.62777740182802,
+        "aggregate_oos_sortino": 12.806216494114732,
+        "aggregate_oos_cagr": 2.214059864996868,
+        "aggregate_oos_mdd": -0.15316401280588432,
+        "aggregate_oos_calmar": 14.455483533216801,
+        "n_oos_trades": 285,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "value_quality",
+        "market": "us",
+        "composite_score": 0.23749999999999996,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": 1.4881459645553266,
+        "aggregate_oos_sortino": 2.577385583517129,
+        "aggregate_oos_cagr": 0.2680557981786158,
+        "aggregate_oos_mdd": -0.5283819239226644,
+        "aggregate_oos_calmar": 0.5073144747053256,
+        "n_oos_trades": 30,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "rsi_reversal",
+        "market": "us",
+        "composite_score": 0.15833333333333333,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [
+          "large IS/OOS Sharpe gap (1.38 > 0.5)"
+        ],
+        "aggregate_oos_sharpe": -14.753027421818746,
+        "aggregate_oos_sortino": -19.497009463630462,
+        "aggregate_oos_cagr": -0.7716792534219226,
+        "aggregate_oos_mdd": -0.9880130280267448,
+        "aggregate_oos_calmar": -0.7810415769143418,
+        "n_oos_trades": 370,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "bollinger_reversion",
+        "market": "us",
+        "composite_score": 0.09999999999999998,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [],
+        "aggregate_oos_sharpe": -24.420432023154575,
+        "aggregate_oos_sortino": -27.975097155044637,
+        "aggregate_oos_cagr": -0.9541962086015022,
+        "aggregate_oos_mdd": -0.9999024740419088,
+        "aggregate_oos_calmar": -0.9542892765774966,
+        "n_oos_trades": 575,
+        "n_folds": 3
+      },
+      {
+        "strategy_id": "zscore_reversion",
+        "market": "us",
+        "composite_score": 0.06666666666666667,
+        "meets_minimum_requirements": true,
+        "overfitting_warnings": [
+          "large IS/OOS Sharpe gap (0.83 > 0.5)"
+        ],
+        "aggregate_oos_sharpe": -26.119678328836027,
+        "aggregate_oos_sortino": -29.824030861115528,
+        "aggregate_oos_cagr": -0.94549451156709,
+        "aggregate_oos_mdd": -0.9998357994059401,
+        "aggregate_oos_calmar": -0.9456497878240232,
+        "n_oos_trades": 735,
+        "n_folds": 3
+      }
+    ]
+  },
+  "backtests": {
+    "korea": [
+      {
+        "strategy_id": "ma_crossover",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.865860729535723,
+              "sharpe": 8.123746621895437,
+              "sortino": 13.722326891083426,
+              "max_drawdown": -0.35086959887415425,
+              "calmar": 8.167879858304897,
+              "num_trades": 238,
+              "avg_turnover": 0.05155614965230281
+            },
+            "oos_metrics": {
+              "cagr": 4.441133454959387,
+              "sharpe": 11.632644843751288,
+              "sortino": 20.8306880812911,
+              "max_drawdown": -0.1143319908439826,
+              "calmar": 38.84418894637947,
+              "num_trades": 65,
+              "avg_turnover": 0.04928043133574531
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 3.510421705662324,
+              "sharpe": 9.874664725580224,
+              "sortino": 19.22909933696296,
+              "max_drawdown": -0.11621117616195109,
+              "calmar": 30.207264237393353,
+              "num_trades": 264,
+              "avg_turnover": 0.051588232315786485
+            },
+            "oos_metrics": {
+              "cagr": 5.340336761146033,
+              "sharpe": 13.937336950589039,
+              "sortino": 35.14222438417391,
+              "max_drawdown": -0.030983118270076493,
+              "calmar": 172.36279171757002,
+              "num_trades": 61,
+              "avg_turnover": 0.04555195192223121
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 4.163476474422754,
+              "sharpe": 11.311755683552338,
+              "sortino": 21.97427177181646,
+              "max_drawdown": -0.11621117616195087,
+              "calmar": 35.826816421000416,
+              "num_trades": 262,
+              "avg_turnover": 0.04865222363714737
+            },
+            "oos_metrics": {
+              "cagr": 3.792937418212805,
+              "sharpe": 10.16576741380647,
+              "sortino": 19.328869564562257,
+              "max_drawdown": -0.07050206350118171,
+              "calmar": 53.79895608515388,
+              "num_trades": 64,
+              "avg_turnover": 0.05129693779619926
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 4.47162039845835,
+          "sharpe": 11.792302515166533,
+          "sortino": 22.773533626455364,
+          "max_drawdown": -0.1143319908439826,
+          "calmar": 39.11084172898136,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "donchian_breakout",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 14.109777137280934,
+              "sharpe": 14.386719041893308,
+              "sortino": 26.122136530168923,
+              "max_drawdown": -0.11520130586137356,
+              "calmar": 122.47931593987143,
+              "num_trades": 243,
+              "avg_turnover": 0.07408558023500551
+            },
+            "oos_metrics": {
+              "cagr": 14.227071964361318,
+              "sharpe": 15.672598839621529,
+              "sortino": 21.143260355493723,
+              "max_drawdown": -0.10303836427681523,
+              "calmar": 138.07548347856067,
+              "num_trades": 70,
+              "avg_turnover": 0.07604341801582627
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 16.111610392319363,
+              "sharpe": 16.039423614996572,
+              "sortino": 31.827033272998438,
+              "max_drawdown": -0.10906484837694808,
+              "calmar": 147.72505194922832,
+              "num_trades": 276,
+              "avg_turnover": 0.0754977727053454
+            },
+            "oos_metrics": {
+              "cagr": 15.386390087933133,
+              "sharpe": 17.552609733728058,
+              "sortino": 44.74723293779484,
+              "max_drawdown": -0.021609482373936895,
+              "calmar": 712.0202983894974,
+              "num_trades": 65,
+              "avg_turnover": 0.0649487777328267
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 17.673244350118985,
+              "sharpe": 17.39756750301051,
+              "sortino": 34.09224771812828,
+              "max_drawdown": -0.10906484837694808,
+              "calmar": 162.04345041618743,
+              "num_trades": 277,
+              "avg_turnover": 0.07273859080291777
+            },
+            "oos_metrics": {
+              "cagr": 7.143993312595073,
+              "sharpe": 12.598503519851025,
+              "sortino": 26.347079427099285,
+              "max_drawdown": -0.04873873147026431,
+              "calmar": 146.57733381825196,
+              "num_trades": 59,
+              "avg_turnover": 0.06165609398360391
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 11.607526614813011,
+          "sharpe": 15.150722107742945,
+          "sortino": 27.154042154724966,
+          "max_drawdown": -0.10303836427681523,
+          "calmar": 112.65247363233651,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "ts_momentum",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 1.8619380858640175,
+              "sharpe": 7.1223476144313915,
+              "sortino": 13.609498251288155,
+              "max_drawdown": -0.10428352641103744,
+              "calmar": 17.854575405564237,
+              "num_trades": 194,
+              "avg_turnover": 0.040067002727228344
+            },
+            "oos_metrics": {
+              "cagr": 2.791926293395724,
+              "sharpe": 9.936277706613618,
+              "sortino": 18.91570661696118,
+              "max_drawdown": -0.05568671275815129,
+              "calmar": 50.13630999411162,
+              "num_trades": 55,
+              "avg_turnover": 0.037259063485449044
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.0759212672981326,
+              "sharpe": 8.045128957810165,
+              "sortino": 15.933640885656656,
+              "max_drawdown": -0.10428352641103733,
+              "calmar": 19.90651197501524,
+              "num_trades": 216,
+              "avg_turnover": 0.038724485470152885
+            },
+            "oos_metrics": {
+              "cagr": 3.1068271905317184,
+              "sharpe": 10.313488395022663,
+              "sortino": 18.83439484657088,
+              "max_drawdown": -0.05457249493786154,
+              "calmar": 56.93027584810404,
+              "num_trades": 62,
+              "avg_turnover": 0.04258497739288905
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.5154307925561623,
+              "sharpe": 9.09637097579448,
+              "sortino": 17.915448407716422,
+              "max_drawdown": -0.0794592773699192,
+              "calmar": 31.65685462813466,
+              "num_trades": 237,
+              "avg_turnover": 0.03995749830042741
+            },
+            "oos_metrics": {
+              "cagr": 2.495560671873471,
+              "sharpe": 8.050602645818083,
+              "sortino": 19.23528457428268,
+              "max_drawdown": -0.08570716068197692,
+              "calmar": 29.117294891303686,
+              "num_trades": 53,
+              "avg_turnover": 0.03885362112182442
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 2.7806798250565996,
+          "sharpe": 9.355684281790435,
+          "sortino": 19.144585007490576,
+          "max_drawdown": -0.08570716068197692,
+          "calmar": 32.44396154219282,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "cs_momentum",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 4.260602961091282,
+              "sharpe": 6.215347586644723,
+              "sortino": 11.467135944702889,
+              "max_drawdown": -0.26095682506794826,
+              "calmar": 16.326850083272973,
+              "num_trades": 152,
+              "avg_turnover": 0.050114942528735634
+            },
+            "oos_metrics": {
+              "cagr": 2.846935071802968,
+              "sharpe": 5.133455860225702,
+              "sortino": 9.514074853541963,
+              "max_drawdown": -0.30415625159547355,
+              "calmar": 9.360107039947936,
+              "num_trades": 68,
+              "avg_turnover": 0.09969536285881504
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 3.7202408993891396,
+              "sharpe": 5.876758307658301,
+              "sortino": 11.166938988991543,
+              "max_drawdown": -0.29996942509041435,
+              "calmar": 12.402066971551566,
+              "num_trades": 209,
+              "avg_turnover": 0.06559386973180077
+            },
+            "oos_metrics": {
+              "cagr": 8.797911691268007,
+              "sharpe": 9.16119315694119,
+              "sortino": 17.410026617948045,
+              "max_drawdown": -0.10951178713027498,
+              "calmar": 80.33757755046067,
+              "num_trades": 35,
+              "avg_turnover": 0.050001974066919405
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 4.821116503826125,
+              "sharpe": 6.582433099686007,
+              "sortino": 12.468177328896308,
+              "max_drawdown": -0.2999694250904147,
+              "calmar": 16.072026348595287,
+              "num_trades": 212,
+              "avg_turnover": 0.0642638036809816
+            },
+            "oos_metrics": {
+              "cagr": 5.723043505004666,
+              "sharpe": 6.742664156100473,
+              "sortino": 14.375759864967966,
+              "max_drawdown": -0.409090611966916,
+              "calmar": 13.989672061864624,
+              "num_trades": 30,
+              "avg_turnover": 0.04176490844776527
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 5.306764083887674,
+          "sharpe": 6.933538115263612,
+          "sortino": 13.548836939424097,
+          "max_drawdown": -0.409090611966916,
+          "calmar": 12.972099404512473,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "rsi_reversal",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.709801323933456,
+              "sharpe": -6.8003351771330305,
+              "sortino": -10.057833545407009,
+              "max_drawdown": -0.9980024369319658,
+              "calmar": -0.7112220348033513,
+              "num_trades": 202,
+              "avg_turnover": 0.05655600891233076
+            },
+            "oos_metrics": {
+              "cagr": -0.6253846740602642,
+              "sharpe": -4.49040502098585,
+              "sortino": -6.661391930663085,
+              "max_drawdown": -0.6313231272391828,
+              "calmar": -0.990593639100649,
+              "num_trades": 50,
+              "avg_turnover": 0.06257212349166372
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.6939203751058751,
+              "sharpe": -6.497068073285927,
+              "sortino": -9.562301278354747,
+              "max_drawdown": -0.9973331047206513,
+              "calmar": -0.6957759366668564,
+              "num_trades": 215,
+              "avg_turnover": 0.05634686513996859
+            },
+            "oos_metrics": {
+              "cagr": -0.7160462047893306,
+              "sharpe": -7.32479546814192,
+              "sortino": -11.29129928103216,
+              "max_drawdown": -0.7223104606239428,
+              "calmar": -0.991327474574851,
+              "num_trades": 51,
+              "avg_turnover": 0.06115920611669731
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.6806857230281596,
+              "sharpe": -6.332851381175616,
+              "sortino": -9.422514384862025,
+              "max_drawdown": -0.9966673599849166,
+              "calmar": -0.6829617888143351,
+              "num_trades": 219,
+              "avg_turnover": 0.056625212721838486
+            },
+            "oos_metrics": {
+              "cagr": -0.6877421827275427,
+              "sharpe": -8.000748980921221,
+              "sortino": -10.579621317038173,
+              "max_drawdown": -0.6944006775465481,
+              "calmar": -0.9904111631305846,
+              "num_trades": 48,
+              "avg_turnover": 0.05150109575396931
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": -0.6778808226812206,
+          "sharpe": -6.280864991990144,
+          "sortino": -9.152920357987156,
+          "max_drawdown": -0.9676079543481618,
+          "calmar": -0.7005738425723065,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "bollinger_reversion",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9484193656436244,
+              "sharpe": -13.823227466714101,
+              "sortino": -17.785658702660943,
+              "max_drawdown": -0.9999996281526522,
+              "calmar": -0.9484197183109813,
+              "num_trades": 345,
+              "avg_turnover": 0.13787893247663363
+            },
+            "oos_metrics": {
+              "cagr": -0.9306089041682413,
+              "sharpe": -11.051632577993937,
+              "sortino": -15.580885276391593,
+              "max_drawdown": -0.9299724120273779,
+              "calmar": -1.0006844204544474,
+              "num_trades": 76,
+              "avg_turnover": 0.14475437219765466
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.944905977789697,
+              "sharpe": -13.742713862597958,
+              "sortino": -18.166451989480016,
+              "max_drawdown": -0.9999994913909708,
+              "calmar": -0.9449064583776535,
+              "num_trades": 371,
+              "avg_turnover": 0.13824100973526257
+            },
+            "oos_metrics": {
+              "cagr": -0.9374623684453184,
+              "sharpe": -13.291246343916411,
+              "sortino": -17.919780574938134,
+              "max_drawdown": -0.936866275482551,
+              "calmar": -1.0006362625898348,
+              "num_trades": 82,
+              "avg_turnover": 0.13841037634141082
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9443828523477715,
+              "sharpe": -13.910724878146592,
+              "sortino": -18.41146766578879,
+              "max_drawdown": -0.9999994625502691,
+              "calmar": -0.9443833599063542,
+              "num_trades": 375,
+              "avg_turnover": 0.13589441829472504
+            },
+            "oos_metrics": {
+              "cagr": -0.9313739379273908,
+              "sharpe": -15.679846289971069,
+              "sortino": -19.90203952499515,
+              "max_drawdown": -0.9312601538961456,
+              "calmar": -1.0001221828624034,
+              "num_trades": 78,
+              "avg_turnover": 0.12499378016619396
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": -0.9328890353659455,
+          "sharpe": -12.975274511834542,
+          "sortino": -17.547971760332814,
+          "max_drawdown": -0.9996938025591969,
+          "calmar": -0.933174771092676,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "zscore_reversion",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9401166051152432,
+              "sharpe": -14.6764130647306,
+              "sortino": -19.057326173831036,
+              "max_drawdown": -0.9999992192012763,
+              "calmar": -0.9401173391576617,
+              "num_trades": 442,
+              "avg_turnover": 0.13915230788794006
+            },
+            "oos_metrics": {
+              "cagr": -0.9114245809799877,
+              "sharpe": -11.21453831916195,
+              "sortino": -16.28874452112007,
+              "max_drawdown": -0.9106867609845899,
+              "calmar": -1.000810179775316,
+              "num_trades": 104,
+              "avg_turnover": 0.15092096314566256
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9362971771820139,
+              "sharpe": -14.671074815240258,
+              "sortino": -19.46601032248954,
+              "max_drawdown": -0.9999989489777853,
+              "calmar": -0.9362981612521809,
+              "num_trades": 477,
+              "avg_turnover": 0.14024441714096886
+            },
+            "oos_metrics": {
+              "cagr": -0.927911991296464,
+              "sharpe": -13.68627909478029,
+              "sortino": -17.995854065217944,
+              "max_drawdown": -0.9272602540562551,
+              "calmar": -1.0007028633410715,
+              "num_trades": 104,
+              "avg_turnover": 0.14293947857166248
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.932436239696463,
+              "sharpe": -14.36390925131802,
+              "sortino": -19.1957776419376,
+              "max_drawdown": -0.9999985790652064,
+              "calmar": -0.9324375646294415,
+              "num_trades": 485,
+              "avg_turnover": 0.14227918468716014
+            },
+            "oos_metrics": {
+              "cagr": -0.9240223781541427,
+              "sharpe": -15.970736761039147,
+              "sortino": -19.746192570968372,
+              "max_drawdown": -0.9233492620877543,
+              "calmar": -1.000728993993959,
+              "num_trades": 103,
+              "avg_turnover": 0.1385766851284093
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": -0.9210582230678315,
+          "sharpe": -13.319864764572984,
+          "sortino": -17.92496961855678,
+          "max_drawdown": -0.9995020291055879,
+          "calmar": -0.9215171117681947,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "volatility_breakout",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 69.8785412634885,
+              "sharpe": 24.84409664225619,
+              "sortino": 57.67581834112658,
+              "max_drawdown": -0.05111417222280945,
+              "calmar": 1367.1069729718824,
+              "num_trades": 3292,
+              "avg_turnover": 0.6366091149009134
+            },
+            "oos_metrics": {
+              "cagr": 78.36949201089533,
+              "sharpe": 27.05132211069738,
+              "sortino": 39.45517869385667,
+              "max_drawdown": -0.03081092087913484,
+              "calmar": 2543.5621453290337,
+              "num_trades": 623,
+              "avg_turnover": 0.5145490813222655
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 77.95465665565823,
+              "sharpe": 26.524088408673236,
+              "sortino": 63.30128159229583,
+              "max_drawdown": -0.03031804414617756,
+              "calmar": 2571.2297363181524,
+              "num_trades": 3492,
+              "avg_turnover": 0.6241044630718462
+            },
+            "oos_metrics": {
+              "cagr": 21.316529027713315,
+              "sharpe": 23.025679917596815,
+              "sortino": 70.64973078595152,
+              "max_drawdown": -0.009474463114443443,
+              "calmar": 2249.8930831465386,
+              "num_trades": 490,
+              "avg_turnover": 0.34768518139635124
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 78.8525382594333,
+              "sharpe": 26.894074901438493,
+              "sortino": 66.27807920298093,
+              "max_drawdown": -0.030300429345591184,
+              "calmar": 2602.357127025549,
+              "num_trades": 3596,
+              "avg_turnover": 0.6211396271383036
+            },
+            "oos_metrics": {
+              "cagr": 6.741770837704588,
+              "sharpe": 16.657783979384075,
+              "sortino": 43.67475793890411,
+              "max_drawdown": -0.017748998637736046,
+              "calmar": 379.8395039239536,
+              "num_trades": 309,
+              "avg_turnover": 0.17736723129222745
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 22.796828986632036,
+          "sharpe": 20.762965139696583,
+          "sortino": 51.16744842928414,
+          "max_drawdown": -0.03081092087913484,
+          "calmar": 739.894437951384,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "vol_contraction",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 15.450745253572393,
+              "sharpe": 13.655777001797318,
+              "sortino": 22.779907903665308,
+              "max_drawdown": -0.10345665034693008,
+              "calmar": 149.34511413002528,
+              "num_trades": 238,
+              "avg_turnover": 0.07175570279018555
+            },
+            "oos_metrics": {
+              "cagr": 17.323573954472355,
+              "sharpe": 17.783081537444012,
+              "sortino": 51.24547725560057,
+              "max_drawdown": -0.017354618885745965,
+              "calmar": 998.2111430116678,
+              "num_trades": 67,
+              "avg_turnover": 0.07932632483327294
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 17.166392962760415,
+              "sharpe": 17.00475982804169,
+              "sortino": 38.42496219835831,
+              "max_drawdown": -0.04945801281945528,
+              "calmar": 347.0902283402636,
+              "num_trades": 273,
+              "avg_turnover": 0.07745321728080348
+            },
+            "oos_metrics": {
+              "cagr": 10.403937662370176,
+              "sharpe": 14.371198260271228,
+              "sortino": 30.038250140615695,
+              "max_drawdown": -0.05541965281253747,
+              "calmar": 187.7301125931362,
+              "num_trades": 67,
+              "avg_turnover": 0.0688439023633656
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 16.352148730673324,
+              "sharpe": 16.82218021244207,
+              "sortino": 36.09408032217909,
+              "max_drawdown": -0.05793149428105793,
+              "calmar": 282.2669936898218,
+              "num_trades": 282,
+              "avg_turnover": 0.07503417892605009
+            },
+            "oos_metrics": {
+              "cagr": 3.84143520839592,
+              "sharpe": 7.788039678064096,
+              "sortino": 12.957492944531717,
+              "max_drawdown": -0.17240522596846164,
+              "calmar": 22.281431359271206,
+              "num_trades": 58,
+              "avg_turnover": 0.07685590459789607
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 8.996511970625619,
+          "sharpe": 12.635178840809935,
+          "sortino": 21.973848762221913,
+          "max_drawdown": -0.17240522596846164,
+          "calmar": 52.182362339012656,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "value_quality",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 1.1782501706608577,
+              "sharpe": 2.5392204610613525,
+              "sortino": 4.274501560705773,
+              "max_drawdown": -0.6677236961245554,
+              "calmar": 1.7645774404883035,
+              "num_trades": 6,
+              "avg_turnover": 0.0028097062579821204
+            },
+            "oos_metrics": {
+              "cagr": 3.7272096011541374,
+              "sharpe": 5.715151132926373,
+              "sortino": 10.787454979679861,
+              "max_drawdown": -0.2773752134822486,
+              "calmar": 13.43742850834316,
+              "num_trades": 4,
+              "avg_turnover": 0.0038314176245210726
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.2069028532748534,
+              "sharpe": 3.8940206335536813,
+              "sortino": 6.655035713220179,
+              "max_drawdown": -0.49277855957225214,
+              "calmar": 4.478487974782257,
+              "num_trades": 5,
+              "avg_turnover": 0.0015325670498084292
+            },
+            "oos_metrics": {
+              "cagr": 2.235622793418569,
+              "sharpe": 4.688446731237447,
+              "sortino": 6.737553366886119,
+              "max_drawdown": -0.38940394955726154,
+              "calmar": 5.741140519916124,
+              "num_trades": 4,
+              "avg_turnover": 0.0038314176245210726
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.2943256566823345,
+              "sharpe": 4.11445390383053,
+              "sortino": 6.882517592575796,
+              "max_drawdown": -0.473495530167239,
+              "calmar": 4.845506473676693,
+              "num_trades": 4,
+              "avg_turnover": 0.0007668711656441718
+            },
+            "oos_metrics": {
+              "cagr": 3.8943878493533663,
+              "sharpe": 6.10699105027428,
+              "sortino": 11.016162235476411,
+              "max_drawdown": -0.13627476352339152,
+              "calmar": 28.577469141488518,
+              "num_trades": 4,
+              "avg_turnover": 0.0038314176245210726
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 3.203504949966886,
+          "sharpe": 5.514165780321511,
+          "sortino": 9.295477309052753,
+          "max_drawdown": -0.38940394955726154,
+          "calmar": 8.226688387750452,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "momentum_quality",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 3.9222163277469058,
+              "sharpe": 5.337887600407813,
+              "sortino": 8.350290589234357,
+              "max_drawdown": -0.3407238051574435,
+              "calmar": 11.511424409968969,
+              "num_trades": 166,
+              "avg_turnover": 0.0706257982120051
+            },
+            "oos_metrics": {
+              "cagr": 10.278238637640724,
+              "sharpe": 8.093516272318091,
+              "sortino": 16.152492496538525,
+              "max_drawdown": -0.17707018202506242,
+              "calmar": 58.046129055122044,
+              "num_trades": 35,
+              "avg_turnover": 0.06263155854311477
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 5.32520777399462,
+              "sharpe": 6.0715706722386855,
+              "sortino": 9.947387061971483,
+              "max_drawdown": -0.3407238051574434,
+              "calmar": 15.62910396452611,
+              "num_trades": 187,
+              "avg_turnover": 0.07547892720306514
+            },
+            "oos_metrics": {
+              "cagr": 10.555117496319301,
+              "sharpe": 8.837723400409063,
+              "sortino": 20.853192386702123,
+              "max_drawdown": -0.09470959545028923,
+              "calmar": 111.44718173629435,
+              "num_trades": 23,
+              "avg_turnover": 0.03842075994321376
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 5.960475246996938,
+              "sharpe": 6.459891735250572,
+              "sortino": 10.778448708400646,
+              "max_drawdown": -0.34072380515744327,
+              "calmar": 17.49356856425894,
+              "num_trades": 175,
+              "avg_turnover": 0.06633435582822086
+            },
+            "oos_metrics": {
+              "cagr": 4.778085550554715,
+              "sharpe": 6.911149238712628,
+              "sortino": 13.131867538016026,
+              "max_drawdown": -0.1736675604975335,
+              "calmar": 27.512827017700722,
+              "num_trades": 31,
+              "avg_turnover": 0.0521346270750143
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 8.06108338978841,
+          "sharpe": 7.950595976526725,
+          "sortino": 16.30902553575112,
+          "max_drawdown": -0.17707018202506242,
+          "calmar": 45.524793037415236,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "momentum_lowvol",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 4.350285345889604,
+              "sharpe": 8.099169997241187,
+              "sortino": 15.961557551946003,
+              "max_drawdown": -0.17124951703588875,
+              "calmar": 25.403197750203958,
+              "num_trades": 387,
+              "avg_turnover": 0.15174724806908715
+            },
+            "oos_metrics": {
+              "cagr": 7.837799128293128,
+              "sharpe": 11.015650905023854,
+              "sortino": 21.602403383399377,
+              "max_drawdown": -0.0738433687598159,
+              "calmar": 106.14086626771426,
+              "num_trades": 79,
+              "avg_turnover": 0.15365797883776283
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 4.934122398766571,
+              "sharpe": 8.847518809210678,
+              "sortino": 17.81141587019593,
+              "max_drawdown": -0.17124951703588864,
+              "calmar": 28.812474827199253,
+              "num_trades": 445,
+              "avg_turnover": 0.17048835370674453
+            },
+            "oos_metrics": {
+              "cagr": 10.35906240245672,
+              "sharpe": 12.387244997944647,
+              "sortino": 25.437231614801874,
+              "max_drawdown": -0.0671848363336297,
+              "calmar": 154.18750670188714,
+              "num_trades": 80,
+              "avg_turnover": 0.15850771871347147
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 5.444697243106758,
+              "sharpe": 9.370248487381296,
+              "sortino": 18.546759684765124,
+              "max_drawdown": -0.1712495170358883,
+              "calmar": 31.79394218067037,
+              "num_trades": 465,
+              "avg_turnover": 0.1771472392638037
+            },
+            "oos_metrics": {
+              "cagr": 3.705594253622296,
+              "sharpe": 7.348768484255651,
+              "sortino": 15.478802770243888,
+              "max_drawdown": -0.20246929944316383,
+              "calmar": 18.30200560684269,
+              "num_trades": 77,
+              "avg_turnover": 0.13012544522984726
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 6.758969032330149,
+          "sharpe": 10.118761896716538,
+          "sortino": 20.744388542007496,
+          "max_drawdown": -0.20246929944316383,
+          "calmar": 33.38268592284774,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      }
+    ],
+    "us": [
+      {
+        "strategy_id": "ma_crossover",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.5735883406264004,
+              "sharpe": 12.588739528306363,
+              "sortino": 26.246871393996887,
+              "max_drawdown": -0.06937269155621051,
+              "calmar": 37.09800330496191,
+              "num_trades": 531,
+              "avg_turnover": 0.04951645909910314
+            },
+            "oos_metrics": {
+              "cagr": 3.462421034018554,
+              "sharpe": 15.459294050241553,
+              "sortino": 31.832277491497475,
+              "max_drawdown": -0.015751968832475094,
+              "calmar": 219.80877887977047,
+              "num_trades": 140,
+              "avg_turnover": 0.05424920379570426
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.9651319453605156,
+              "sharpe": 13.998109296197779,
+              "sortino": 30.31553288519464,
+              "max_drawdown": -0.06937269155621051,
+              "calmar": 42.74206289023632,
+              "num_trades": 582,
+              "avg_turnover": 0.05160606260908556
+            },
+            "oos_metrics": {
+              "cagr": 2.8138258177025905,
+              "sharpe": 14.478685680525462,
+              "sortino": 27.538829315047007,
+              "max_drawdown": -0.027097615153715338,
+              "calmar": 103.84034911340855,
+              "num_trades": 153,
+              "avg_turnover": 0.0551518247556959
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.897520332682669,
+              "sharpe": 13.994088972794543,
+              "sortino": 29.100726295753578,
+              "max_drawdown": -0.06937269155621051,
+              "calmar": 41.76744865571346,
+              "num_trades": 602,
+              "avg_turnover": 0.05194388277915974
+            },
+            "oos_metrics": {
+              "cagr": 3.577476936634798,
+              "sharpe": 14.774810977410315,
+              "sortino": 35.41375274551243,
+              "max_drawdown": -0.031273848667635495,
+              "calmar": 114.39196290340297,
+              "num_trades": 139,
+              "avg_turnover": 0.049930581240300975
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 3.2595772793195694,
+          "sharpe": 14.891639734655437,
+          "sortino": 31.634077259215097,
+          "max_drawdown": -0.031273848667635495,
+          "calmar": 104.22693138797536,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "donchian_breakout",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 12.603911818143674,
+              "sharpe": 21.554584288735835,
+              "sortino": 53.931526943855566,
+              "max_drawdown": -0.03180032619414952,
+              "calmar": 396.3453626605404,
+              "num_trades": 530,
+              "avg_turnover": 0.07071130797274101
+            },
+            "oos_metrics": {
+              "cagr": 18.313515842005426,
+              "sharpe": 25.748217436900667,
+              "sortino": 52.421282067320774,
+              "max_drawdown": -0.011440003856416525,
+              "calmar": 1600.8312647319303,
+              "num_trades": 128,
+              "avg_turnover": 0.07354566807215095
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 14.919769638209548,
+              "sharpe": 24.235431339687754,
+              "sortino": 59.154547024556265,
+              "max_drawdown": -0.031800326194148854,
+              "calmar": 469.1703332576108,
+              "num_trades": 578,
+              "avg_turnover": 0.07213462948526715
+            },
+            "oos_metrics": {
+              "cagr": 13.133860322063788,
+              "sharpe": 24.93655931944135,
+              "sortino": 62.83516895190857,
+              "max_drawdown": -0.017247781049995248,
+              "calmar": 761.4811600398538,
+              "num_trades": 139,
+              "avg_turnover": 0.07470268258725687
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 14.145865074506181,
+              "sharpe": 24.09011647923153,
+              "sortino": 57.77451372185197,
+              "max_drawdown": -0.0318003261941493,
+              "calmar": 444.8339613921562,
+              "num_trades": 595,
+              "avg_turnover": 0.07147053564731487
+            },
+            "oos_metrics": {
+              "cagr": 14.823885958565183,
+              "sharpe": 26.352170141198187,
+              "sortino": 39.8116521271176,
+              "max_drawdown": -0.010886518492696728,
+              "calmar": 1361.6737039035809,
+              "num_trades": 141,
+              "avg_turnover": 0.07036050757359555
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 15.20303543857463,
+          "sharpe": 25.61568283322144,
+          "sortino": 53.965124585059414,
+          "max_drawdown": -0.017247781049995248,
+          "calmar": 881.4487727149585,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "ts_momentum",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 1.074416817074097,
+              "sharpe": 7.23442307046914,
+              "sortino": 13.219304892373055,
+              "max_drawdown": -0.18175580968611071,
+              "calmar": 5.911320353003281,
+              "num_trades": 416,
+              "avg_turnover": 0.03783547944293099
+            },
+            "oos_metrics": {
+              "cagr": 0.8838609101344714,
+              "sharpe": 7.8534027512247535,
+              "sortino": 16.41868648525181,
+              "max_drawdown": -0.05477923287981701,
+              "calmar": 16.13496326379049,
+              "num_trades": 122,
+              "avg_turnover": 0.04540384017604092
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 1.1704422042816902,
+              "sharpe": 7.943489694469164,
+              "sortino": 16.000296002502626,
+              "max_drawdown": -0.18175580968611094,
+              "calmar": 6.439641221389419,
+              "num_trades": 483,
+              "avg_turnover": 0.041833758961423495
+            },
+            "oos_metrics": {
+              "cagr": 1.787095002277395,
+              "sharpe": 12.113623497515977,
+              "sortino": 24.696954527301845,
+              "max_drawdown": -0.01749298045797898,
+              "calmar": 102.16069277446982,
+              "num_trades": 122,
+              "avg_turnover": 0.041796269715092364
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 1.16516981675501,
+              "sharpe": 8.118575306908944,
+              "sortino": 15.923822389329812,
+              "max_drawdown": -0.18175580968611038,
+              "calmar": 6.410633138864949,
+              "num_trades": 502,
+              "avg_turnover": 0.041587690679240626
+            },
+            "oos_metrics": {
+              "cagr": 1.2966269922574467,
+              "sharpe": 8.688457803782745,
+              "sortino": 16.56081621074496,
+              "max_drawdown": -0.044422886263807304,
+              "calmar": 29.188265358476915,
+              "num_trades": 128,
+              "avg_turnover": 0.041898948740597595
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 1.2896623099112245,
+          "sharpe": 9.463608612098401,
+          "sortino": 18.991884969990494,
+          "max_drawdown": -0.05477923287981701,
+          "calmar": 23.542905625215333,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "cs_momentum",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 1.6179718580305456,
+              "sharpe": 5.528831830076714,
+              "sortino": 9.719468744140885,
+              "max_drawdown": -0.2436560582734315,
+              "calmar": 6.640392483961359,
+              "num_trades": 404,
+              "avg_turnover": 0.06293172557540375
+            },
+            "oos_metrics": {
+              "cagr": 2.215818109692251,
+              "sharpe": 7.669800554372662,
+              "sortino": 12.590171963170077,
+              "max_drawdown": -0.15316401280588432,
+              "calmar": 14.466963022838238,
+              "num_trades": 78,
+              "avg_turnover": 0.05050505050505051
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 1.9442341873993891,
+              "sharpe": 6.525411771976902,
+              "sortino": 12.286446833476615,
+              "max_drawdown": -0.24070476046543754,
+              "calmar": 8.077256900278709,
+              "num_trades": 446,
+              "avg_turnover": 0.06509987670907211
+            },
+            "oos_metrics": {
+              "cagr": 2.19045747318656,
+              "sharpe": 7.228214553684603,
+              "sortino": 12.02578120132339,
+              "max_drawdown": -0.12061918006651251,
+              "calmar": 18.16010913006278,
+              "num_trades": 119,
+              "avg_turnover": 0.0790665273423894
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 1.7279615700211606,
+              "sharpe": 6.327640389027194,
+              "sortino": 11.125509432289505,
+              "max_drawdown": -0.24070476046543732,
+              "calmar": 7.178759434088042,
+              "num_trades": 467,
+              "avg_turnover": 0.06434746235359733
+            },
+            "oos_metrics": {
+              "cagr": 2.256892762303945,
+              "sharpe": 8.004747298155175,
+              "sortino": 14.022711328128885,
+              "max_drawdown": -0.09665758436871796,
+              "calmar": 23.34936029121746,
+              "num_trades": 88,
+              "avg_turnover": 0.057360717590729665
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 2.214059864996868,
+          "sharpe": 7.62777740182802,
+          "sortino": 12.806216494114732,
+          "max_drawdown": -0.15316401280588432,
+          "calmar": 14.455483533216801,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "rsi_reversal",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.7612086527453019,
+              "sharpe": -11.432118502850042,
+              "sortino": -16.237619414908522,
+              "max_drawdown": -0.9992707223228079,
+              "calmar": -0.7617641903646192,
+              "num_trades": 450,
+              "avg_turnover": 0.05391863458079539
+            },
+            "oos_metrics": {
+              "cagr": -0.8161921927345872,
+              "sharpe": -17.977350767165944,
+              "sortino": -22.408952833802964,
+              "max_drawdown": -0.81512357634869,
+              "calmar": -1.0013109869679933,
+              "num_trades": 122,
+              "avg_turnover": 0.046793232395208446
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.7923602067591587,
+              "sharpe": -14.912599009395821,
+              "sortino": -19.427660366338866,
+              "max_drawdown": -0.9996136150391015,
+              "calmar": -0.7926664811664899,
+              "num_trades": 490,
+              "avg_turnover": 0.048450633141747274
+            },
+            "oos_metrics": {
+              "cagr": -0.7009086055868206,
+              "sharpe": -11.064158239565021,
+              "sortino": -15.713077580913206,
+              "max_drawdown": -0.6996705776183114,
+              "calmar": -1.0017694440899936,
+              "num_trades": 128,
+              "avg_turnover": 0.055598141504881037
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.784476138960571,
+              "sharpe": -14.777334417452662,
+              "sortino": -19.20186300973365,
+              "max_drawdown": -0.9995325256555301,
+              "calmar": -0.7848430329429078,
+              "num_trades": 504,
+              "avg_turnover": 0.04742222138222083
+            },
+            "oos_metrics": {
+              "cagr": -0.7852447547668199,
+              "sharpe": -16.22235007942375,
+              "sortino": -20.33719781337891,
+              "max_drawdown": -0.7867449354723439,
+              "calmar": -0.998093180346152,
+              "num_trades": 120,
+              "avg_turnover": 0.05084476601786634
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": -0.7716792534219226,
+          "sharpe": -14.753027421818746,
+          "sortino": -19.497009463630462,
+          "max_drawdown": -0.9880130280267448,
+          "calmar": -0.7810415769143418,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "bollinger_reversion",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9485539322838348,
+              "sharpe": -22.20811812829497,
+              "sortino": -26.895907515514867,
+              "max_drawdown": -0.9999996329719913,
+              "calmar": -0.9485542804298234,
+              "num_trades": 764,
+              "avg_turnover": 0.11664507923842041
+            },
+            "oos_metrics": {
+              "cagr": -0.961281573164159,
+              "sharpe": -27.622814003237895,
+              "sortino": -31.67901313965198,
+              "max_drawdown": -0.960848329995632,
+              "calmar": -1.0004508965202958,
+              "num_trades": 189,
+              "avg_turnover": 0.10783180191465211
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9539588709083348,
+              "sharpe": -25.721835645850845,
+              "sortino": -29.84271702421814,
+              "max_drawdown": -0.9999997926782556,
+              "calmar": -0.953959068684793,
+              "num_trades": 852,
+              "avg_turnover": 0.11140192541832751
+            },
+            "oos_metrics": {
+              "cagr": -0.9417779506153683,
+              "sharpe": -21.54200350402161,
+              "sortino": -24.809828607214474,
+              "max_drawdown": -0.9412086075980056,
+              "calmar": -1.0006049063010756,
+              "num_trades": 197,
+              "avg_turnover": 0.1260152240304966
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9521653508756911,
+              "sharpe": -25.34398321636679,
+              "sortino": -28.957499664220084,
+              "max_drawdown": -0.9999997469354582,
+              "calmar": -0.9521655918350402,
+              "num_trades": 880,
+              "avg_turnover": 0.11194698660107708
+            },
+            "oos_metrics": {
+              "cagr": -0.9580877082680836,
+              "sharpe": -24.71454841051196,
+              "sortino": -28.054078177767806,
+              "max_drawdown": -0.9576302220525383,
+              "calmar": -1.0004777274202612,
+              "num_trades": 189,
+              "avg_turnover": 0.11907436627007956
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": -0.9541962086015022,
+          "sharpe": -24.420432023154575,
+          "sortino": -27.975097155044637,
+          "max_drawdown": -0.9999024740419088,
+          "calmar": -0.9542892765774966,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "zscore_reversion",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9380869857078541,
+              "sharpe": -22.808815745980187,
+              "sortino": -27.729031623549208,
+              "max_drawdown": -0.9999991318624065,
+              "calmar": -0.9380878000971393,
+              "num_trades": 1000,
+              "avg_turnover": 0.12136758358935106
+            },
+            "oos_metrics": {
+              "cagr": -0.9527163212142956,
+              "sharpe": -28.98047262731616,
+              "sortino": -32.581177941669594,
+              "max_drawdown": -0.9522199266759162,
+              "calmar": -1.0005213024055402,
+              "num_trades": 247,
+              "avg_turnover": 0.10848748950015921
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9450489689065369,
+              "sharpe": -26.575208171362476,
+              "sortino": -30.487344645935682,
+              "max_drawdown": -0.9999994979561297,
+              "calmar": -0.945049443362817,
+              "num_trades": 1107,
+              "avg_turnover": 0.11458142112629847
+            },
+            "oos_metrics": {
+              "cagr": -0.9346735312566765,
+              "sharpe": -24.1026534836081,
+              "sortino": -28.469947226591742,
+              "max_drawdown": -0.9340607020290075,
+              "calmar": -1.0006560914363893,
+              "num_trades": 243,
+              "avg_turnover": 0.12259932940562138
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.9446297073952108,
+              "sharpe": -26.874705918816318,
+              "sortino": -30.612372476924108,
+              "max_drawdown": -0.9999994743641311,
+              "calmar": -0.9446302039267289,
+              "num_trades": 1126,
+              "avg_turnover": 0.11304770862107975
+            },
+            "oos_metrics": {
+              "cagr": -0.9484085623501001,
+              "sharpe": -25.67406057755229,
+              "sortino": -28.67933399378961,
+              "max_drawdown": -0.9478824978421716,
+              "calmar": -1.0005549891564893,
+              "num_trades": 245,
+              "avg_turnover": 0.12096449763599161
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": -0.94549451156709,
+          "sharpe": -26.119678328836027,
+          "sortino": -29.824030861115528,
+          "max_drawdown": -0.9998357994059401,
+          "calmar": -0.9456497878240232,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "volatility_breakout",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 71.02717136811935,
+              "sharpe": 38.52908459804426,
+              "sortino": 156.42703566052526,
+              "max_drawdown": -0.007100944711934232,
+              "calmar": 10002.496040948925,
+              "num_trades": 6963,
+              "avg_turnover": 0.5866724494785337
+            },
+            "oos_metrics": {
+              "cagr": 94.41971563639368,
+              "sharpe": 39.69402146499132,
+              "sortino": 956.7593362681621,
+              "max_drawdown": -0.0009339929532510283,
+              "calmar": 101092.53534273356,
+              "num_trades": 1439,
+              "avg_turnover": 0.5827435690840904
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 69.2649360709404,
+              "sharpe": 39.223274965224554,
+              "sortino": 90.2950685047161,
+              "max_drawdown": -0.007100944711934232,
+              "calmar": 9754.326907309953,
+              "num_trades": 7375,
+              "avg_turnover": 0.5853660148799997
+            },
+            "oos_metrics": {
+              "cagr": 58.70136637974105,
+              "sharpe": 43.57239745620659,
+              "sortino": 713.248697515689,
+              "max_drawdown": -0.0026427246722103837,
+              "calmar": 22212.44119639714,
+              "num_trades": 1498,
+              "avg_turnover": 0.5559514804239668
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 68.5829309081597,
+              "sharpe": 39.888784144933155,
+              "sortino": 96.68538015431963,
+              "max_drawdown": -0.007100944711934454,
+              "calmar": 9658.282621591656,
+              "num_trades": 7508,
+              "avg_turnover": 0.5892364703120233
+            },
+            "oos_metrics": {
+              "cagr": 27.6810356779143,
+              "sharpe": 31.443160254061265,
+              "sortino": 73.06534593937184,
+              "max_drawdown": -0.009637937566799093,
+              "calmar": 2872.0912006392664,
+              "num_trades": 1041,
+              "avg_turnover": 0.35133061257414805
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 53.2702995842044,
+          "sharpe": 36.397475589106165,
+          "sortino": 108.70502627132821,
+          "max_drawdown": -0.009637937566799093,
+          "calmar": 5527.147194614614,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "vol_contraction",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 9.362256369761184,
+              "sharpe": 18.213291962591715,
+              "sortino": 40.04872980995142,
+              "max_drawdown": -0.0268600109582825,
+              "calmar": 348.5574292691886,
+              "num_trades": 526,
+              "avg_turnover": 0.07740435019387668
+            },
+            "oos_metrics": {
+              "cagr": 11.890900715389693,
+              "sharpe": 22.66091884018905,
+              "sortino": 71.6287307147364,
+              "max_drawdown": -0.018547524531981496,
+              "calmar": 641.1044608614056,
+              "num_trades": 133,
+              "avg_turnover": 0.08205187350213135
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 10.525045807994815,
+              "sharpe": 21.285750781491775,
+              "sortino": 57.22637483720748,
+              "max_drawdown": -0.021704527644682337,
+              "calmar": 484.9239744028006,
+              "num_trades": 593,
+              "avg_turnover": 0.07988231375499526
+            },
+            "oos_metrics": {
+              "cagr": 10.95500871034467,
+              "sharpe": 23.743366368446207,
+              "sortino": 45.82521337635162,
+              "max_drawdown": -0.012976622053200715,
+              "calmar": 844.2111256251461,
+              "num_trades": 148,
+              "avg_turnover": 0.08067595005844885
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 10.328436170490079,
+              "sharpe": 21.954894851925953,
+              "sortino": 57.98195575341817,
+              "max_drawdown": -0.02170452764468256,
+              "calmar": 475.865512466956,
+              "num_trades": 622,
+              "avg_turnover": 0.07998030837724479
+            },
+            "oos_metrics": {
+              "cagr": 10.536796285649503,
+              "sharpe": 23.272160284111987,
+              "sortino": 67.96445688253144,
+              "max_drawdown": -0.008294937470112673,
+              "calmar": 1270.268320118678,
+              "num_trades": 136,
+              "avg_turnover": 0.07407605372760001
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 11.059399378019219,
+          "sharpe": 23.217305142699153,
+          "sortino": 59.014346739810904,
+          "max_drawdown": -0.018547524531981496,
+          "calmar": 596.273608316274,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "value_quality",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 0.11842328265725222,
+              "sharpe": 0.7441453506776626,
+              "sortino": 1.2441218553735462,
+              "max_drawdown": -0.6818050276164334,
+              "calmar": 0.17369083221820159,
+              "num_trades": 14,
+              "avg_turnover": 0.002796326704372681
+            },
+            "oos_metrics": {
+              "cagr": 0.16577993882044084,
+              "sharpe": 1.0140793515784339,
+              "sortino": 1.8839509480351604,
+              "max_drawdown": -0.26488558467313583,
+              "calmar": 0.6258548913675706,
+              "num_trades": 10,
+              "avg_turnover": 0.0038314176245210726
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 0.06269102164939011,
+              "sharpe": 0.45287888117260183,
+              "sortino": 0.7636819994732305,
+              "max_drawdown": -0.6818050276164336,
+              "calmar": 0.09194860570118663,
+              "num_trades": 13,
+              "avg_turnover": 0.0016049382716049384
+            },
+            "oos_metrics": {
+              "cagr": -0.413745418977854,
+              "sharpe": -2.970070393744022,
+              "sortino": -4.890239841197589,
+              "max_drawdown": -0.4193367062779878,
+              "calmar": -0.9866663537524254,
+              "num_trades": 10,
+              "avg_turnover": 0.0038314176245210726
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": -0.12923513554596833,
+              "sharpe": -0.7745779077828376,
+              "sortino": -1.2636413031825546,
+              "max_drawdown": -0.6818050276164331,
+              "calmar": -0.18954852239469383,
+              "num_trades": 10,
+              "avg_turnover": 0.0007668711656441718
+            },
+            "oos_metrics": {
+              "cagr": 1.9873008333283608,
+              "sharpe": 7.247057058128335,
+              "sortino": 12.750376766716913,
+              "max_drawdown": -0.14978896897165328,
+              "calmar": 13.2673376882943,
+              "num_trades": 10,
+              "avg_turnover": 0.0038314176245210726
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 0.2680557981786158,
+          "sharpe": 1.4881459645553266,
+          "sortino": 2.577385583517129,
+          "max_drawdown": -0.5283819239226644,
+          "calmar": 0.5073144747053256,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "momentum_quality",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.4522932174501464,
+              "sharpe": 6.530388830219049,
+              "sortino": 10.813702157735769,
+              "max_drawdown": -0.24579230364070093,
+              "calmar": 9.977095218713226,
+              "num_trades": 385,
+              "avg_turnover": 0.07165359119382107
+            },
+            "oos_metrics": {
+              "cagr": 1.7645181695215513,
+              "sharpe": 6.0902869948538525,
+              "sortino": 12.249665573343428,
+              "max_drawdown": -0.10975159790146549,
+              "calmar": 16.077380222798467,
+              "num_trades": 80,
+              "avg_turnover": 0.05747126436781609
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.657029617477854,
+              "sharpe": 7.063289908102905,
+              "sortino": 12.813054938502889,
+              "max_drawdown": -0.24579230364070115,
+              "calmar": 10.810060274962458,
+              "num_trades": 421,
+              "avg_turnover": 0.07052605972146203
+            },
+            "oos_metrics": {
+              "cagr": 2.637734652808443,
+              "sharpe": 7.017344349416342,
+              "sortino": 13.655929810440874,
+              "max_drawdown": -0.11176691537905292,
+              "calmar": 23.60031717671257,
+              "num_trades": 83,
+              "avg_turnover": 0.059770114942528735
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.304957081193491,
+              "sharpe": 6.581204385884177,
+              "sortino": 12.090652654710757,
+              "max_drawdown": -0.24579230364070137,
+              "calmar": 9.377661737378368,
+              "num_trades": 407,
+              "avg_turnover": 0.06261077027948193
+            },
+            "oos_metrics": {
+              "cagr": 4.335150214789228,
+              "sharpe": 9.4691292623457,
+              "sortino": 19.316776586838937,
+              "max_drawdown": -0.07827673933709633,
+              "calmar": 55.38235562061468,
+              "num_trades": 95,
+              "avg_turnover": 0.06896551724137931
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 2.7625162372379575,
+          "sharpe": 7.512695075731979,
+          "sortino": 15.06622822995926,
+          "max_drawdown": -0.11176691537905292,
+          "calmar": 24.716761913568043,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      },
+      {
+        "strategy_id": "momentum_lowvol",
+        "n_folds": 3,
+        "folds": [
+          {
+            "fold_id": 0,
+            "is_period": [
+              "2014-06-02",
+              "2019-06-01"
+            ],
+            "oos_period": [
+              "2019-06-02",
+              "2020-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 1.892750568963498,
+              "sharpe": 7.344566426652603,
+              "sortino": 12.188088906639571,
+              "max_drawdown": -0.2998618295765506,
+              "calmar": 6.312075703787784,
+              "num_trades": 682,
+              "avg_turnover": 0.12160043447399771
+            },
+            "oos_metrics": {
+              "cagr": 1.299767907904354,
+              "sharpe": 6.129809536642744,
+              "sortino": 11.902653638299265,
+              "max_drawdown": -0.11396978973931504,
+              "calmar": 11.40449509363257,
+              "num_trades": 209,
+              "avg_turnover": 0.17366350124970817
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 1,
+            "is_period": [
+              "2015-06-02",
+              "2020-06-01"
+            ],
+            "oos_period": [
+              "2020-06-02",
+              "2021-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.024819623463469,
+              "sharpe": 7.7758039289306895,
+              "sortino": 14.427956768238637,
+              "max_drawdown": -0.2998618295765496,
+              "calmar": 6.7525087348490525,
+              "num_trades": 821,
+              "avg_turnover": 0.13918364309168907
+            },
+            "oos_metrics": {
+              "cagr": 3.2693340123414734,
+              "sharpe": 12.089231545910138,
+              "sortino": 24.864927610712307,
+              "max_drawdown": -0.03078537790059266,
+              "calmar": 106.19762482365157,
+              "num_trades": 180,
+              "avg_turnover": 0.14498209325795533
+            },
+            "parameter_stable": null
+          },
+          {
+            "fold_id": 2,
+            "is_period": [
+              "2016-06-02",
+              "2021-06-01"
+            ],
+            "oos_period": [
+              "2021-06-02",
+              "2022-06-01"
+            ],
+            "params": {},
+            "is_metrics": {
+              "cagr": 2.0321212468246745,
+              "sharpe": 8.150909545922252,
+              "sortino": 14.792954931495041,
+              "max_drawdown": -0.2998618295765504,
+              "calmar": 6.776858694200368,
+              "num_trades": 859,
+              "avg_turnover": 0.14464535975272175
+            },
+            "oos_metrics": {
+              "cagr": 1.8307716359142292,
+              "sharpe": 9.019356287516189,
+              "sortino": 20.917057797287942,
+              "max_drawdown": -0.03540497595297354,
+              "calmar": 51.70944441103254,
+              "num_trades": 168,
+              "avg_turnover": 0.13948043318292772
+            },
+            "parameter_stable": null
+          }
+        ],
+        "aggregate_oos_metrics": {
+          "cagr": 2.022987878962936,
+          "sharpe": 8.86318045824778,
+          "sortino": 17.700616370423703,
+          "max_drawdown": -0.11396978973931504,
+          "calmar": 17.750211556853348,
+          "num_trades": 0,
+          "avg_turnover": 0.0
+        }
+      }
+    ]
+  },
+  "paper_trading": {
+    "korea": {
+      "market": "korea",
+      "cash": 100000000.0,
+      "positions": {},
+      "n_positions": 0,
+      "equity_history_tail": [],
+      "sessions_completed": 0,
+      "sessions_required": 250,
+      "sessions_progress_label": "0/250"
+    },
+    "us": {
+      "market": "us",
+      "cash": 100000.0,
+      "positions": {},
+      "n_positions": 0,
+      "equity_history_tail": [],
+      "sessions_completed": 0,
+      "sessions_required": 250,
+      "sessions_progress_label": "0/250"
+    }
+  },
+  "risk": {
+    "korea": [
+      {
+        "symbol": "KETF0061",
+        "requested_weight": 0.042976416809839595,
+        "approved_weight": 0.042976416809839595,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "KETF0067",
+        "requested_weight": 0.040199800934337046,
+        "approved_weight": 0.040199800934337046,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "KEQ0019",
+        "requested_weight": 0.042976416809839595,
+        "approved_weight": 0.042976416809839595,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "KEQ0053",
+        "requested_weight": 0.042976416809839595,
+        "approved_weight": 0.042976416809839595,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "KEQ0001",
+        "requested_weight": 0.03856930461594546,
+        "approved_weight": 0.03856930461594546,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "KEQ0011",
+        "requested_weight": 0.042976416809839595,
+        "approved_weight": 0.042976416809839595,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "KETF0060",
+        "requested_weight": 0.03722657200292547,
+        "approved_weight": 0.03722657200292547,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "KEQ0005",
+        "requested_weight": 0.03492822346403991,
+        "approved_weight": 0.03492822346403991,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "KEQ0054",
+        "requested_weight": 0.03419401493355418,
+        "approved_weight": 0.03419401493355418,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "KEQ0007",
+        "requested_weight": 0.042976416809839595,
+        "approved_weight": 0.042976416809839595,
+        "approved": true,
+        "reasons": []
+      }
+    ],
+    "us": [
+      {
+        "symbol": "USEQ0019",
+        "requested_weight": 0.0494835212784239,
+        "approved_weight": 0.0494835212784239,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "USEQ0006",
+        "requested_weight": 0.046589765696564485,
+        "approved_weight": 0.046589765696564485,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "USETF0060",
+        "requested_weight": 0.0494835212784239,
+        "approved_weight": 0.0494835212784239,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "USEQ0047",
+        "requested_weight": 0.0494835212784239,
+        "approved_weight": 0.0494835212784239,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "USEQ0029",
+        "requested_weight": 0.04360790964367448,
+        "approved_weight": 0.04360790964367448,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "USEQ0017",
+        "requested_weight": 0.016696271584974876,
+        "approved_weight": 0.016696271584974876,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "USEQ0046",
+        "requested_weight": 0.043985684517632795,
+        "approved_weight": 0.043985684517632795,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "USEQ0049",
+        "requested_weight": 0.021709357128708882,
+        "approved_weight": 0.021709357128708882,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "USEQ0033",
+        "requested_weight": 0.0494835212784239,
+        "approved_weight": 0.0494835212784239,
+        "approved": true,
+        "reasons": []
+      },
+      {
+        "symbol": "USEQ0043",
+        "requested_weight": 0.02947692631474887,
+        "approved_weight": 0.02947692631474887,
+        "approved": true,
+        "reasons": []
+      }
+    ]
+  },
+  "provenance": {
+    "korea": {
+      "source": "SyntheticDataProvider (demo/offline mode)",
+      "data_version": "korea_2022-06-01_v1",
+      "checksum": "98aea9b48c61eb61eb8eace0033bd3c9c32fe2a653b69d7e4e3101bd5e3cb348",
+      "validation_status": "PASS",
+      "generated_at": "2026-08-26T06:15:37.530294+00:00"
+    },
+    "us": {
+      "source": "SyntheticDataProvider (demo/offline mode)",
+      "data_version": "us_2022-06-01_v1",
+      "checksum": "2a8c4d4b885bd44001a90e99dfd3eafef198d6f371e9742e253df71bb8b0ee38",
+      "validation_status": "PASS",
+      "generated_at": "2026-08-26T06:15:53.743817+00:00"
+    }
+  },
+  "disclaimer": "Data Validation 100% means all mandatory data-quality checks passed. It does not mean that future investment returns can be predicted with 100% accuracy or that loss is impossible."
+}
