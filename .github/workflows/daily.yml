@@ -1,35 +1,16 @@
 name: Daily Research Pipeline & Dashboard
 
-# Spec sections 24-28: the daily automation this whole project runs on.
+# 매일 07:00 KST 자동 실행(0 22 * * * UTC) + 07:15 KST 복구 실행 + 수동 실행.
+# 복구 실행은 오늘자 대시보드 데이터가 이미 있으면 아무것도 하지 않는다.
 #
-# Two schedules, one workflow:
-#   - "0 22 * * *"  (22:00 UTC) = 07:00 KST -- the PRIMARY daily run.
-#   - "15 22 * * *" (22:15 UTC) = 07:15 KST -- a RECOVERY run that only
-#     does anything if the primary run did NOT already produce today's
-#     (Asia/Seoul calendar date) dashboard data. This makes the pair
-#     idempotent: a day's results are never generated twice, and a
-#     transient failure of the 07:00 run gets one automatic retry at
-#     07:15 rather than silently losing a day.
-#   - workflow_dispatch: manual trigger for on-demand runs (spec section 27).
+# FAIL-CLOSED, BUT DASHBOARD ALWAYS DEPLOYS:
+# 리서치가 실패해도 대시보드 배포는 막지 않는다. 모든 파이프라인 단계는
+# continue-on-error 로 돌고, deploy-pages 는 if: always() 로 실행된다.
+# 실패 자체는 마지막 단계에서 워크플로우를 빨갛게 만들어 드러낸다.
 #
-# FAIL-CLOSED, BUT DASHBOARD ALWAYS DEPLOYS (spec section 28):
-# "Research 실패 != Dashboard 배포 실패" -- a data-validation failure (or
-# even a test failure) must never leave the public dashboard silently
-# stale. So every step in the `research` job after the checkout runs with
-# `continue-on-error: true` and its own captured status; the job is
-# explicitly marked failed at the end via a dedicated step if anything
-# went wrong, but the dashboard-data commit and the `deploy-pages` job
-# (which `needs: research` with `if: always()`) still run regardless.
-# GitHub still shows this workflow run red in the Actions tab when
-# something failed -- that visibility is not lost, it's just decoupled
-# from whether the public Pages site gets updated.
-#
-# SECRET SAFETY: this workflow never touches API keys/secrets (this
-# project runs against synthetic/offline demo data by default -- see
-# README.md "Running with real data" for what a real-data setup would add
-# via GitHub Secrets, never committed here). A gitleaks scan still runs
-# before the auto-commit step as a defense-in-depth guard against ever
-# accidentally committing a stray secret.
+# --real: 실제 시장 데이터(pykrx / yfinance)를 쓴다. 이 옵션이 없으면
+# 모든 스크립트가 합성(가짜) 데이터로 돌아가며, 그게 이 프로젝트가
+# 실제로 겪었던 문제다 -- 진짜처럼 보이는 무작위 가격 대시보드.
 
 on:
   schedule:
@@ -57,8 +38,11 @@ jobs:
   research:
     name: Research Pipeline + Data Quality Gate + Dashboard Data
     runs-on: ubuntu-latest
+    # 실데이터 실행은 외부 서버(KRX/Yahoo)에 시간이 달려 있다. 멈춘
+    # 제공자 때문에 6시간을 쓰지 않도록 상한을 둔다.
+    timeout-minutes: 150
     permissions:
-      contents: write   # needed to commit site/data/*.json + reports/*.md back to the repo
+      contents: write
     outputs:
       any_failure: ${{ steps.final-status.outputs.any_failure }}
     steps:
@@ -77,7 +61,7 @@ jobs:
               AS_OF=$(python3 -c "import json;print(json.load(open('site/data/dashboard.json')).get('as_of',''))" 2>/dev/null || echo "")
               GENERATED_DATE=$(python3 -c "import json;print(json.load(open('site/data/dashboard.json')).get('generated_at','')[:10])" 2>/dev/null || echo "")
               if [ "$AS_OF" = "$TODAY_KST" ] && [ "$GENERATED_DATE" = "$TODAY_KST" ]; then
-                echo "Today's ($TODAY_KST) dashboard data already exists and was generated today -- primary run already succeeded. Skipping recovery run."
+                echo "Today's ($TODAY_KST) dashboard data already exists -- skipping recovery run."
                 SKIP=true
               fi
             fi
@@ -100,17 +84,7 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         id: data-validation
         continue-on-error: true
-        run: python validate_data.py --market both --as-of "${{ steps.check.outputs.as_of }}"
-
-      - name: Research Pipeline (run_research.py)
-        if: steps.check.outputs.skip != 'true'
-        id: research-pipeline
-        continue-on-error: true
-        run: |
-          python run_research.py \
-            --markets ${{ github.event.inputs.markets || 'korea us' }} \
-            --as-of "${{ steps.check.outputs.as_of }}" \
-            ${{ github.event.inputs.param_search == 'true' && '--param-search' || '' }}
+        run: python validate_data.py --market both --real --as-of "${{ steps.check.outputs.as_of }}"
 
       - name: Paper Trading Update (run_paper.py)
         if: steps.check.outputs.skip != 'true'
@@ -118,14 +92,20 @@ jobs:
         continue-on-error: true
         run: |
           for market in korea us; do
-            python run_paper.py --market "$market" --as-of "${{ steps.check.outputs.as_of }}" || true
+            python run_paper.py --market "$market" --real --as-of "${{ steps.check.outputs.as_of }}" || true
           done
 
-      - name: System Validation + Dashboard Data (generate_dashboard_data.py)
+      # 이 단계가 전체 리서치 파이프라인(+ reports/*.md 생성)과 시스템
+      # 상태 점검을 한 번에 돌린다. 별도의 run_research.py 단계를 두면
+      # 같은 날 데이터를 두 번 받아오고 워크포워드를 두 번 돌리게 된다.
+      - name: Research Pipeline + System Validation + Dashboard Data
         if: steps.check.outputs.skip != 'true'
         id: dashboard-data
         continue-on-error: true
-        run: python generate_dashboard_data.py --as-of "${{ steps.check.outputs.as_of }}"
+        run: |
+          python generate_dashboard_data.py --real \
+            --as-of "${{ steps.check.outputs.as_of }}" \
+            --markets ${{ github.event.inputs.markets || 'korea us' }}
 
       - name: Upload daily-validation artifact
         if: always() && steps.check.outputs.skip != 'true'
@@ -173,7 +153,7 @@ jobs:
       - name: Refuse to auto-commit if the secret scan itself failed to run cleanly
         if: steps.check.outputs.skip != 'true' && steps.gitleaks.outcome != 'success'
         run: |
-          echo "::error::gitleaks did not complete successfully -- refusing to auto-commit. See the 'Secret scan before commit' step output above."
+          echo "::error::gitleaks did not complete successfully -- refusing to auto-commit."
           exit 1
 
       - name: Final job status (fail the run visibly if anything failed, without blocking dashboard deploy)
@@ -183,7 +163,6 @@ jobs:
           ANY_FAILURE=false
           for outcome in \
             "${{ steps.data-validation.outcome }}" \
-            "${{ steps.research-pipeline.outcome }}" \
             "${{ steps.paper-trading.outcome }}" \
             "${{ steps.dashboard-data.outcome }}"; do
             if [ "$outcome" = "failure" ]; then
@@ -192,7 +171,7 @@ jobs:
           done
           echo "any_failure=$ANY_FAILURE" >> "$GITHUB_OUTPUT"
           if [ "$ANY_FAILURE" = "true" ]; then
-            echo "::error::One or more pipeline steps failed today -- see step outcomes above. The dashboard was still generated/deployed (Research 실패 != Dashboard 배포 실패) and reflects this failure honestly."
+            echo "::error::One or more pipeline steps failed today. The dashboard was still generated/deployed and reflects this failure honestly."
             exit 1
           fi
 
