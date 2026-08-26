@@ -39,3 +39,28 @@ def test_load_experiments_empty_db_returns_empty_frame(tmp_path, monkeypatch):
 def test_run_quick_backtest_demo_mode():
     result = data_access.run_quick_backtest("ma_crossover", "korea", demo=True, start="2018-01-01", end="2021-12-31")
     assert not result.equity_curve.empty
+
+
+def test_get_paper_broker_returns_market_specific_broker(tmp_path, monkeypatch):
+    from quant import config as quant_config
+
+    monkeypatch.setattr(quant_config, "resolve_path", lambda rel: tmp_path)
+    kr = data_access.get_paper_broker("korea")
+    us = data_access.get_paper_broker("us")
+    assert kr.market == "korea"
+    assert us.market == "us"
+    assert kr.get_cash() > 0
+    assert us.get_cash() > 0
+
+
+def test_run_paper_rebalance_demo_mode(tmp_path, monkeypatch):
+    from quant import config as quant_config
+
+    monkeypatch.setattr(quant_config, "resolve_path", lambda rel: tmp_path)
+    broker, scan, results = data_access.run_paper_rebalance("korea", demo=True, top_n=5)
+    assert scan.market == "korea"
+    if scan.top_candidates:
+        assert len(results) == len(scan.top_candidates)
+        assert not broker.get_equity_curve().empty
+    else:
+        assert results == []

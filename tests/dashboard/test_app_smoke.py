@@ -23,6 +23,7 @@ def test_home_page_runs_without_exception():
     "3_Experiments.py",
     "4_Portfolio.py",
     "5_Risk.py",
+    "6_Paper_Trading.py",
 ])
 def test_page_runs_without_exception_before_button_click(page_name):
     at = AppTest.from_file(str(_DASHBOARD_DIR / "pages" / page_name), default_timeout=60)

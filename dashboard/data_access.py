@@ -72,3 +72,31 @@ def run_quick_backtest(strategy_id: str, market: str, demo: bool = True, start: 
 
 def enabled_strategy_ids() -> list[str]:
     return registry.enabled_strategy_ids()
+
+
+def get_paper_broker(market: str):
+    from quant.broker.kr_paper import KoreaPaperBroker
+    from quant.broker.us_paper import USPaperBroker
+    return KoreaPaperBroker() if market == "korea" else USPaperBroker()
+
+
+def run_paper_rebalance(market: str, demo: bool = True, top_n: int = 10):
+    """Simple equal-weight paper rebalance across today's top scanner
+    candidates -- a convenience for the dashboard's Paper Trading page.
+    `scripts/run_paper.py` is the more complete CLI version that also runs
+    the full portfolio/risk pipeline."""
+    provider = get_provider(market, demo=demo)
+    scanner = DailyScanner(market, provider)
+    as_of = pd.Timestamp.today().strftime("%Y-%m-%d")
+    scan = scanner.run(as_of=as_of, top_n=top_n)
+
+    broker = get_paper_broker(market)
+    if not scan.top_candidates:
+        return broker, scan, []
+
+    weight_each = 1.0 / len(scan.top_candidates) * 0.9  # keep 10% cash buffer
+    target_weights = {c.symbol: weight_each for c in scan.top_candidates}
+    prices = {c.symbol: c.price for c in scan.top_candidates}
+    results = broker.rebalance_to_target_weights(target_weights, prices)
+    broker.record_daily_equity(prices)
+    return broker, scan, results
