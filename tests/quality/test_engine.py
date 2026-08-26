@@ -29,6 +29,25 @@ def test_clean_data_passes_end_to_end():
     assert len(canonical_map["AAA"]) == len(ohlcv)
 
 
+def test_report_as_of_matches_the_requested_date_not_wall_clock_today():
+    # Regression test: report.as_of must reflect the `as_of` the caller
+    # asked to validate, never `pd.Timestamp.now()` -- otherwise a
+    # validation run for a past date would misreport itself as having
+    # validated "today", breaking reproducibility/audit-trail correctness
+    # and desynchronizing report.as_of from the data_version tag (which
+    # correctly embeds the requested date).
+    dates = pd.bdate_range("2022-05-20", periods=8)
+    ohlcv = _wide([
+        {"date": d, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 10000} for d in dates
+    ])
+    engine = DataQualityEngine("korea")
+    report, _, _ = engine.run(
+        {"AAA": ohlcv}, source_primary="test_primary", currency="KRW",
+        start="2022-05-20", end="2022-06-01", as_of="2022-06-01",
+    )
+    assert report.as_of == "2022-06-01"
+
+
 def test_missing_session_fails_closed_and_returns_no_canonical_data():
     dates = [d for d in pd.bdate_range("2026-08-03", periods=8) if d != pd.Timestamp("2026-08-06")]
     ohlcv = _wide([

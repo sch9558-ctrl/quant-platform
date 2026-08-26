@@ -67,7 +67,7 @@ class DataQualityEngine:
         if not schema_result.passed:
             # every subsequent check assumes the required columns exist --
             # stop here rather than raising confusing secondary errors.
-            return self._finalize(checks, primary, pd.DataFrame(), [], n_symbols=len(primary_ohlcv_map))
+            return self._finalize(checks, primary, pd.DataFrame(), [], n_symbols=len(primary_ohlcv_map), as_of=as_of)
 
         ohlc_result = ohlc.validate_ohlc_integrity(primary, self.market)
         checks.append(ohlc_result)
@@ -128,7 +128,7 @@ class DataQualityEngine:
                                        issues=revision_issues, details={"n_revised": n_revised}))
 
         report = self._finalize(checks, primary, canonical_df, provenance, n_symbols=len(primary_ohlcv_map),
-                                 outlier_counts=outlier_counts)
+                                 outlier_counts=outlier_counts, as_of=as_of)
 
         if version_store is not None:
             checksum = audit.compute_checksum(canonical_df if report.overall_status == "PASS" else primary)
@@ -144,7 +144,7 @@ class DataQualityEngine:
 
     def _finalize(
         self, checks: list[CheckResult], primary: pd.DataFrame, canonical_df: pd.DataFrame,
-        provenance: list, n_symbols: int, outlier_counts: dict | None = None,
+        provenance: list, n_symbols: int, as_of: str, outlier_counts: dict | None = None,
     ) -> DataQualityReport:
         mandatory = [c for c in checks if c.mandatory]
         mandatory_pass = all(c.passed for c in mandatory) if mandatory else True
@@ -157,7 +157,7 @@ class DataQualityEngine:
 
         return DataQualityReport(
             market=self.market,
-            as_of=pd.Timestamp.now().strftime("%Y-%m-%d"),
+            as_of=pd.Timestamp(as_of).strftime("%Y-%m-%d"),
             generated_at=pd.Timestamp.now(tz="UTC").isoformat(),
             checks=checks,
             outlier_counts=outlier_counts,
