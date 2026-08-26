@@ -42,13 +42,25 @@ class DailyScanner:
         self.feature_engine = FeatureEngine(market)
         self.regime_detector = RegimeDetector(market)
 
-    def run(self, as_of: str, lookback_days: int = 400, top_n: int = 20) -> ScanResult:
-        snapshot: UniverseSnapshot = self.universe_engine.build(as_of)
+    def run(
+        self, as_of: str, lookback_days: int = 400, top_n: int = 20,
+        universe_snapshot: UniverseSnapshot | None = None,
+        ohlcv_map: dict[str, pd.DataFrame] | None = None,
+    ) -> ScanResult:
+        """`universe_snapshot` and `ohlcv_map` are optional overrides used by
+        `quant.quality.pipeline_gate.run_gated_scan`: when the Data Quality
+        Engine has already built the universe and produced a validated,
+        canonical OHLCV map for this market/day, the scanner must reuse
+        that exact data rather than re-fetching raw data on its own (that
+        would silently bypass the Fail-Closed gate). Direct callers that
+        don't go through the gate keep working unchanged by omitting both."""
+        snapshot: UniverseSnapshot = universe_snapshot or self.universe_engine.build(as_of)
         included = snapshot.included_symbols()
         logger.info("Scanner[%s] universe size after filters: %d", self.market, len(included))
 
         lookback_start = (pd.Timestamp(as_of) - pd.tseries.offsets.BDay(lookback_days)).strftime("%Y-%m-%d")
-        ohlcv_map = self.provider.get_ohlcv_bulk(included, lookback_start, as_of)
+        if ohlcv_map is None:
+            ohlcv_map = self.provider.get_ohlcv_bulk(included, lookback_start, as_of)
 
         excluded_for_quality = []
         clean_ohlcv_map = {}

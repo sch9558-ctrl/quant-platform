@@ -26,7 +26,8 @@ if str(_SRC) not in sys.path:
 import pandas as pd  # noqa: E402
 
 from quant.data.factory import get_provider  # noqa: E402
-from quant.scanner.scanner import DailyScanner, format_report  # noqa: E402
+from quant.quality.pipeline_gate import run_gated_scan  # noqa: E402
+from quant.scanner.scanner import format_report  # noqa: E402
 
 
 def main() -> int:
@@ -44,10 +45,21 @@ def main() -> int:
 
     as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
     provider = get_provider(args.market, demo=args.demo)
-    scanner = DailyScanner(args.market, provider)
-    scan = scanner.run(as_of=as_of, top_n=args.top_n)
+    # Runs through the Fail-Closed Data Quality Engine gate first (spec
+    # section 2) -- this is the same gate the research pipeline uses, so
+    # `run_scan.py` can never show candidates built on data that failed
+    # mandatory validation.
+    gated = run_gated_scan(args.market, provider=provider, as_of=as_of, demo=args.demo, top_n=args.top_n)
 
-    print(format_report(scan))
+    if gated.blocked:
+        print("=" * 60)
+        print("DATA VALIDATION: FAIL")
+        print(f"⛔ {gated.block_reason}")
+        print("오늘의 투자 후보 생성 중단 -- no candidates are shown below.")
+        print("=" * 60)
+        return 1
+
+    print(format_report(gated.scan))
     return 0
 
 

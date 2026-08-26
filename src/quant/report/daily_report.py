@@ -19,8 +19,26 @@ from quant.scanner.scanner import ScanResult
 _TREND_LABEL_KO = {"bull": "Bull (상승)", "bear": "Bear (하락)", "sideways": "Neutral (횡보)"}
 
 
-def _market_section(scan: ScanResult | None, market_label: str, top_n: int = 10) -> str:
+def _market_section(
+    scan: ScanResult | None, market_label: str, top_n: int = 10,
+    block_reason: str | None = None,
+) -> str:
     lines = [f"## {market_label} Candidates", ""]
+    if block_reason is not None:
+        # Fail-Closed (spec section 2): mandatory data-quality checks did
+        # not pass for this market/day, so no candidates were generated.
+        # This is deliberately NOT the same message as "no scan result" --
+        # it must be impossible to mistake a data failure for "no signal
+        # today, market was just quiet".
+        lines.append("### ⛔ DATA VALIDATION FAILED / 오늘의 투자 후보 생성 중단")
+        lines.append("")
+        lines.append(f"> {block_reason}")
+        lines.append("")
+        lines.append(
+            "이 시장에 대해 오늘은 투자 후보가 생성되지 않았습니다. 이전 영업일의 결과를 "
+            "오늘의 결과인 것처럼 재사용하지 않습니다."
+        )
+        return "\n".join(lines)
     if scan is None:
         lines.append("_스캔 결과 없음_")
         return "\n".join(lines)
@@ -101,9 +119,15 @@ def generate_daily_report(
     us_scan: ScanResult | None = None,
     strategy_ranking: pd.DataFrame | None = None,
     portfolio_allocation: PortfolioAllocation | None = None,
+    kr_block_reason: str | None = None,
+    us_block_reason: str | None = None,
 ) -> str:
     kr_env = _TREND_LABEL_KO.get(kr_scan.regime.trend_regime, "N/A") if kr_scan and kr_scan.regime else "N/A"
     us_env = _TREND_LABEL_KO.get(us_scan.regime.trend_regime, "N/A") if us_scan and us_scan.regime else "N/A"
+    if kr_block_reason is not None:
+        kr_env = "⛔ DATA VALIDATION FAILED"
+    if us_block_reason is not None:
+        us_env = "⛔ DATA VALIDATION FAILED"
 
     sections = [
         f"# Daily Research Report — {as_of}",
@@ -115,9 +139,9 @@ def generate_daily_report(
         "",
         _strategy_section(strategy_ranking),
         "",
-        _market_section(kr_scan, "Korea"),
+        _market_section(kr_scan, "Korea", block_reason=kr_block_reason),
         "",
-        _market_section(us_scan, "US"),
+        _market_section(us_scan, "US", block_reason=us_block_reason),
         "",
         _portfolio_section(portfolio_allocation),
         "",

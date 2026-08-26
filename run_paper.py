@@ -43,7 +43,7 @@ from quant.broker.kr_paper import KoreaPaperBroker  # noqa: E402
 from quant.broker.us_paper import USPaperBroker  # noqa: E402
 from quant.data.factory import get_provider  # noqa: E402
 from quant.portfolio.constructor import PortfolioConstructor, PortfolioItem  # noqa: E402
-from quant.scanner.scanner import DailyScanner  # noqa: E402
+from quant.quality.pipeline_gate import run_gated_scan  # noqa: E402
 from quant.utils.logging import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
@@ -56,8 +56,18 @@ def build_broker(market: str):
 def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = None) -> None:
     as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
     provider = get_provider(market, demo=demo)
-    scanner = DailyScanner(market, provider)
-    scan = scanner.run(as_of=as_of, top_n=top_n)
+    # Fail-Closed (spec section 2): a data-validation failure blocks new
+    # paper-trading orders for this market/day just as it blocks strategy
+    # research candidates. No rebalance is attempted, and today's equity
+    # mark is NOT recorded either -- recording it would silently claim a
+    # paper-trading session happened on unvalidated data.
+    gated = run_gated_scan(market, provider=provider, as_of=as_of, demo=demo, top_n=top_n)
+    if gated.blocked:
+        print(f"[{market}] as_of={as_of} DATA VALIDATION: FAIL")
+        print(f"[{market}] ⛔ {gated.block_reason}")
+        print(f"[{market}] no rebalance attempted -- today's paper-trading session is skipped, not faked.")
+        return
+    scan = gated.scan
 
     broker = build_broker(market)
     print(f"[{market}] as_of={as_of} regime={scan.regime.summary_label()} universe_size={scan.universe_size}")

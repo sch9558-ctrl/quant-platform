@@ -57,6 +57,23 @@ def test_report_handles_missing_composite_score_gracefully(kr_scan):
     assert "Composite Score: N/A" in report
 
 
+def test_report_shows_data_validation_failed_block_distinct_from_no_scan(kr_scan):
+    # A Fail-Closed block must never look like "quiet day, no signal" --
+    # it needs its own unambiguous marker, and it must win over rendering
+    # a scan even if a (stale) scan object were accidentally passed in too.
+    reason = "DATA VALIDATION FAILED for market=us as_of=2022-06-01: mandatory check(s) failed: ['schema']."
+    report = generate_daily_report(
+        as_of="2022-06-01", kr_scan=kr_scan, us_scan=None,
+        us_block_reason=reason,
+    )
+    assert reason in report
+    assert "⛔ DATA VALIDATION FAILED" in report  # Market Environment line for US
+    us_section = report.split("## US Candidates")[1]
+    assert "오늘의 투자 후보 생성 중단" in us_section
+    kr_section = report.split("## Korea Candidates")[1].split("## US Candidates")[0]
+    assert "오늘의 투자 후보 생성 중단" not in kr_section  # Korea was NOT blocked, still shows real candidates
+
+
 def test_report_handles_missing_data_gracefully():
     report = generate_daily_report(as_of="2022-06-01")
     assert "스캔 결과 없음" in report

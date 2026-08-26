@@ -16,6 +16,7 @@ from quant import config
 from quant.data.factory import get_provider, get_secondary_provider
 from quant.quality.audit import AuditLog, VersionStore
 from quant.quality.engine import DataQualityEngine
+from quant.quality.gate import may_proceed
 from quant.quality.models import DataQualityReport
 from quant.universe.engine import UniverseEngine, UniverseSnapshot
 from quant.utils.logging import get_logger
@@ -40,9 +41,10 @@ def validate_market(
     as_of: str | None = None,
     lookback_days: int = 400,
     use_secondary: bool = True,
+    provider=None,
 ) -> MarketValidationResult:
     as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
-    provider = get_provider(market, demo=demo)
+    provider = provider or get_provider(market, demo=demo)
     secondary = get_secondary_provider(market, demo=demo, primary=provider) if use_secondary else None
 
     universe_engine = UniverseEngine(market, provider)
@@ -81,4 +83,68 @@ def validate_market(
     return MarketValidationResult(
         market=market, report=report, canonical_ohlcv_map=canonical_map,
         universe_snapshot=snapshot, provenance=provenance,
+    )
+
+
+@dataclass
+class GatedScanResult:
+    """The result of running the Daily Market Scanner *through* the
+    Fail-Closed gate. `blocked=True` means the Data Quality Engine did not
+    pass its mandatory checks for this market/day -- `scan` is then None on
+    purpose, and no caller downstream of this function (strategy
+    evaluation, candidate ranking, paper-trading order generation) should
+    ever run. The dashboard must still be told about this result (spec:
+    "Research 실패 != Dashboard 배포 실패" -- research failing is not the
+    same as failing to deploy the dashboard); it just renders a clear
+    DATA VALIDATION FAILED state instead of candidates."""
+    market: str
+    as_of: str
+    validation: MarketValidationResult
+    scan: object | None
+    blocked: bool
+    block_reason: str
+
+
+def run_gated_scan(
+    market: str,
+    provider=None,
+    as_of: str | None = None,
+    demo: bool = True,
+    lookback_days: int = 400,
+    top_n: int = 20,
+    use_secondary: bool = True,
+) -> GatedScanResult:
+    """The single entry point every daily-candidate-generating caller
+    (`run_scan.py`, the research pipeline, `run_paper.py`) should use
+    instead of instantiating `DailyScanner` directly against a raw
+    provider. Runs the Data Quality Engine first; only on a PASS does it
+    feed the resulting *canonical* (validated, consensus-built) OHLCV data
+    and the same universe snapshot into the scanner -- so the scanner never
+    re-fetches raw, unvalidated data behind the gate's back, and never
+    builds the universe twice."""
+    from quant.scanner.scanner import DailyScanner  # local import: avoids a
+    # scanner<->quality import cycle (scanner.py does not import this module).
+
+    as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+    validation = validate_market(
+        market, demo=demo, as_of=as_of, lookback_days=lookback_days,
+        use_secondary=use_secondary, provider=provider,
+    )
+    allowed, reason = may_proceed(validation.report)
+    if not allowed:
+        logger.error(reason)
+        return GatedScanResult(
+            market=market, as_of=as_of, validation=validation,
+            scan=None, blocked=True, block_reason=reason,
+        )
+
+    scanner = DailyScanner(market, provider or get_provider(market, demo=demo))
+    scan = scanner.run(
+        as_of=as_of, lookback_days=lookback_days, top_n=top_n,
+        universe_snapshot=validation.universe_snapshot,
+        ohlcv_map=validation.canonical_ohlcv_map,
+    )
+    return GatedScanResult(
+        market=market, as_of=as_of, validation=validation,
+        scan=scan, blocked=False, block_reason=reason,
     )

@@ -25,6 +25,17 @@ def _small_strategy_universe(monkeypatch):
     monkeypatch.setattr(registry, "enabled_strategy_ids", lambda: ["ma_crossover", "rsi_reversal"])
 
 
+@pytest.fixture(autouse=True)
+def _isolate_quality_db(tmp_path, monkeypatch):
+    # run_market_research now goes through the Data Quality Engine's
+    # Fail-Closed gate (quant.quality.pipeline_gate), which writes a
+    # version store + audit log under paths.db_dir. Isolate those writes
+    # to a tmp dir so running this test file never touches the real
+    # project's data/db/ directory.
+    from quant import config as quant_config
+    monkeypatch.setattr(quant_config, "resolve_path", lambda rel: tmp_path)
+
+
 @pytest.fixture
 def db(tmp_path):
     return ResearchDB(path=tmp_path / "research.sqlite")
@@ -75,6 +86,49 @@ def test_run_market_research_marks_repeat_strategies_as_updated(db):
     )
     assert second.new_strategy_ids == []
     assert set(second.updated_strategy_ids) == {"ma_crossover", "rsi_reversal"}
+
+
+def test_run_market_research_returns_blocked_result_when_gate_fails(db, monkeypatch):
+    """Fail-Closed enforcement (spec section 2), exercised at the
+    orchestrator level: when the Data Quality Engine's gate says a market's
+    data did not pass mandatory validation, run_market_research must not
+    run strategy evaluation, ranking, or risk analysis at all -- it returns
+    a `blocked=True` result immediately, with `scan`/`portfolio_allocation`
+    left None rather than reused from a prior day."""
+    from quant.quality.models import DataQualityReport
+    from quant.quality.pipeline_gate import GatedScanResult, MarketValidationResult
+
+    fake_report = DataQualityReport(
+        market="korea", as_of="2022-06-01", generated_at="2022-06-01T00:00:00+00:00",
+        overall_status="FAIL", mandatory_validation_pass_rate=0.0,
+    )
+    fake_validation = MarketValidationResult(
+        market="korea", report=fake_report, canonical_ohlcv_map={},
+        universe_snapshot=None, provenance=[],
+    )
+    block_reason = (
+        "DATA VALIDATION FAILED for market=korea as_of=2022-06-01: "
+        "mandatory check(s) failed: ['schema']. No investment candidates will be generated from this data."
+    )
+    fake_gated = GatedScanResult(
+        market="korea", as_of="2022-06-01", validation=fake_validation,
+        scan=None, blocked=True, block_reason=block_reason,
+    )
+    monkeypatch.setattr(research_pipeline, "run_gated_scan", lambda *a, **k: fake_gated)
+
+    result = research_pipeline.run_market_research(
+        "korea", demo=True, as_of="2022-06-01", top_n=5,
+        use_param_search=False, lookback_years=3, db=db,
+    )
+
+    assert result.blocked is True
+    assert result.scan is None
+    assert result.portfolio_allocation is None
+    assert result.walk_forward_results == {}
+    assert result.experiment_ids == []
+    assert result.risk_checks == []
+    assert result.quality_report is fake_report
+    assert "DATA VALIDATION FAILED" in result.block_reason
 
 
 def test_run_full_pipeline_writes_report(tmp_path, monkeypatch):

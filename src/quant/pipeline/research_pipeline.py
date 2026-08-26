@@ -45,12 +45,14 @@ from quant.data.factory import get_provider
 from quant.features import fundamental as fnd
 from quant.features.engine import FeatureEngine
 from quant.portfolio.constructor import PortfolioAllocation, PortfolioConstructor, PortfolioItem
+from quant.quality.models import DataQualityReport
+from quant.quality.pipeline_gate import run_gated_scan
 from quant.ranking.scorer import extract_features, rank_strategies
 from quant.report.daily_report import generate_daily_report, save_report
 from quant.research_db.db import ResearchDB
 from quant.research_db.models import ExperimentRecord, current_code_version, dataset_version_tag
 from quant.risk.manager import PortfolioState, RiskManager
-from quant.scanner.scanner import DailyScanner, ScanResult
+from quant.scanner.scanner import ScanResult
 from quant.strategy import registry
 from quant.utils.logging import get_logger
 from quant.validation.walk_forward import WalkForwardAnalyzer, WalkForwardResult
@@ -69,14 +71,17 @@ DEFAULT_BACKTEST_LOOKBACK_YEARS = 8
 @dataclass
 class MarketResearchResult:
     market: str
-    scan: ScanResult
+    scan: ScanResult | None
     walk_forward_results: dict[str, WalkForwardResult]
     ranking_df: pd.DataFrame
     experiment_ids: list[str]
     new_strategy_ids: list[str]
     updated_strategy_ids: list[str]
-    portfolio_allocation: PortfolioAllocation
+    portfolio_allocation: PortfolioAllocation | None
     risk_checks: list[dict]
+    quality_report: DataQualityReport | None = None
+    blocked: bool = False
+    block_reason: str | None = None
 
 
 @dataclass
@@ -210,10 +215,26 @@ def run_market_research(
     provider = get_provider(market, demo=demo)
     db = db or ResearchDB()
 
-    # steps 2-5: universe -> features -> regime -> screening, via the same
-    # DailyScanner used by the dashboard/CLI scan commands.
-    scanner = DailyScanner(market, provider)
-    scan = scanner.run(as_of=as_of, top_n=top_n)
+    # step 1 (Fail-Closed gate) + steps 2-5: Data Quality Engine -> universe
+    # -> features -> regime -> screening, via the same DailyScanner used by
+    # the dashboard/CLI scan commands, but fed the *validated, canonical*
+    # OHLCV data instead of a fresh raw fetch. If the Data Quality Engine's
+    # mandatory checks fail for this market/day, no candidates, no strategy
+    # evaluation, and no risk analysis are produced -- the pipeline returns
+    # a "blocked" result immediately (spec section 2: Fail-Closed). The
+    # daily report / dashboard still render this result; they just show a
+    # DATA VALIDATION FAILED state instead of candidates ("Research 실패 !=
+    # Dashboard 배포 실패").
+    gated = run_gated_scan(market, provider=provider, as_of=as_of, demo=demo, top_n=top_n)
+    if gated.blocked:
+        logger.error("Research pipeline BLOCKED for market=%s as_of=%s: %s", market, as_of, gated.block_reason)
+        return MarketResearchResult(
+            market=market, scan=None, walk_forward_results={}, ranking_df=pd.DataFrame(),
+            experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
+            portfolio_allocation=None, risk_checks=[],
+            quality_report=gated.validation.report, blocked=True, block_reason=gated.block_reason,
+        )
+    scan = gated.scan
     symbols = [c.symbol for c in scan.all_candidates] or [c.symbol for c in scan.top_candidates]
 
     # step 6/7: major strategy evaluation (+ implicit update of any strategy
@@ -247,6 +268,7 @@ def run_market_research(
         market=market, scan=scan, walk_forward_results=wf_results, ranking_df=ranking_df,
         experiment_ids=experiment_ids, new_strategy_ids=new_ids, updated_strategy_ids=updated_ids,
         portfolio_allocation=allocation, risk_checks=risk_checks,
+        quality_report=gated.validation.report, blocked=False, block_reason=None,
     )
 
 
@@ -285,9 +307,11 @@ def run_full_pipeline(
         as_of=as_of,
         kr_scan=kr_result.scan if kr_result else None,
         us_scan=us_result.scan if us_result else None,
+        kr_block_reason=kr_result.block_reason if kr_result else None,
+        us_block_reason=us_result.block_reason if us_result else None,
         strategy_ranking=combined_ranking if not combined_ranking.empty else None,
-        portfolio_allocation=kr_result.portfolio_allocation if kr_result else (
-            us_result.portfolio_allocation if us_result else None
+        portfolio_allocation=(kr_result.portfolio_allocation if kr_result and not kr_result.blocked else None) or (
+            us_result.portfolio_allocation if us_result and not us_result.blocked else None
         ),
     )
     report_path = save_report(report_text, as_of)
