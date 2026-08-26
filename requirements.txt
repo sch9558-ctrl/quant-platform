@@ -12,7 +12,9 @@ tqdm==4.70.0
 pykrx==1.2.8      # Korea market data (KOSPI/KOSDAQ), no API key required -- Primary KR provider
 yfinance==1.6.0   # US market data, no API key required -- Primary US provider
 finance-datareader==0.9.202  # Korea (KRX/Naver-backed) + reference data -- Secondary KR provider, no API key
-pandas-datareader==0.11.1    # Stooq-backed US OHLCV -- Secondary US provider, no API key
+# US secondary provider uses Stooq's public CSV export directly over `requests`
+# (stooq.com/q/d/l/) -- pandas-datareader's Stooq reader was removed upstream
+# in recent releases, so we talk to the same free endpoint ourselves instead.
 
 # Market calendars (real KRX/NYSE/NASDAQ holiday schedules, not weekday approximation)
 pandas_market_calendars==5.4.0

@@ -9,8 +9,7 @@ __pycache__/
 data/raw/*
 data/processed/*
 data/cache/*
-data/db/*.sqlite
-data/db/*.sqlite3
+data/db/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/cache/.gitkeep
