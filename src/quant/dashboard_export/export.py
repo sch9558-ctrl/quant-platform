@@ -52,9 +52,22 @@ _MARKET_LABEL = {"korea": "Korea (KOSPI/KOSDAQ)", "us": "US (NYSE/NASDAQ/AMEX)"}
 #: by tests/dashboard_export/test_export.py so a future edit cannot
 #: silently reintroduce one of these phrases.
 FORBIDDEN_PHRASES = [
+    # English
     "100% safe", "no loss possible", "100% profit", "100% accurate investment",
     "guaranteed return", "guaranteed profit", "cannot lose",
+    # Korean -- the dashboard UI is Korean, and reason/summary strings that
+    # reach this payload are written in Korean, so an English-only list would
+    # let the exact same claim through in translation.
+    "100% 안전", "손실 없음", "100% 수익", "수익 보장", "원금 보장",
+    "무조건 수익", "절대 손실", "손실 위험 없",
 ]
+
+#: The mandated disclaimer is the one sanctioned place where this vocabulary
+#: legitimately appears -- its whole job is to *deny* these claims ("does not
+#: mean ... that loss is impossible"). A substring scan cannot tell a claim
+#: from its negation, so the disclaimer is removed before scanning rather
+#: than the forbidden list being weakened to accommodate it.
+_DISCLAIMER_EXEMPT = [DISCLAIMER]
 
 
 def _candidate_to_dict(rank: int, c) -> dict:
@@ -361,9 +374,12 @@ def build_dashboard_data(
 
 
 def _assert_no_forbidden_phrases(data: dict) -> None:
-    text = json.dumps(data, default=str).lower()
+    text = json.dumps(data, ensure_ascii=False, default=str)
+    for exempt in _DISCLAIMER_EXEMPT:
+        text = text.replace(exempt, "")
+    text = text.lower()
     for phrase in FORBIDDEN_PHRASES:
-        if phrase in text:
+        if phrase.lower() in text:
             raise ValueError(
                 f"Dashboard data contains a forbidden phrase ({phrase!r}) -- refusing to write it. "
                 "See quant.dashboard_export.export.FORBIDDEN_PHRASES."

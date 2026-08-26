@@ -1,4 +1,4 @@
-"""Structural guardrails for .github/workflows/daily-pipeline.yml (spec
+"""Structural guardrails for .github/workflows/daily.yml (spec
 sections 24-28). Not a GitHub Actions runner test -- these check the YAML
 shape so a future edit can't silently break the schedule, the
 idempotency guard, or the minimal-permissions requirement without a test
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-WORKFLOW_PATH = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "daily-pipeline.yml"
+WORKFLOW_PATH = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "daily.yml"
 
 
 def _load():
@@ -60,7 +60,11 @@ def test_recovery_run_has_idempotency_check_step():
 def test_all_pipeline_steps_use_continue_on_error_so_dashboard_still_deploys():
     data = _load()
     steps = data["jobs"]["research"]["steps"]
-    critical_step_ids = {"data-validation", "research-pipeline", "paper-trading", "dashboard-data"}
+    # `dashboard-data` runs the full research pipeline itself (and writes
+    # reports/*.md), so there is deliberately no separate research step --
+    # duplicating it would repeat every provider fetch and every Walk-Forward
+    # evaluation against live data for the same day.
+    critical_step_ids = {"data-validation", "paper-trading", "dashboard-data"}
     found = {s["id"]: s.get("continue-on-error") for s in steps if s.get("id") in critical_step_ids}
     assert found == {sid: True for sid in critical_step_ids}, (
         "every pipeline step must continue-on-error so a data/test failure never blocks the "
@@ -97,3 +101,25 @@ def test_daily_artifacts_uploaded_with_expected_naming():
     names = [s.get("name", "") for s in steps]
     assert any("daily-validation artifact" in n for n in names)
     assert any("daily-research artifact" in n for n in names)
+
+
+def test_pipeline_steps_request_real_market_data():
+    """Every data-touching step must pass --real.
+
+    Without it the scripts default to the synthetic offline dataset, which
+    is exactly the failure this project shipped with: the daily run produced
+    a dashboard of randomly-generated prices that was indistinguishable, from
+    the outside, from a real one.
+    """
+    data = _load()
+    steps = data["jobs"]["research"]["steps"]
+    for step_id in ("data-validation", "paper-trading", "dashboard-data"):
+        step = next(s for s in steps if s.get("id") == step_id)
+        assert "--real" in step["run"], f"{step_id} would silently run on synthetic data"
+
+
+def test_research_job_has_a_wall_clock_timeout():
+    """Live providers can hang; a run must fail late rather than never."""
+    data = _load()
+    timeout = data["jobs"]["research"].get("timeout-minutes")
+    assert isinstance(timeout, int) and 0 < timeout <= 360

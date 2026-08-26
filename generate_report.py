@@ -44,8 +44,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--top-n", type=int, default=20)
     parser.add_argument(
-        "--demo", action="store_true", default=True,
-        help="Use synthetic offline data (default: on -- this sandbox has no network access to KRX/Yahoo).",
+        "--demo", dest="demo", action="store_true", default=True,
+        help="Use synthetic offline data (the default).",
+    )
+    parser.add_argument(
+        "--real", dest="demo", action="store_false",
+        help="Use REAL market data (pykrx / yfinance) instead of the synthetic "
+             "offline dataset. Requires network access to KRX / Yahoo Finance.",
     )
     parser.add_argument("--as-of", default=None, help="Override the as-of date (YYYY-MM-DD); default: today.")
     args = parser.parse_args()

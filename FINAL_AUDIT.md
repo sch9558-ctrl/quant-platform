@@ -1,8 +1,8 @@
 # Final Self-Audit
 
 A 15-point self-audit of this platform against its governing specification,
-performed at commit `c00d193` (2026-08-26). Full test suite at this
-commit: **329 passed, 1 deselected** (`tests/validation/test_walk_forward.py::test_walk_forward_with_param_search_picks_stable_params`,
+performed at commit `c00d193` and updated after the real-data switch
+(2026-08-26). Full test suite: **375 passed, 1 deselected** (`tests/validation/test_walk_forward.py::test_walk_forward_with_param_search_picks_stable_params`,
 deliberately excluded from the fast daily/CI bucket for being slow, not for
 being flaky — still run by the plain `pytest tests/` developer workflow).
 
@@ -124,20 +124,29 @@ scan/rebalance actions are not currently Fail-Closed gated.
 
 ## 10. Full GitHub-based automation
 
-**PASS WITH DOCUMENTED LIMITATION.** `.github/workflows/daily-pipeline.yml`
+**PASS WITH DOCUMENTED LIMITATION.** `.github/workflows/daily.yml`
 implements the primary (07:00 KST) + idempotent recovery (07:15 KST)
 dual schedule plus `workflow_dispatch`, with `continue-on-error` on every
 pipeline step and a dashboard-deploy job that runs `if: always()`, guarded
-structurally by `tests/workflows/test_daily_pipeline_workflow.py` (11
-tests). **This workflow has not been executed on GitHub's actual runners**
-— the sandboxed development environment this was built in has no working
-`gh auth`/GitHub remote (`gh auth status` reports an invalid `GH_TOKEN`,
-and no remote is configured). The workflow YAML is structurally verified
-(parses, correct permissions, correct schedules, correct gating) but its
-first real run, the first Pages deployment, and repo/secret setup are
-manual one-time steps documented in `README.md`'s "Connecting this repo to
-GitHub / Pages" section, to be completed by the user (or from a machine
-with real GitHub access).
+structurally by `tests/workflows/test_daily_pipeline_workflow.py` (13
+tests). The workflow **has now run successfully on GitHub's runners** and
+deployed the dashboard to GitHub Pages, so the automation is no longer
+merely structurally verified.
+
+**Documented limitation**: the sandbox this was developed in cannot reach
+GitHub (`git push` and `api.github.com` are both blocked by an egress
+proxy, independent of credentials), so changes are delivered to the user's
+local clone and pushed from their machine. More importantly, **the
+real-data path's first live contact is a CI run, not a local test**: no
+environment available during development could reach KRX or Yahoo Finance,
+so the providers are exercised against recorded/faked module doubles
+(`tests/data/test_kr_provider_bulk.py`, `test_us_provider_bulk.py`) rather
+than the live endpoints. Those doubles pin the request *shape* — which
+axis is fetched, how many requests, chunking, failure isolation, and the
+exclusive-end-date correction — but cannot catch an upstream schema change.
+The Fail-Closed gate is what bounds the consequence: bad or missing
+provider data blocks candidate generation for that market and day rather
+than propagating into research output.
 
 ## 11. Data Validation vs. Investment Prediction Accuracy separation
 
@@ -178,7 +187,7 @@ account numbers, or personal data anywhere in source.
 
 ## 15. Test coverage completeness
 
-**PASS.** 329 tests passing across data providers, schema, OHLC,
+**PASS.** 375 tests passing across data providers, schema, OHLC,
 duplicates, missing dates, trading calendar, timezone, corporate actions,
 cross-provider checks, features, strategies, PnL, transaction cost,
 portfolio, risk, backtest, OOS/walk-forward, dashboard build, and the

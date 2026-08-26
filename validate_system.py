@@ -71,7 +71,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--market", choices=["korea", "us", "both"], default="both")
     parser.add_argument("--as-of", default=None)
-    parser.add_argument("--demo", action="store_true", default=True)
+    parser.add_argument(
+        "--demo", dest="demo", action="store_true", default=True,
+        help="Use synthetic offline data (the default).",
+    )
+    parser.add_argument(
+        "--real", dest="demo", action="store_false",
+        help="Use REAL market data (pykrx / yfinance) instead of the synthetic "
+             "offline dataset. Requires network access to KRX / Yahoo Finance.",
+    )
     parser.add_argument("--skip-tests", action="store_true", help="Skip the pytest sub-suites (fast data+pipeline-only check).")
     args = parser.parse_args()
 

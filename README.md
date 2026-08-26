@@ -136,7 +136,7 @@ Every script defaults to `--demo` (synthetic offline data) and accepts
 
 ## Daily automation & the static dashboard
 
-`.github/workflows/daily-pipeline.yml` runs the whole pipeline
+`.github/workflows/daily.yml` runs the whole pipeline
 automatically at 07:00 KST every day, with an idempotent 07:15 KST
 recovery run (skipped if 07:00 already produced today's data) and a
 manual `workflow_dispatch` trigger. Every pipeline step runs with
@@ -167,7 +167,7 @@ activation are steps you do yourself once:
    --stat` for anything unexpectedly large — the workflow's own gitleaks
    step only protects pushes *after* this one.
 3. In the repo's **Settings → Pages**, set **Source** to **GitHub
-   Actions** (not "Deploy from a branch") — `daily-pipeline.yml`'s
+   Actions** (not "Deploy from a branch") — `daily.yml`'s
    `deploy-pages` job expects to own the deployment.
 4. In **Settings → Actions → General → Workflow permissions**, ensure
    "Read and write permissions" is available to workflows (the workflow
@@ -212,8 +212,8 @@ which is realistic enough to exercise the whole pipeline end to end but is
 **not calibrated to realistic market statistics** — don't read anything
 into a demo-mode Sharpe ratio or CAGR beyond "the plumbing works."
 
-The real providers are code-complete but have not been exercised against
-live endpoints from this environment:
+The real providers could not be exercised against live endpoints from that
+sandbox, so their first real contact is a CI run:
 
 - **Korea**: `src/quant/data/kr_provider.py`, via `pykrx` (public KRX data,
   no API key).
@@ -221,14 +221,45 @@ live endpoints from this environment:
   universe constituents (S&P 500 / NASDAQ-100) are discovered dynamically
   from public reference tables at run time — nothing is hardcoded.
 
-To validate against real data, run any CLI script without `--demo` from a
-machine or VPS with normal internet access, e.g.:
+Pass **`--real`** to any CLI script, from a machine (or CI runner) with
+normal internet access, to use live market data instead:
 
 ```bash
-python run_scan.py --market korea   # omit --demo once real network access is available
+python run_scan.py --market korea --real
+python generate_dashboard_data.py --real --as-of 2026-08-26
 ```
 
-If you hit a provider-specific bug there (rate limiting, a schema change
+The daily GitHub Actions workflow passes `--real` on every data-touching
+step, so the published dashboard reflects live KRX / Yahoo Finance data.
+`--demo` remains the default for local runs so a stray command never
+hammers a provider by accident.
+
+> **Historical note, because it cost a day to find:** `--demo` was
+> originally declared as `action="store_true", default=True` on every
+> entry point, which meant `args.demo` was `True` no matter what was typed
+> — there was *no* spelling of the command line that selected real data.
+> The daily pipeline therefore ran on synthetic randomly-generated prices
+> while producing a dashboard indistinguishable from a real one.
+> `tests/cli/test_real_data_flag.py` exists to make sure that specific
+> class of bug fails a test rather than a morning.
+
+Two things worth knowing about real-data runs:
+
+- **Request shape matters more than symbol count.** `pykrx` exposes OHLCV
+  both per-symbol-all-dates and per-date-all-symbols; the Korean provider
+  picks whichever axis needs fewer requests for the window asked for
+  (`tests/data/test_kr_provider_bulk.py`). Building the universe over
+  ~2,700 listed names is ~30 requests instead of ~2,700. The US provider
+  chunks `yfinance` batch downloads so one bad chunk cannot empty the
+  whole universe.
+- **The universe is capped.** `filters.max_universe_size` in
+  `config/universe_kr.yaml` / `universe_us.yaml` keeps the most liquid N
+  names that pass every filter (400 by default), because everything
+  downstream scales with universe size. Capped names stay in the snapshot
+  marked excluded with a reason — nothing is silently dropped. Set it to
+  `0` to disable.
+
+If you hit a provider-specific bug (rate limiting, a schema change
 upstream, a timezone edge case), it will be in `data/kr_provider.py` or
 `data/us_provider.py` — the rest of the pipeline is provider-agnostic and
 already validated against the same `MarketDataProvider` interface.
@@ -271,7 +302,7 @@ Each of these is called out in its module's docstring.
 This is a personal research tool. Its output (scans, rankings, reports,
 paper trading fills) is not investment advice and is never automatically
 connected to a real brokerage order. All investment decisions and their
-consequences are the user's own responsibility. 
+consequences are the user's own responsibility.
 
 Data Validation 100% means all mandatory data-quality checks passed. It
 does not mean that future investment returns can be predicted with 100%

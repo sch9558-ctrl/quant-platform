@@ -17,9 +17,17 @@ import time
 import pandas as pd
 
 from quant.data.base import FundamentalSnapshot, MarketDataProvider, SymbolInfo
+from quant.utils.calendar import trading_days
 from quant.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+#: Upper bound on how many sessions the by-date bulk path will fetch in one
+#: call. Past this, per-symbol fetching is used instead regardless of symbol
+#: count -- a multi-year window over every listed name is a request pattern
+#: that belongs in a backfill job, not in a daily pipeline, and silently
+#: issuing thousands of requests would be worse than falling back.
+MAX_BULK_BY_DATE_SESSIONS = 900
 
 _KR_COL_MAP = {
     "시가": "open",
@@ -110,6 +118,97 @@ class KRDataProvider(MarketDataProvider):
         df.index.name = "date"
         df.index = pd.to_datetime(df.index)
         return df.sort_index()
+
+    # -- bulk fetching ---------------------------------------------------
+    #
+    # pykrx exposes the same OHLCV data along two orthogonal axes:
+    #   * `..._ohlcv_by_date(ticker)`   -> one request per SYMBOL, all dates
+    #   * `..._ohlcv_by_ticker(date)`   -> one request per DATE, all symbols
+    #
+    # `MarketDataProvider.get_ohlcv_bulk`'s default implementation only knows
+    # the first axis, so it costs one HTTP round trip per symbol. That is
+    # fine for a handful of names and badly wrong for the Korean universe:
+    # `UniverseEngine.build()` asks for price history across EVERY listed
+    # name (~2,700 KOSPI+KOSDAQ+ETF tickers) before any filter has run, so
+    # the default path issues thousands of sequential requests. In practice
+    # that means a daily run measured in hours, and a real chance KRX starts
+    # refusing requests partway through -- which would hand the Data Quality
+    # Engine a partially-populated universe and (correctly, but uselessly)
+    # trip the Fail-Closed gate every morning.
+    #
+    # Request count scales with n_symbols along one axis and n_sessions along
+    # the other, so pick whichever is smaller for the window actually asked
+    # for. For a 20-day universe screen over 2,700 names that turns ~2,700
+    # requests into ~32.
+    def get_ohlcv_bulk(self, symbols: list[str], start: str, end: str) -> dict[str, pd.DataFrame]:
+        symbols = list(dict.fromkeys(symbols))  # de-dupe, preserve order
+        if not symbols:
+            return {}
+
+        try:
+            sessions = trading_days(start, end, "korea")
+        except Exception as e:  # noqa: BLE001 -- calendar problems must not break fetching
+            logger.warning("KR trading-calendar lookup failed (%s); falling back to business days", e)
+            sessions = pd.bdate_range(pd.Timestamp(start), pd.Timestamp(end))
+
+        if len(sessions) == 0:
+            return {}
+        if len(symbols) <= len(sessions) or len(sessions) > MAX_BULK_BY_DATE_SESSIONS:
+            return super().get_ohlcv_bulk(symbols, start, end)
+        return self._bulk_by_date(symbols, sessions)
+
+    def _bulk_by_date(self, symbols: list[str], sessions: pd.DatetimeIndex) -> dict[str, pd.DataFrame]:
+        from pykrx import stock
+
+        wanted = set(symbols)
+        price_cols = ["open", "high", "low", "close", "volume"]
+        collected: list[pd.DataFrame] = []
+
+        for ts in sessions:
+            date_str = ts.strftime("%Y%m%d")
+            for label, fetch in (
+                ("equity", lambda d=date_str: stock.get_market_ohlcv_by_ticker(d, market="ALL")),
+                ("etf", lambda d=date_str: stock.get_etf_ohlcv_by_ticker(d)),
+            ):
+                try:
+                    df = fetch()
+                except Exception as e:  # noqa: BLE001 -- one bad session must not abort the window
+                    logger.warning("KR bulk %s OHLCV fetch failed for %s: %s", label, date_str, e)
+                    continue
+                finally:
+                    self._sleep()
+
+                if df is None or df.empty:
+                    continue
+                df = df.rename(columns=_KR_COL_MAP)
+                if not all(c in df.columns for c in price_cols):
+                    continue
+                sub = df.loc[df.index.isin(wanted), price_cols].copy()
+                if sub.empty:
+                    continue
+                sub["symbol"] = sub.index.astype(str)
+                sub["date"] = ts
+                collected.append(sub)
+
+        if not collected:
+            logger.warning(
+                "KR bulk by-date fetch returned nothing for %d symbols over %d sessions",
+                len(symbols), len(sessions),
+            )
+            return {}
+
+        allrows = pd.concat(collected, ignore_index=True)
+        out: dict[str, pd.DataFrame] = {}
+        for sym, group in allrows.groupby("symbol", sort=False):
+            frame = group.set_index("date")[price_cols].astype(float).sort_index()
+            # A ticker can appear on both the equity and ETF endpoints for the
+            # same session; keep one row per date rather than silently
+            # producing duplicates the `duplicates` quality check would fail on.
+            frame = frame[~frame.index.duplicated(keep="first")]
+            frame["adj_close"] = frame["close"]
+            frame.index.name = "date"
+            out[str(sym)] = frame
+        return out
 
     def get_market_cap(self, symbols: list[str], as_of: str) -> pd.Series:
         from pykrx import stock

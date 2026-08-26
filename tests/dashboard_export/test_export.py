@@ -125,6 +125,37 @@ def test_strategy_validation_status_warning_when_ranking_empty():
     assert _strategy_validation_status(fake_ok_but_empty) == "WARNING"
 
 
+@pytest.mark.parametrize("claim", ["100% 안전", "수익 보장", "원금 보장", "무조건 수익"])
+def test_korean_forbidden_phrases_are_caught(claim):
+    """The dashboard UI is Korean, so the same prohibited claim can arrive in
+    Korean. This also pins `ensure_ascii=False` in the scan: with Python's
+    default `json.dumps`, Korean text is escaped to \\uXXXX and every one of
+    these phrases would slip through a substring check unnoticed."""
+    with pytest.raises(ValueError, match="forbidden phrase"):
+        _assert_no_forbidden_phrases({"note": f"이 전략은 {claim}합니다"})
+
+
+def test_mandated_disclaimer_does_not_trip_the_guard():
+    """The disclaimer denies these claims ("...does not mean ... that loss is
+    impossible"), so it must not be mistaken for making them -- otherwise
+    every dashboard write would fail."""
+    from quant.quality.readiness import DISCLAIMER
+
+    _assert_no_forbidden_phrases({"overview": {"disclaimer": DISCLAIMER}})
+
+
+def test_guard_still_fires_when_a_claim_sits_next_to_the_disclaimer():
+    """Guards the guard: exempting the disclaimer must not create a blind spot
+    for a real claim appearing elsewhere in the same payload."""
+    from quant.quality.readiness import DISCLAIMER
+
+    with pytest.raises(ValueError, match="forbidden phrase"):
+        _assert_no_forbidden_phrases({
+            "overview": {"disclaimer": DISCLAIMER},
+            "note": "이 포트폴리오는 원금 보장됩니다",
+        })
+
+
 def test_forbidden_phrase_detection_raises():
     with pytest.raises(ValueError, match="forbidden phrase"):
         _assert_no_forbidden_phrases({"note": f"this strategy has {FORBIDDEN_PHRASES[0]}"})

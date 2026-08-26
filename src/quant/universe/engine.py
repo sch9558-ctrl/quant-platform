@@ -146,12 +146,54 @@ class UniverseEngine:
                 exclusion_reasons=reasons,
             ))
 
+        members = self._apply_size_cap(members, filt.get("max_universe_size"))
+
         snapshot = UniverseSnapshot(market=self.market, as_of=as_of_ts, members=members)
         logger.info(
             "Universe[%s] as_of=%s: %d/%d symbols included",
             self.market, as_of, len(snapshot.included_symbols()), len(members),
         )
         return snapshot
+
+    @staticmethod
+    def _apply_size_cap(members: list[UniverseMember], max_size) -> list[UniverseMember]:
+        """Bound the day's universe to the `max_size` most liquid names.
+
+        Everything downstream of the universe -- feature computation,
+        screening, and Walk-Forward evaluation of every enabled strategy --
+        scales with universe size. On real data the Korean listed universe is
+        ~2,700 names before filters, which is enough to push a daily run past
+        a CI job's time budget; the cap is what keeps the 07:00 KST pipeline
+        finishing.
+
+        Two deliberate choices here:
+
+        * Rank by **liquidity**, not by market cap or alphabetically. A name
+          that cannot absorb a personal-account order is not a usable
+          candidate however large the issuer is, so cutting on average traded
+          value keeps the part of the universe the research is actually about.
+        * Capped names stay in the snapshot marked `included=False` with an
+          explicit reason, rather than being dropped. The universe file
+          remains a complete, auditable record of what was considered and why
+          it was set aside -- silently truncating would make the snapshot lie
+          about the universe it screened.
+
+        Set `max_universe_size` to 0/null in the market's universe config to
+        disable the cap.
+        """
+        if not max_size or max_size <= 0:
+            return members
+        included = [m for m in members if m.included]
+        if len(included) <= max_size:
+            return members
+        ranked = sorted(included, key=lambda m: (m.avg_trading_value or 0.0), reverse=True)
+        for member in ranked[max_size:]:
+            member.included = False
+            member.exclusion_reasons = list(member.exclusion_reasons) + [
+                f"below_universe_size_cap(kept top {max_size} by liquidity)"
+            ]
+        logger.info("Universe size cap applied: %d -> %d symbols", len(included), max_size)
+        return members
 
     def _snapshot_dir(self, base_dir=None):
         base = base_dir or config.resolve_path(config.settings()["paths"]["data_processed"])

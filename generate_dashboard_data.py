@@ -53,13 +53,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--as-of", default=None)
     parser.add_argument("--top-n", type=int, default=20)
-    parser.add_argument("--demo", action="store_true", default=True)
+    parser.add_argument(
+        "--demo", dest="demo", action="store_true", default=True,
+        help="Use synthetic offline data (the default).",
+    )
+    parser.add_argument(
+        "--real", dest="demo", action="store_false",
+        help="Use REAL market data (pykrx / yfinance) instead of the synthetic "
+             "offline dataset. Requires network access to KRX / Yahoo Finance.",
+    )
+    parser.add_argument(
+        "--markets", nargs="+", choices=["korea", "us"], default=["korea", "us"],
+        help="Which markets to run (default: both).",
+    )
     parser.add_argument("--skip-tests", action="store_true", help="Skip the pytest sub-suites in the system-status check (faster).")
     parser.add_argument("--output-dir", default=None, help="Override site/data output directory.")
     args = parser.parse_args()
 
     as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
-    markets = ("korea", "us")
+    markets = tuple(dict.fromkeys(args.markets))
 
     print(f"Running research pipeline for as_of={as_of} ...")
     pipeline_result = run_full_pipeline(demo=args.demo, as_of=as_of, top_n=args.top_n, markets=markets)

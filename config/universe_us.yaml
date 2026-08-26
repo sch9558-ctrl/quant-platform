@@ -31,6 +31,12 @@ filters:
   exclude_trading_halt: true
   liquidity_lookback_days: 20
 
+  # See universe_kr.yaml for the rationale. The US universe starts from
+  # S&P 500 + NASDAQ-100 + liquid ETFs (~550 names), so this cap bites
+  # less than Korea's -- it is here so both markets have the same guard
+  # if `future_expansion.full_market_universe` is ever turned on.
+  max_universe_size: 400
+
 future_expansion:
   full_market_universe: false   # flip on later to expand beyond S&P500/NASDAQ100/ETFs
 

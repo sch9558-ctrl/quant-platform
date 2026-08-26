@@ -19,6 +19,15 @@ filters:
 
   liquidity_lookback_days: 20
 
+  # Cap the daily universe to the N most liquid names that pass every
+  # filter above. Everything downstream (features, screening, per-strategy
+  # Walk-Forward) scales with this, so it is what keeps the 07:00 KST run
+  # inside a CI job's time budget on real KOSPI+KOSDAQ data (~2,700 listed
+  # names before filters). Capped names stay in the universe snapshot
+  # marked excluded with a reason -- nothing is silently dropped.
+  # Set to 0 to disable the cap.
+  max_universe_size: 400
+
 etf_filters:
   min_aum_krw: 10000000000         # 100억원
   min_avg_trading_value_krw: 100000000

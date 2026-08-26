@@ -57,8 +57,13 @@ def main() -> int:
     parser.add_argument("--param-search", action="store_true",
                          help="Run the full parameter-stability grid search for every strategy (slow)")
     parser.add_argument(
-        "--demo", action="store_true", default=True,
-        help="Use synthetic offline data (default: on -- this sandbox has no network access to KRX/Yahoo).",
+        "--demo", dest="demo", action="store_true", default=True,
+        help="Use synthetic offline data (the default).",
+    )
+    parser.add_argument(
+        "--real", dest="demo", action="store_false",
+        help="Use REAL market data (pykrx / yfinance) instead of the synthetic "
+             "offline dataset. Requires network access to KRX / Yahoo Finance.",
     )
     parser.add_argument("--as-of", default=None, help="Override the as-of date (YYYY-MM-DD); default: today.")
     args = parser.parse_args()
