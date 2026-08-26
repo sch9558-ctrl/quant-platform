@@ -271,7 +271,7 @@ Each of these is called out in its module's docstring.
 This is a personal research tool. Its output (scans, rankings, reports,
 paper trading fills) is not investment advice and is never automatically
 connected to a real brokerage order. All investment decisions and their
-consequences are the user's own responsibility.
+consequences are the user's own responsibility. 
 
 Data Validation 100% means all mandatory data-quality checks passed. It
 does not mean that future investment returns can be predicted with 100%
