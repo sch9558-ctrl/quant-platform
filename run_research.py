@@ -74,8 +74,20 @@ def main() -> int:
     )
     elapsed = time.time() - t0
 
+    any_blocked = False
     for market, mr in result.markets.items():
         print(f"\n--- {market.upper()} ---")
+        if mr.blocked:
+            # Fail-Closed (spec section 2): this market's data did not pass
+            # mandatory validation today -- no scan/strategy/portfolio data
+            # exists to print, by design. The daily report/dashboard still
+            # render this clearly; this CLI must not crash trying to
+            # access attributes that are deliberately None on a block.
+            any_blocked = True
+            print("DATA VALIDATION: FAIL")
+            print(f"⛔ {mr.block_reason}")
+            print("오늘의 투자 후보 생성 중단 -- no candidates/strategies/portfolio for this market today.")
+            continue
         print(f"Universe size: {mr.scan.universe_size}  Top candidates: {len(mr.scan.top_candidates)}")
         if mr.scan.regime is not None:
             print(f"Regime: {mr.scan.regime.summary_label()}")
@@ -92,7 +104,11 @@ def main() -> int:
 
     print(f"\nReport written to: {result.report_path}")
     print(f"Total elapsed: {elapsed:.1f}s")
-    return 0
+    # Exit code reflects Fail-Closed state -- a blocked market is not a
+    # crash, but a calling script (e.g. a GitHub Actions step) should still
+    # be able to tell "some market's data failed validation today" apart
+    # from a fully clean run without parsing stdout.
+    return 1 if any_blocked else 0
 
 
 if __name__ == "__main__":
