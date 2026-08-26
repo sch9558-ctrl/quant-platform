@@ -17,6 +17,12 @@ data/db/*
 
 reports/*
 !reports/.gitkeep
+# The daily Markdown research report is a small, compact, aggregated
+# summary (no raw price data) -- the GitHub Actions daily pipeline commits
+# these so the report history is auditable in git, per the project's
+# "compact validation history/metrics only, never raw data" auto-commit
+# policy.
+!reports/*.md
 logs/*
 !logs/.gitkeep
 

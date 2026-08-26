@@ -1,0 +1,225 @@
+name: Daily Research Pipeline & Dashboard
+
+# Spec sections 24-28: the daily automation this whole project runs on.
+#
+# Two schedules, one workflow:
+#   - "0 22 * * *"  (22:00 UTC) = 07:00 KST -- the PRIMARY daily run.
+#   - "15 22 * * *" (22:15 UTC) = 07:15 KST -- a RECOVERY run that only
+#     does anything if the primary run did NOT already produce today's
+#     (Asia/Seoul calendar date) dashboard data. This makes the pair
+#     idempotent: a day's results are never generated twice, and a
+#     transient failure of the 07:00 run gets one automatic retry at
+#     07:15 rather than silently losing a day.
+#   - workflow_dispatch: manual trigger for on-demand runs (spec section 27).
+#
+# FAIL-CLOSED, BUT DASHBOARD ALWAYS DEPLOYS (spec section 28):
+# "Research 실패 != Dashboard 배포 실패" -- a data-validation failure (or
+# even a test failure) must never leave the public dashboard silently
+# stale. So every step in the `research` job after the checkout runs with
+# `continue-on-error: true` and its own captured status; the job is
+# explicitly marked failed at the end via a dedicated step if anything
+# went wrong, but the dashboard-data commit and the `deploy-pages` job
+# (which `needs: research` with `if: always()`) still run regardless.
+# GitHub still shows this workflow run red in the Actions tab when
+# something failed -- that visibility is not lost, it's just decoupled
+# from whether the public Pages site gets updated.
+#
+# SECRET SAFETY: this workflow never touches API keys/secrets (this
+# project runs against synthetic/offline demo data by default -- see
+# README.md "Running with real data" for what a real-data setup would add
+# via GitHub Secrets, never committed here). A gitleaks scan still runs
+# before the auto-commit step as a defense-in-depth guard against ever
+# accidentally committing a stray secret.
+
+on:
+  schedule:
+    - cron: "0 22 * * *"   # 07:00 KST daily (primary)
+    - cron: "15 22 * * *"  # 07:15 KST daily (idempotent recovery)
+  workflow_dispatch:
+    inputs:
+      markets:
+        description: "Markets to run (space-separated: korea us)"
+        required: false
+        default: "korea us"
+      param_search:
+        description: "Run full parameter-search Walk-Forward (slow)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  research:
+    name: Research Pipeline + Data Quality Gate + Dashboard Data
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to commit site/data/*.json + reports/*.md back to the repo
+    outputs:
+      any_failure: ${{ steps.final-status.outputs.any_failure }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Recovery-run idempotency check
+        id: check
+        run: |
+          SKIP=false
+          if [ "${{ github.event.schedule }}" = "15 22 * * *" ]; then
+            TODAY_KST=$(TZ=Asia/Seoul date +%F)
+            if [ -f site/data/dashboard.json ]; then
+              AS_OF=$(python3 -c "import json;print(json.load(open('site/data/dashboard.json')).get('as_of',''))" 2>/dev/null || echo "")
+              GENERATED_DATE=$(python3 -c "import json;print(json.load(open('site/data/dashboard.json')).get('generated_at','')[:10])" 2>/dev/null || echo "")
+              if [ "$AS_OF" = "$TODAY_KST" ] && [ "$GENERATED_DATE" = "$TODAY_KST" ]; then
+                echo "Today's ($TODAY_KST) dashboard data already exists and was generated today -- primary run already succeeded. Skipping recovery run."
+                SKIP=true
+              fi
+            fi
+          fi
+          echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
+          echo "as_of=$(TZ=Asia/Seoul date +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        if: steps.check.outputs.skip != 'true'
+        run: pip install -r requirements.txt
+
+      - name: Data Validation (validate_data.py)
+        if: steps.check.outputs.skip != 'true'
+        id: data-validation
+        continue-on-error: true
+        run: python validate_data.py --market both --as-of "${{ steps.check.outputs.as_of }}"
+
+      - name: Research Pipeline (run_research.py)
+        if: steps.check.outputs.skip != 'true'
+        id: research-pipeline
+        continue-on-error: true
+        run: |
+          python run_research.py \
+            --markets ${{ github.event.inputs.markets || 'korea us' }} \
+            --as-of "${{ steps.check.outputs.as_of }}" \
+            ${{ github.event.inputs.param_search == 'true' && '--param-search' || '' }}
+
+      - name: Paper Trading Update (run_paper.py)
+        if: steps.check.outputs.skip != 'true'
+        id: paper-trading
+        continue-on-error: true
+        run: |
+          for market in korea us; do
+            python run_paper.py --market "$market" --as-of "${{ steps.check.outputs.as_of }}" || true
+          done
+
+      - name: System Validation + Dashboard Data (generate_dashboard_data.py)
+        if: steps.check.outputs.skip != 'true'
+        id: dashboard-data
+        continue-on-error: true
+        run: python generate_dashboard_data.py --as-of "${{ steps.check.outputs.as_of }}"
+
+      - name: Upload daily-validation artifact
+        if: always() && steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-validation-${{ steps.check.outputs.as_of }}
+          path: |
+            site/data/dashboard.json
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Upload daily-research artifact
+        if: always() && steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-research-${{ steps.check.outputs.as_of }}
+          path: |
+            site/data/history.json
+            reports/*.md
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Secret scan before commit (gitleaks)
+        if: steps.check.outputs.skip != 'true'
+        id: gitleaks
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_NOTIFY_USER_LIST: ""
+
+      - name: Commit dashboard data + report (compact, no raw prices)
+        if: steps.check.outputs.skip != 'true' && steps.gitleaks.outcome == 'success'
+        run: |
+          git config user.name "quant-research-bot"
+          git config user.email "quant-research-bot@users.noreply.github.com"
+          git add site/data/dashboard.json site/data/history.json
+          git add reports/*.md 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Daily update: ${{ steps.check.outputs.as_of }} (Asia/Seoul)"
+            git push
+          fi
+
+      - name: Refuse to auto-commit if the secret scan itself failed to run cleanly
+        if: steps.check.outputs.skip != 'true' && steps.gitleaks.outcome != 'success'
+        run: |
+          echo "::error::gitleaks did not complete successfully -- refusing to auto-commit. See the 'Secret scan before commit' step output above."
+          exit 1
+
+      - name: Final job status (fail the run visibly if anything failed, without blocking dashboard deploy)
+        id: final-status
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          ANY_FAILURE=false
+          for outcome in \
+            "${{ steps.data-validation.outcome }}" \
+            "${{ steps.research-pipeline.outcome }}" \
+            "${{ steps.paper-trading.outcome }}" \
+            "${{ steps.dashboard-data.outcome }}"; do
+            if [ "$outcome" = "failure" ]; then
+              ANY_FAILURE=true
+            fi
+          done
+          echo "any_failure=$ANY_FAILURE" >> "$GITHUB_OUTPUT"
+          if [ "$ANY_FAILURE" = "true" ]; then
+            echo "::error::One or more pipeline steps failed today -- see step outcomes above. The dashboard was still generated/deployed (Research 실패 != Dashboard 배포 실패) and reflects this failure honestly."
+            exit 1
+          fi
+
+  deploy-pages:
+    name: Deploy Static Dashboard to GitHub Pages
+    needs: research
+    if: always() && needs.research.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout (latest, including today's committed dashboard data)
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site/ as the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
