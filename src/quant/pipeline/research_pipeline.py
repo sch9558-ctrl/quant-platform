@@ -50,6 +50,7 @@ from quant.quality.pipeline_gate import run_gated_scan
 from quant.ranking.scorer import extract_features, rank_strategies
 from quant.report.daily_report import generate_daily_report, save_report
 from quant.research_db.db import ResearchDB
+from quant.utils.calendar import default_as_of
 from quant.research_db.models import ExperimentRecord, current_code_version, dataset_version_tag
 from quant.risk.manager import PortfolioState, RiskManager
 from quant.scanner.scanner import ScanResult
@@ -82,6 +83,10 @@ class MarketResearchResult:
     quality_report: DataQualityReport | None = None
     blocked: bool = False
     block_reason: str | None = None
+    #: The session this market was actually analysed for. Recorded per
+    #: market because the two markets legitimately differ: at 07:00 KST the
+    #: latest closed Korean and US sessions are often different dates.
+    as_of: str | None = None
 
 
 @dataclass
@@ -211,7 +216,9 @@ def run_market_research(
     use_param_search: bool = False, lookback_years: int = DEFAULT_BACKTEST_LOOKBACK_YEARS,
     db: ResearchDB | None = None,
 ) -> MarketResearchResult:
-    as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+    # Per market: at 07:00 KST the correct Korean and US sessions are
+    # frequently different dates (see calendar.default_as_of).
+    as_of = as_of or default_as_of(market)
     provider = get_provider(market, demo=demo)
     db = db or ResearchDB()
 
@@ -233,6 +240,7 @@ def run_market_research(
             experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
             portfolio_allocation=None, risk_checks=[],
             quality_report=gated.validation.report, blocked=True, block_reason=gated.block_reason,
+            as_of=as_of,
         )
     scan = gated.scan
     symbols = [c.symbol for c in scan.all_candidates] or [c.symbol for c in scan.top_candidates]
@@ -269,6 +277,7 @@ def run_market_research(
         experiment_ids=experiment_ids, new_strategy_ids=new_ids, updated_strategy_ids=updated_ids,
         portfolio_allocation=allocation, risk_checks=risk_checks,
         quality_report=gated.validation.report, blocked=False, block_reason=None,
+        as_of=as_of,
     )
 
 
@@ -280,7 +289,9 @@ def run_full_pipeline(
     and assemble the combined Daily Research Report. This is exactly what
     `run_research.py` calls -- the single command described in the original
     spec (section 35)."""
-    as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+    # Deliberately NOT resolved here. Leaving it None lets each market
+    # resolve its own latest closed session; collapsing both markets onto
+    # one date is what made the US market permanently one session stale.
     db = ResearchDB()
 
     market_results: dict[str, MarketResearchResult] = {}
@@ -292,6 +303,12 @@ def run_full_pipeline(
 
     kr_result = market_results.get("korea")
     us_result = market_results.get("us")
+
+    # The run-level label is the newest session any market was analysed for.
+    # It is a label, not an input: each market's own `as_of` is what its
+    # numbers actually describe, and the dashboard shows both.
+    resolved = [r.as_of for r in market_results.values() if r is not None and r.as_of]
+    as_of = max(resolved) if resolved else default_as_of(markets[0] if markets else "korea")
 
     # step 10: combined report. Uses whichever market's strategy ranking is
     # best overall (concatenated) and a merged portfolio allocation isn't

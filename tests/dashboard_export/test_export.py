@@ -7,6 +7,7 @@ from quant.dashboard_export.export import (
     FORBIDDEN_PHRASES, _assert_no_forbidden_phrases, _market_section, _strategy_rows,
     _strategy_validation_status, append_history, build_dashboard_data, write_dashboard_json,
 )
+from quant.dashboard_export.publishability import NotPublishableError
 from quant.pipeline import research_pipeline
 from quant.quality.system_status import compute_system_status
 from quant.research_db.db import ResearchDB
@@ -164,7 +165,12 @@ def test_forbidden_phrase_detection_raises():
 def test_write_dashboard_json_and_append_history_idempotent(tmp_path, dashboard_data):
     data = dashboard_data
 
-    path = write_dashboard_json(data, tmp_path)
+    # This fixture is synthetic by construction, so writing it requires the
+    # explicit escape hatch -- the production default refuses, which is the
+    # whole point of the publication gate.
+    with pytest.raises(NotPublishableError):
+        write_dashboard_json(data, tmp_path)
+    path = write_dashboard_json(data, tmp_path, allow_unpublishable=True)
     assert path.exists()
     loaded = json.loads(path.read_text())
     assert loaded["as_of"] == "2022-06-01"

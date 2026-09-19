@@ -86,6 +86,93 @@ def latest_completed_session(market: str, as_of: date | datetime | str | pd.Time
     return days[-1]
 
 
+#: Local closing time per market, and how long after the close end-of-day
+#: data is realistically published. `latest_completed_session` answers "the
+#: last session on or before this DATE"; these let us answer the different
+#: question "the last session that has actually finished by this INSTANT".
+_MARKET_TZ = {"korea": "Asia/Seoul", "us": "America/New_York"}
+_MARKET_CLOSE_HOUR = {"korea": 15.5, "us": 16.0}          # local wall clock
+_DEFAULT_SETTLE_HOURS = 1.0                                # EOD publication lag
+
+
+def latest_closed_session(
+    market: str,
+    now: pd.Timestamp | str | None = None,
+    settle_hours: float = _DEFAULT_SETTLE_HOURS,
+) -> pd.Timestamp:
+    """The most recent session that has actually CLOSED as of `now`.
+
+    This differs from `latest_completed_session` in a way that matters
+    every single morning: that function takes a *date* and returns the last
+    session on or before it, which is correct when you already know which
+    calendar date you mean. But the daily pipeline runs at 07:00
+    **Asia/Seoul**, and at that instant the US session bearing today's
+    Korean date has not opened, let alone closed -- the newest US data that
+    can possibly exist is the previous US session.
+
+    Passing the Korean date straight through therefore makes the US market
+    look permanently one session stale, which (with `max_lag_sessions: 0`)
+    would Fail-Closed the US market every morning and blame the data
+    provider for it.
+
+    So this resolves the instant in the market's own timezone and drops
+    today's session if it has not yet closed (plus a small settling window
+    for end-of-day data to be published).
+    """
+    tz = _MARKET_TZ[market]
+    now_ts = pd.Timestamp.now(tz=tz) if now is None else pd.Timestamp(now)
+    if now_ts.tzinfo is None:
+        # A naive instant is interpreted as UTC rather than as local time:
+        # callers pass wall-clock "now" from a CI runner, which is UTC.
+        now_ts = now_ts.tz_localize("UTC")
+    local = now_ts.tz_convert(tz)
+
+    cutoff = _MARKET_CLOSE_HOUR[market] + settle_hours
+    local_hour = local.hour + local.minute / 60.0
+
+    candidate_date = local.normalize().tz_localize(None)
+    days = trading_days(
+        (candidate_date - pd.Timedelta(days=20)).strftime("%Y-%m-%d"),
+        candidate_date.strftime("%Y-%m-%d"),
+        market,
+    )
+    if len(days) == 0:
+        raise ValueError(f"No trading sessions found for market={market!r} near {local!r}")
+
+    # If the newest candidate is today and today's close (+ settle) has not
+    # passed yet, today's bar does not exist yet -- step back one session.
+    if days[-1].normalize() == candidate_date and local_hour < cutoff:
+        if len(days) < 2:
+            raise ValueError(f"No closed session yet for market={market!r} near {local!r}")
+        return days[-2]
+    return days[-1]
+
+
+def default_as_of(market: str, now: pd.Timestamp | str | None = None) -> str:
+    """The session the daily pipeline should analyse for this market.
+
+    Every entry point used to default to `pd.Timestamp.today()`, which is
+    wrong in two compounding ways and broke the daily run outright:
+
+    * It is the **runner's** today (UTC on CI), not the market's.
+    * More importantly, "today" is not a *finished* session. The pipeline
+      fires at 07:00 Asia/Seoul, when the Korean session bearing that date
+      has not opened (KRX opens 09:00) and the US session bearing it is
+      still 12 hours away. Asking a provider for data "as of today" at that
+      hour requests a bar that cannot exist yet, so `freshness` --
+      mandatory, `max_lag_sessions: 0` -- fails, and Fail-Closed blocks the
+      market. Every morning. With a report blaming the data provider.
+      On a weekend it is worse: the date is not a session at all, so the
+      provider is handed a date it has no data for in the first place.
+
+    Resolving per market instead of passing one date to both is not a
+    detail: at 07:00 KST the correct Korean session and the correct US
+    session are frequently different dates, and a single shared `as_of`
+    cannot be right for both.
+    """
+    return latest_closed_session(market, now=now).strftime("%Y-%m-%d")
+
+
 def expected_sessions_between(start: str, end: str, market: str) -> pd.DatetimeIndex:
     """Alias for `trading_days`, named for clarity at missing-data call
     sites: "the sessions we expect to have a row for"."""

@@ -1,0 +1,13 @@
+# This dashboard is a private personal research system.
+#
+# This file is NOT a security control and must never be treated as one --
+# it is a request that well-behaved crawlers do not index the site, and
+# nothing more. Anyone who ignores it, or who simply knows a URL, is not
+# stopped by anything written here.
+#
+# The actual access control is Cloudflare Access sitting in front of the
+# entire deployment (HTML, JS, and every file under /data/), so an
+# unauthenticated request never reaches an origin file at all. See
+# docs/SECURITY.md -> "Private dashboard hosting".
+User-agent: *
+Disallow: /

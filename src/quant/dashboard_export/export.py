@@ -40,6 +40,7 @@ import pandas as pd
 
 from quant import config
 from quant.pipeline.research_pipeline import MarketResearchResult, ResearchPipelineResult
+from quant.dashboard_export import publishability
 from quant.quality.readiness import DISCLAIMER
 from quant.quality.system_status import SystemStatus
 from quant.utils.logging import get_logger
@@ -353,10 +354,22 @@ def build_dashboard_data(
         for m in ("korea", "us")
     }
 
+    # How the data was produced has to travel WITH the payload, as a
+    # machine-readable value. Previously `demo` only reached a
+    # human-readable provenance string, so nothing downstream -- no check,
+    # no test, no dashboard -- could tell synthetic prices from real ones.
+    data_source_mode = publishability.SYNTHETIC if demo else publishability.REAL
+    publish_report = publishability.assess(
+        data_source_mode,
+        {m: pipeline_result.as_of for m in ("korea", "us")},
+    )
+
     data = {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at": generated_at or pd.Timestamp.now(tz="UTC").isoformat(),
         "as_of": pipeline_result.as_of,
+        "data_source_mode": data_source_mode,
+        "publishability": publish_report.to_dict(),
         "overview": overview,
         "data_quality": data_quality,
         "markets": market_sections,
@@ -397,6 +410,14 @@ def _history_row(data: dict) -> dict:
     return {
         "as_of": data["as_of"],
         "generated_at": data["generated_at"],
+        # Carried into history so the trend section can never present a
+        # synthetic or stale day as an ordinary passing day.
+        "data_source_mode": data.get("data_source_mode"),
+        "publishable": (data.get("publishability") or {}).get("publishable"),
+        "freshness": {
+            m: f.get("status")
+            for m, f in ((data.get("publishability") or {}).get("markets") or {}).items()
+        },
         "data_integrity": ov["data_integrity"],
         "pipeline_health": ov["pipeline_health"],
         "strategy_validation": ov["strategy_validation"],
@@ -417,11 +438,34 @@ def _history_row(data: dict) -> dict:
     }
 
 
-def write_dashboard_json(data: dict, output_dir: Path) -> Path:
+def write_dashboard_json(data: dict, output_dir: Path, *, allow_unpublishable: bool = False) -> Path:
+    """Write the production dashboard payload.
+
+    Refuses synthetic or stale data unless `allow_unpublishable=True`,
+    which exists for local development and for deliberately writing an
+    honest DATA UNAVAILABLE state -- never for production publication.
+    See `publishability` for why this gate exists.
+    """
+    report = publishability.PublishabilityReport(
+        data_source_mode=data.get("data_source_mode", publishability.SYNTHETIC),
+        markets={
+            m: publishability.MarketFreshness(**f)
+            for m, f in (data.get("publishability", {}).get("markets") or {}).items()
+        },
+        reasons=list((data.get("publishability", {}) or {}).get("reasons") or []),
+    )
+    if not allow_unpublishable:
+        publishability.assert_publishable(report)
+    elif not report.publishable:
+        logger.warning(
+            "Writing a NON-PUBLISHABLE dashboard payload (allow_unpublishable=True): %s",
+            " / ".join(report.reasons),
+        )
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / "dashboard.json"
-    path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     return path
 
 

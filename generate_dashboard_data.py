@@ -68,6 +68,11 @@ def main() -> int:
     )
     parser.add_argument("--skip-tests", action="store_true", help="Skip the pytest sub-suites in the system-status check (faster).")
     parser.add_argument("--output-dir", default=None, help="Override site/data output directory.")
+    parser.add_argument(
+        "--allow-unpublishable", action="store_true",
+        help="Write the payload even when it is synthetic or stale. For local "
+             "development only -- never for production publication.",
+    )
     args = parser.parse_args()
 
     as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
@@ -82,7 +87,25 @@ def main() -> int:
     data = build_dashboard_data(pipeline_result, status, demo=args.demo)
 
     output_dir = Path(args.output_dir) if args.output_dir else default_site_data_dir()
-    dashboard_path = write_dashboard_json(data, output_dir)
+
+    # Fail-Closed for publication. Synthetic or stale data is never written
+    # to the production data directory unless explicitly forced, because
+    # that is exactly how a four-year-old synthetic snapshot ended up on
+    # the public dashboard under a fresh `generated_at`.
+    verdict = data.get("publishability", {})
+    if not verdict.get("publishable") and not args.allow_unpublishable:
+        print("\n대시보드 데이터를 게시하지 않았습니다 (게시 불가 상태):")
+        for reason in verdict.get("reasons", []):
+            print(f"  - {reason}")
+        print(
+            "\n실제 시장 데이터로 실행하려면 --real 을 사용하세요. "
+            "합성 데이터를 의도적으로 기록하려면 --allow-unpublishable 을 사용하세요 "
+            "(운영 게시용이 아닙니다)."
+        )
+        return 2
+
+    dashboard_path = write_dashboard_json(
+        data, output_dir, allow_unpublishable=args.allow_unpublishable)
     history_path = append_history(data, output_dir)
 
     print(f"\nWrote {dashboard_path}")

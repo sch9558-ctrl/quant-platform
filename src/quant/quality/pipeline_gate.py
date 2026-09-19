@@ -19,6 +19,7 @@ from quant.quality.engine import DataQualityEngine
 from quant.quality.gate import may_proceed
 from quant.quality.models import DataQualityReport
 from quant.universe.engine import UniverseEngine, UniverseSnapshot
+from quant.utils.calendar import default_as_of
 from quant.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -43,7 +44,7 @@ def validate_market(
     use_secondary: bool = True,
     provider=None,
 ) -> MarketValidationResult:
-    as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+    as_of = as_of or default_as_of(market)
     provider = provider or get_provider(market, demo=demo)
     secondary = get_secondary_provider(market, demo=demo, primary=provider) if use_secondary else None
 
@@ -125,7 +126,7 @@ def run_gated_scan(
     from quant.scanner.scanner import DailyScanner  # local import: avoids a
     # scanner<->quality import cycle (scanner.py does not import this module).
 
-    as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+    as_of = as_of or default_as_of(market)
     validation = validate_market(
         market, demo=demo, as_of=as_of, lookback_days=lookback_days,
         use_secondary=use_secondary, provider=provider,

@@ -36,11 +36,59 @@ def test_research_job_has_minimal_write_permission_only_where_needed():
     assert research["permissions"] == {"contents": "write"}
 
 
-def test_deploy_pages_job_has_minimal_pages_permissions():
+def test_deploy_job_needs_no_pages_permissions():
+    """The dashboard is deployed to an external private host, so the
+    workflow should not be holding GitHub Pages write or id-token
+    permissions it no longer needs."""
     data = _load()
-    deploy = data["jobs"]["deploy-pages"]
-    assert deploy["permissions"] == {"contents": "read", "pages": "write", "id-token": "write"}
+    deploy = data["jobs"]["deploy"]
+    assert deploy["permissions"] == {"contents": "read"}
     assert deploy["needs"] == "research"
+    assert "pages" not in deploy["permissions"]
+    assert "id-token" not in deploy["permissions"]
+
+
+def test_no_public_github_pages_deployment_remains():
+    """Guards the private-hosting migration: a re-added public Pages deploy
+    would silently republish the research data to an unauthenticated URL."""
+    raw = WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert "actions/deploy-pages" not in raw
+    assert "actions/upload-pages-artifact" not in raw
+    assert "actions/configure-pages" not in raw
+    assert "deploy-pages:" not in raw
+
+
+def test_deploy_fails_closed_when_credentials_are_missing():
+    """An authentication problem must never be resolved by publishing the
+    dashboard somewhere public (spec section 122)."""
+    data = _load()
+    steps = data["jobs"]["deploy"]["steps"]
+    guard = next(s for s in steps if "credentials" in s.get("name", "").lower())
+    assert "exit 1" in guard["run"]
+    assert "CLOUDFLARE_API_TOKEN" in guard["run"]
+    assert "CLOUDFLARE_ACCOUNT_ID" in guard["run"]
+
+
+def test_build_is_verified_before_deployment():
+    data = _load()
+    steps = data["jobs"]["deploy"]["steps"]
+    names = [s.get("name", "") for s in steps]
+    verify_idx = next(i for i, n in enumerate(names) if "Verify dashboard build" in n)
+    deploy_idx = next(i for i, s in enumerate(steps)
+                      if "wrangler-action" in str(s.get("uses", "")))
+    assert verify_idx < deploy_idx, "the build must be verified before it is uploaded"
+    assert "verify_dashboard_build.py" in steps[verify_idx]["run"]
+
+
+def test_secrets_are_read_from_github_secrets_not_inlined():
+    raw = WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert "secrets.CLOUDFLARE_API_TOKEN" in raw
+    assert "secrets.CLOUDFLARE_ACCOUNT_ID" in raw
+    # no literal token-shaped value anywhere in the workflow
+    import re
+    assert not re.search(r"[A-Za-z0-9_\-]{40,}", raw.replace("${{ secrets.CLOUDFLARE_API_TOKEN }}", "")
+                         .replace("${{ secrets.CLOUDFLARE_ACCOUNT_ID }}", "")), \
+        "workflow contains a long literal that may be an inlined credential"
 
 
 def test_top_level_default_permission_is_read_only():
@@ -88,11 +136,11 @@ def test_commit_step_is_gated_on_gitleaks_success():
     assert "gitleaks.outcome" in commit_step["if"]
 
 
-def test_deploy_pages_uploads_the_site_directory():
+def test_deploy_uploads_the_site_directory():
     data = _load()
-    steps = data["jobs"]["deploy-pages"]["steps"]
-    upload_step = next(s for s in steps if s.get("uses", "").startswith("actions/upload-pages-artifact"))
-    assert upload_step["with"]["path"] == "site"
+    steps = data["jobs"]["deploy"]["steps"]
+    deploy_step = next(s for s in steps if "wrangler-action" in str(s.get("uses", "")))
+    assert "pages deploy site" in deploy_step["with"]["command"]
 
 
 def test_daily_artifacts_uploaded_with_expected_naming():

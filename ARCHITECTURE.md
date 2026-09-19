@@ -119,7 +119,7 @@ src/quant/
 
 site/                 # Static GitHub Pages dashboard (single self-contained index.html
                       # + data/dashboard.json + data/history.json), zero external deps
-.github/workflows/     # daily-pipeline.yml: 07:00 KST primary + 07:15 KST idempotent
+.github/workflows/     # daily.yml: 07:00 KST primary + 07:15 KST idempotent
                       # recovery run + workflow_dispatch, Fail-Closed-aware, dashboard
                       # always attempts to deploy regardless of upstream failures
 docs/                  # DATA_VALIDATION.md, INVESTMENT_GATE.md, SECURITY.md (this file
@@ -143,7 +143,7 @@ detail, including why the ladder is conservative by construction, is in
 ## Daily automation & static dashboard
 
 The daily pipeline runs entirely on GitHub Actions
-(`.github/workflows/daily-pipeline.yml`), writing its output to a static
+(`.github/workflows/daily.yml`), writing its output to a static
 site (`site/`) served by GitHub Pages — no paid backend, no server to run.
 `quant.dashboard_export.export.build_dashboard_data()` assembles one JSON
 snapshot per day plus a compact trend history; `site/index.html` is a

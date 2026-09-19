@@ -156,7 +156,7 @@ A blocked market still produces a report: the daily Markdown report
 renders a distinct "⛔ DATA VALIDATION FAILED" section (never confused
 with "스캔 결과 없음", the ordinary empty-candidates case), and the
 static dashboard still builds and deploys, showing the block clearly. See
-`.github/workflows/daily-pipeline.yml` and its inline comments for how
+`.github/workflows/daily.yml` and its inline comments for how
 this is enforced at the CI level (`continue-on-error` on every pipeline
 step, dashboard deploy job runs `if: always()`).
 
