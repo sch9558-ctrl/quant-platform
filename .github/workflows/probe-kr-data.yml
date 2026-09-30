@@ -1,0 +1,84 @@
+name: Probe — can this runner reach Korean market-data hosts?
+
+# 진단 전용. 스케줄 없음, 시크릿 없음, 저장소에 아무것도 쓰지 않는다.
+# 수동 실행(Run workflow)으로만 돈다.
+#
+# 왜 필요한가: pykrx 가 GitHub 러너에서 KRX 로부터 JSON 이 아닌 응답을
+# 받는다(2026-09-30). 원인이 "날짜가 틀려서"가 아니라는 건 확인됐다 --
+# 유효한 거래일(20260929)을 줘도 같은 응답이었다. 남은 가설은 이 러너의
+# IP 자체가 거부된다는 것이고, 그렇다면 **한국 데이터 소스를 무엇으로
+# 바꾸든 같은 벽에 부딪힌다.** 대체 소스를 고르기 전에 이 사실부터
+# 확정해야 한다.
+#
+# 이 워크플로는 인증 키를 쓰지 않는다. 잘못된 키로도 "키가 등록되지
+# 않았습니다" 같은 **애플리케이션 레벨 응답**이 오면 그 호스트는
+# 도달 가능한 것이고, 연결 자체가 끊기거나 403 이 오면 막힌 것이다.
+# 도달 가능성만 재는 것이 목적이므로 키가 필요 없다.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Reachability probe (no secrets, no writes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Where is this runner
+        run: |
+          echo "runner public IP / region:"
+          curl -sS --max-time 20 https://ipinfo.io/json || echo "(ipinfo unreachable)"
+
+      - name: Probe each candidate host
+        run: |
+          probe() {
+            local label="$1"; local url="$2"; shift 2
+            echo "──────────────────────────────────────────────"
+            echo "### $label"
+            echo "    $url"
+            # -m: total time cap. A blocked host usually hangs, so the cap is
+            # part of the measurement, not just politeness.
+            code=$(curl -sS -o /tmp/body.txt -w '%{http_code}' -m 25 "$@" "$url" 2>/tmp/err.txt) || true
+            if [ -s /tmp/err.txt ]; then
+              echo "    transport error: $(head -c 300 /tmp/err.txt)"
+            fi
+            echo "    http_code: ${code:-none}"
+            echo "    first 300 bytes of body:"
+            head -c 300 /tmp/body.txt 2>/dev/null | sed 's/^/      /'
+            echo
+            echo
+          }
+
+          # 1) 공공데이터포털 (금융위원회) -- 무료 키, 일별 전종목 시세.
+          #    잘못된 키로도 응답 본문이 오면 도달 가능한 것이다.
+          probe "data.go.kr — 주식시세정보 (getStockPriceInfo)" \
+            "https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo?serviceKey=PROBE_ONLY_NOT_A_KEY&resultType=json&numOfRows=1"
+
+          probe "data.go.kr — KRX상장종목정보 (getItemInfo_V2)" \
+            "https://apis.data.go.kr/1160100/GetKrxListedInfoService_V2/getItemInfo_V2?serviceKey=PROBE_ONLY_NOT_A_KEY&resultType=json&numOfRows=1"
+
+          # 2) KRX 공식 오픈API
+          probe "openapi.krx.co.kr (root)" "https://openapi.krx.co.kr/"
+
+          # 3) 한국투자증권 KIS -- 토큰 발급 엔드포인트.
+          #    빈 본문이면 4xx 가 정상이고, 그 4xx 가 곧 '도달 가능' 이다.
+          probe "KIS openapi (oauth2/tokenP)" \
+            "https://openapi.koreainvestment.com:9443/oauth2/tokenP" \
+            -X POST -H 'content-type: application/json' -d '{}'
+
+          # 4) pykrx 가 실제로 두드리는 곳 -- 현재 실패의 원인 확정용
+          probe "data.krx.co.kr (pykrx가 쓰는 엔드포인트)" \
+            "http://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd" \
+            -X POST -H 'user-agent: Mozilla/5.0' \
+            -d 'bld=dbms/MDC/STAT/standard/MDCSTAT01501&mktId=STK&trdDd=20260929'
+
+          # 5) FinanceDataReader 의 소스
+          probe "finance.naver.com" "https://finance.naver.com/sise/"
+
+          echo "=============================================="
+          echo "읽는 법:"
+          echo "  http_code 가 200/4xx 이고 본문이 있으면  -> 도달 가능 (키만 있으면 됨)"
+          echo "  transport error / http_code 없음          -> 이 러너에서 막힘"
