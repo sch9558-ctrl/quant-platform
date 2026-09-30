@@ -28,6 +28,7 @@ import pandas as pd  # noqa: E402
 from quant.data.factory import get_provider  # noqa: E402
 from quant.quality.pipeline_gate import run_gated_scan  # noqa: E402
 from quant.scanner.scanner import format_report  # noqa: E402
+from quant.utils.calendar import default_as_of  # noqa: E402
 
 
 def main() -> int:
@@ -46,7 +47,7 @@ def main() -> int:
     parser.add_argument("--as-of", default=None, help="Override the as-of date (YYYY-MM-DD); default: today.")
     args = parser.parse_args()
 
-    as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+    as_of = args.as_of or default_as_of(args.market)
     provider = get_provider(args.market, demo=args.demo)
     # Runs through the Fail-Closed Data Quality Engine gate first (spec
     # section 2) -- this is the same gate the research pipeline uses, so
