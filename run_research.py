@@ -68,9 +68,12 @@ def main() -> int:
     parser.add_argument("--as-of", default=None, help="Override the as-of date (YYYY-MM-DD); default: today.")
     args = parser.parse_args()
 
-    as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
-    print(f"=== Research Pipeline run: as_of={as_of} markets={args.markets} "
-          f"param_search={args.param_search} ===")
+    # None means "let each market resolve its own latest CLOSED session".
+    # See quant.utils.calendar.default_as_of for why a single shared date is
+    # wrong for two markets in different timezones.
+    as_of = args.as_of
+    print(f"=== Research Pipeline run: as_of={as_of or '자동(시장별 최신 종료 세션)'} "
+          f"markets={args.markets} param_search={args.param_search} ===")
 
     t0 = time.time()
     result = run_full_pipeline(
