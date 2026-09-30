@@ -75,10 +75,15 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+    # `as_of` stays None unless the operator overrode it, so every market
+    # resolves its own latest CLOSED session in its own timezone. Filling in
+    # today's calendar date here is the bug that Fail-Closed both markets
+    # every morning: at 07:00 Asia/Seoul that session has not happened for
+    # either market, and on a weekend it is not a session at all.
+    as_of = args.as_of
     markets = tuple(dict.fromkeys(args.markets))
 
-    print(f"Running research pipeline for as_of={as_of} ...")
+    print(f"Running research pipeline for as_of={as_of or '자동(시장별 최신 종료 세션)'} ...")
     pipeline_result = run_full_pipeline(demo=args.demo, as_of=as_of, top_n=args.top_n, markets=markets)
 
     print("Computing system status (data quality + tests + pipeline + readiness) ...")
