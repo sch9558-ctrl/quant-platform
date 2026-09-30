@@ -89,13 +89,20 @@ def main() -> int:
     parser.add_argument("--no-secondary", action="store_true", help="Skip cross-source (secondary provider) validation.")
     args = parser.parse_args()
 
-    as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
     markets = ["korea", "us"] if args.market == "both" else [args.market]
 
     all_passed = True
     for market in markets:
+        # `as_of` is deliberately resolved per market rather than once for the
+        # run. One shared calendar date cannot be correct for both: at 07:00
+        # Asia/Seoul the newest closed Korean session and the newest closed US
+        # session are routinely different dates. Passing None lets
+        # `validate_market` ask `default_as_of(market)` in that market's own
+        # timezone; hardcoding today's date here is what made `freshness`
+        # (mandatory, max_lag_sessions: 0) demand a bar that cannot exist yet
+        # and Fail-Closed both markets every morning for weeks.
         result = validate_market(
-            market, demo=args.demo, as_of=as_of, lookback_days=args.lookback_days,
+            market, demo=args.demo, as_of=args.as_of, lookback_days=args.lookback_days,
             use_secondary=not args.no_secondary,
         )
         market_passed = _print_market_report(market, result)
