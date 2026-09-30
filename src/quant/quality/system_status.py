@@ -106,9 +106,10 @@ def _run_pipeline_check(markets: list[str], demo: bool, as_of: str) -> tuple[boo
 def compute_system_status(
     markets: list[str], demo: bool = True, as_of: str | None = None, run_tests: bool = True,
 ) -> SystemStatus:
-    import pandas as pd
-    as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
-
+    # None is passed straight through so each market resolves its own latest
+    # CLOSED session. Substituting today's calendar date here would ask both
+    # markets for a session that has not finished -- the failure that
+    # Fail-Closed every morning for weeks.
     pipeline_ok, data_quality_ok, reports, crashes = _run_pipeline_check(markets, demo, as_of)
     test_output = {"pipeline_crashes": "\n".join(crashes)} if crashes else {}
 
