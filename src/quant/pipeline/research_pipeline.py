@@ -281,6 +281,16 @@ def run_market_research(
     )
 
 
+def _safe_default_as_of(market: str) -> str | None:
+    """`default_as_of` for a market that has already failed, without letting
+    a calendar problem become a second failure on top of the first."""
+    try:
+        return default_as_of(market)
+    except Exception:  # pragma: no cover - calendar data problem
+        logger.warning("Could not resolve a session date for blocked market=%s", market)
+        return None
+
+
 def run_full_pipeline(
     demo: bool = True, as_of: str | None = None, top_n: int = 20,
     use_param_search: bool = False, markets: tuple[str, ...] = ("korea", "us"),
@@ -297,9 +307,40 @@ def run_full_pipeline(
     market_results: dict[str, MarketResearchResult] = {}
     for market in markets:
         logger.info("Running research pipeline for market=%s as_of=%s", market, as_of)
-        market_results[market] = run_market_research(
-            market, demo=demo, as_of=as_of, top_n=top_n, use_param_search=use_param_search, db=db,
-        )
+        try:
+            market_results[market] = run_market_research(
+                market, demo=demo, as_of=as_of, top_n=top_n, use_param_search=use_param_search, db=db,
+            )
+        except Exception as e:
+            # One market's data source being unreachable must not take the
+            # other market down with it. KRX, for instance, does not answer
+            # GitHub's runners at all: `list_symbols` raises before the
+            # Fail-Closed gate ever gets a report to judge, and an
+            # uncaught exception here discarded a completed US run along
+            # with it.
+            #
+            # A provider outage is not a different *kind* of event from a
+            # failed quality check -- both mean "no trustworthy data for
+            # this market today" -- so it is recorded as the same blocked
+            # result, with a reason that names the cause instead of a
+            # traceback. The dashboard then renders this market as
+            # explicitly unavailable rather than silently absent.
+            logger.exception("Research pipeline could not run for market=%s", market)
+            market_results[market] = MarketResearchResult(
+                market=market, scan=None, walk_forward_results={}, ranking_df=pd.DataFrame(),
+                experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
+                portfolio_allocation=None, risk_checks=[], quality_report=None,
+                blocked=True,
+                block_reason=(
+                    f"{market} 시장 데이터를 가져오지 못해 이 시장의 분석을 중단했습니다 "
+                    f"(데이터 소스 접근 실패: {type(e).__name__}: {e}). "
+                    "후보 종목·전략 평가·모의매매는 생성되지 않았습니다."
+                ),
+                # Still record which session this market *would* have been
+                # analysed for, so a blocked market is dated like any other
+                # rather than showing up undated next to a working one.
+                as_of=as_of or _safe_default_as_of(market),
+            )
 
     kr_result = market_results.get("korea")
     us_result = market_results.get("us")
@@ -316,9 +357,15 @@ def run_full_pipeline(
     # separately in the report; a cross-market combined allocation is a
     # reasonable future extension once real capital needs to be split
     # between two brokerage accounts in two currencies).
-    combined_ranking = pd.concat(
-        [r.ranking_df for r in market_results.values() if r is not None and not r.ranking_df.empty]
-    ) if market_results else pd.DataFrame()
+    # `pd.concat([])` raises rather than returning an empty frame, and the
+    # guard used to test `market_results` -- which is non-empty even when
+    # every market inside it was blocked. So the one case this pipeline is
+    # built around, every market Fail-Closed on the same day, crashed the
+    # run-level assembly instead of producing the honest "no candidates"
+    # report it is supposed to.
+    rankings = [r.ranking_df for r in market_results.values()
+                if r is not None and not r.ranking_df.empty]
+    combined_ranking = pd.concat(rankings) if rankings else pd.DataFrame()
 
     report_text = generate_daily_report(
         as_of=as_of,
