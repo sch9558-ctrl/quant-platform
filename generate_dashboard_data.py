@@ -45,6 +45,7 @@ import pandas as pd  # noqa: E402
 from quant.dashboard_export.export import (  # noqa: E402
     append_history, build_dashboard_data, default_site_data_dir, write_dashboard_json,
 )
+from quant.dashboard_export.run_summary import write_job_summary  # noqa: E402
 from quant.pipeline.research_pipeline import run_full_pipeline  # noqa: E402
 from quant.quality.system_status import compute_system_status  # noqa: E402
 
@@ -97,6 +98,11 @@ def main() -> int:
     # to the production data directory unless explicitly forced, because
     # that is exactly how a four-year-old synthetic snapshot ended up on
     # the public dashboard under a fresh `generated_at`.
+    # Report the verdict before acting on it, so a refusal to publish is
+    # visible at a glance instead of buried in an hour's worth of log that
+    # GitHub's viewer will not scroll to.
+    write_job_summary(data)
+
     verdict = data.get("publishability", {})
     if not verdict.get("publishable") and not args.allow_unpublishable:
         print("\n대시보드 데이터를 게시하지 않았습니다 (게시 불가 상태):")
