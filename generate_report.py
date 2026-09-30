@@ -29,6 +29,7 @@ from quant.portfolio.constructor import PortfolioConstructor, PortfolioItem  # n
 from quant.quality.pipeline_gate import run_gated_scan  # noqa: E402
 from quant.report.daily_report import generate_daily_report, save_report  # noqa: E402
 from quant.research_db.db import ResearchDB  # noqa: E402
+from quant.utils.calendar import default_as_of  # noqa: E402
 
 
 def _recent_ranking(db: ResearchDB, market: str) -> pd.DataFrame:
@@ -55,8 +56,10 @@ def main() -> int:
     parser.add_argument("--as-of", default=None, help="Override the as-of date (YYYY-MM-DD); default: today.")
     args = parser.parse_args()
 
-    as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
     db = ResearchDB()
+    # Resolved per market below; the run-level label used for the report's
+    # filename and header is derived from what each market actually got.
+    resolved_as_of: dict[str, str] = {}
 
     # Every market's scan goes through the Fail-Closed Data Quality gate
     # (spec section 2) -- a market whose data failed mandatory validation
@@ -68,9 +71,18 @@ def main() -> int:
     block_reasons = {}
     for market in ("korea", "us"):
         provider = get_provider(market, demo=args.demo)
-        gated = run_gated_scan(market, provider=provider, as_of=as_of, demo=args.demo, top_n=args.top_n)
+        gated = run_gated_scan(market, provider=provider, as_of=args.as_of, demo=args.demo, top_n=args.top_n)
         scans[market] = gated.scan
         block_reasons[market] = gated.block_reason if gated.blocked else None
+        resolved_as_of[market] = gated.as_of
+
+    # The report covers two markets whose newest closed sessions can differ
+    # by a day. Labelling it with the later of the two is honest about how
+    # current the report is as a whole; each market's own section carries
+    # its own date.
+    as_of = max(resolved_as_of.values()) if resolved_as_of else (
+        args.as_of or default_as_of("korea")
+    )
 
     combined_ranking = pd.concat(
         [r for r in (_recent_ranking(db, m) for m in ("korea", "us")) if not r.empty]
