@@ -17,7 +17,7 @@ import time
 import pandas as pd
 
 from quant.data.base import FundamentalSnapshot, MarketDataProvider, SymbolInfo
-from quant.utils.calendar import trading_days
+from quant.utils.calendar import default_as_of, trading_days
 from quant.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -66,7 +66,7 @@ class KRDataProvider(MarketDataProvider):
     def list_symbols(self, as_of: str | None = None) -> list[SymbolInfo]:
         from pykrx import stock
 
-        as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+        as_of = as_of or default_as_of("korea")
         date_str = self._fmt(as_of)
         out: list[SymbolInfo] = []
 
