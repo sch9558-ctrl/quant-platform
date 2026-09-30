@@ -44,6 +44,7 @@ from quant.broker.us_paper import USPaperBroker  # noqa: E402
 from quant.data.factory import get_provider  # noqa: E402
 from quant.portfolio.constructor import PortfolioConstructor, PortfolioItem  # noqa: E402
 from quant.quality.pipeline_gate import run_gated_scan  # noqa: E402
+from quant.utils.calendar import default_as_of  # noqa: E402
 from quant.utils.logging import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
@@ -54,7 +55,7 @@ def build_broker(market: str):
 
 
 def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = None) -> None:
-    as_of = as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+    as_of = as_of or default_as_of(market)
     provider = get_provider(market, demo=demo)
     # Fail-Closed (spec section 2): a data-validation failure blocks new
     # paper-trading orders for this market/day just as it blocks strategy
