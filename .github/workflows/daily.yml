@@ -157,10 +157,33 @@ jobs:
           git add reports/*.md 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes to commit."
-          else
-            git commit -m "Daily update: ${{ steps.check.outputs.run_date }} (Asia/Seoul)"
-            git push
+            exit 0
           fi
+          git commit -m "Daily update: ${{ steps.check.outputs.run_date }} (Asia/Seoul)"
+
+          # The run takes the better part of an hour, and `master` moves
+          # while it does -- the 07:15 recovery run, a code change, or this
+          # workflow's own previous commit. A plain `git push` then loses to
+          # a fast-forward rejection and the whole run is reported as a
+          # failure even though the research succeeded. Rebase onto whatever
+          # landed and try again; this commit only ever touches generated
+          # output, so there is nothing for a rebase to conflict over.
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt) -- rebasing onto the current remote"
+            # --no-tags/--depth: the checkout is shallow, so fetch enough to rebase on.
+            git fetch origin "$GITHUB_REF_NAME" --depth=20 || git fetch origin "$GITHUB_REF_NAME"
+            if ! git rebase "origin/$GITHUB_REF_NAME"; then
+              git rebase --abort || true
+              echo "::error::Could not rebase today's generated output onto the current branch."
+              exit 1
+            fi
+          done
+          echo "::error::Still could not push after 3 attempts -- the branch is being written to faster than this run can rebase."
+          exit 1
 
       - name: Refuse to auto-commit if the secret scan itself failed to run cleanly
         if: steps.check.outputs.skip != 'true' && steps.gitleaks.outcome != 'success'
