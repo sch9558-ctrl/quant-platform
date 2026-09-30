@@ -171,3 +171,23 @@ def test_research_job_has_a_wall_clock_timeout():
     data = _load()
     timeout = data["jobs"]["research"].get("timeout-minutes")
     assert isinstance(timeout, int) and 0 < timeout <= 360
+
+
+def test_the_auto_commit_push_survives_the_branch_moving_under_it():
+    """A 55-minute run finds `master` where it left it only by luck.
+
+    On 2026-09-30 the research succeeded, the report was generated, and the
+    run was reported as a failure because a plain `git push` lost a
+    fast-forward race to a commit that landed while it worked. The commit
+    step must rebase its generated output onto whatever arrived and retry.
+    """
+    data = _load()
+    steps = data["jobs"]["research"]["steps"]
+    commit = next(s for s in steps if "Commit dashboard data" in s.get("name", ""))
+    run = commit["run"]
+    assert "rebase" in run, "a rejected push must be rebased, not surrendered to"
+    assert "git fetch" in run, "a shallow checkout cannot rebase without fetching first"
+    assert run.count("git push") >= 1
+    assert "rebase --abort" in run, (
+        "a rebase that cannot be completed must not leave the working tree mid-rebase"
+    )
