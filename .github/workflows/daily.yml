@@ -1,16 +1,26 @@
 name: Daily Research Pipeline & Dashboard
 
 # 매일 07:00 KST 자동 실행(0 22 * * * UTC) + 07:15 KST 복구 실행 + 수동 실행.
-# 복구 실행은 오늘자 대시보드 데이터가 이미 있으면 아무것도 하지 않는다.
+# 복구 실행은 오늘자 대시보드 데이터가 이미 정상적으로 만들어져 있으면
+# 아무것도 하지 않는다.
 #
 # FAIL-CLOSED, BUT DASHBOARD ALWAYS DEPLOYS:
 # 리서치가 실패해도 대시보드 배포는 막지 않는다. 모든 파이프라인 단계는
-# continue-on-error 로 돌고, deploy-pages 는 if: always() 로 실행된다.
+# continue-on-error 로 돌고, deploy 잡은 if: always() 로 실행된다.
 # 실패 자체는 마지막 단계에서 워크플로우를 빨갛게 만들어 드러낸다.
 #
 # --real: 실제 시장 데이터(pykrx / yfinance)를 쓴다. 이 옵션이 없으면
 # 모든 스크립트가 합성(가짜) 데이터로 돌아가며, 그게 이 프로젝트가
 # 실제로 겪었던 문제다 -- 진짜처럼 보이는 무작위 가격 대시보드.
+#
+# --as-of 는 의도적으로 넘기지 않는다. 3주 반 동안 매일 아침 파이프라인이
+# 죽은 원인이 바로 그것이었다. 이 워크플로우는 07:00 Asia/Seoul 에 도는데,
+# 그 시각 한국 장은 아직 열리지도 않았고(09:00 개장) 같은 날짜의 미국 장은
+# 12시간 뒤다. 주말이면 아예 거래일조차 아니다. 그런 날짜를 요구하면
+# 필수 검사인 freshness(max_lag_sessions: 0)가 존재할 수 없는 봉을 찾다가
+# 매일 두 시장을 모두 Fail-Closed 시킨다. 이제는 각 스크립트가
+# quant.utils.calendar.default_as_of() 로 **시장별로** 이미 종료된 최신
+# 세션을 스스로 고른다.
 
 on:
   schedule:
@@ -51,23 +61,26 @@ jobs:
         with:
           fetch-depth: 1
 
+      # 복구 실행(07:15)은 첫 실행이 "오늘 날짜로, 게시 가능한" 데이터를
+      # 이미 만들어 둔 경우에만 건너뛴다. 예전 버전은 as_of 만 비교해서,
+      # 첫 실행이 실패해 낡은/합성 파일이 그대로 남아 있어도 복구 실행이
+      # 스스로를 건너뛰었다 -- 복구 실행이 존재하는 이유를 정확히 무력화한 것.
       - name: Recovery-run idempotency check
         id: check
         run: |
           SKIP=false
+          RUN_DATE=$(TZ=Asia/Seoul date +%F)
           if [ "${{ github.event.schedule }}" = "15 22 * * *" ]; then
-            TODAY_KST=$(TZ=Asia/Seoul date +%F)
             if [ -f site/data/dashboard.json ]; then
-              AS_OF=$(python3 -c "import json;print(json.load(open('site/data/dashboard.json')).get('as_of',''))" 2>/dev/null || echo "")
-              GENERATED_DATE=$(python3 -c "import json;print(json.load(open('site/data/dashboard.json')).get('generated_at','')[:10])" 2>/dev/null || echo "")
-              if [ "$AS_OF" = "$TODAY_KST" ] && [ "$GENERATED_DATE" = "$TODAY_KST" ]; then
-                echo "Today's ($TODAY_KST) dashboard data already exists -- skipping recovery run."
+              FRESH=$(python3 tools/dashboard_state.py "$RUN_DATE" 2>/dev/null || echo "no")
+              if [ "$FRESH" = "yes" ]; then
+                echo "Today's ($RUN_DATE) dashboard data already exists and is publishable -- skipping recovery run."
                 SKIP=true
               fi
             fi
           fi
           echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
-          echo "as_of=$(TZ=Asia/Seoul date +%F)" >> "$GITHUB_OUTPUT"
+          echo "run_date=$RUN_DATE" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         if: steps.check.outputs.skip != 'true'
@@ -84,7 +97,7 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         id: data-validation
         continue-on-error: true
-        run: python validate_data.py --market both --real --as-of "${{ steps.check.outputs.as_of }}"
+        run: python validate_data.py --market both --real
 
       - name: Paper Trading Update (run_paper.py)
         if: steps.check.outputs.skip != 'true'
@@ -92,7 +105,7 @@ jobs:
         continue-on-error: true
         run: |
           for market in korea us; do
-            python run_paper.py --market "$market" --real --as-of "${{ steps.check.outputs.as_of }}" || true
+            python run_paper.py --market "$market" --real || true
           done
 
       # 이 단계가 전체 리서치 파이프라인(+ reports/*.md 생성)과 시스템
@@ -104,14 +117,13 @@ jobs:
         continue-on-error: true
         run: |
           python generate_dashboard_data.py --real \
-            --as-of "${{ steps.check.outputs.as_of }}" \
             --markets ${{ github.event.inputs.markets || 'korea us' }}
 
       - name: Upload daily-validation artifact
         if: always() && steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: daily-validation-${{ steps.check.outputs.as_of }}
+          name: daily-validation-${{ steps.check.outputs.run_date }}
           path: |
             site/data/dashboard.json
           retention-days: 90
@@ -121,7 +133,7 @@ jobs:
         if: always() && steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: daily-research-${{ steps.check.outputs.as_of }}
+          name: daily-research-${{ steps.check.outputs.run_date }}
           path: |
             site/data/history.json
             reports/*.md
@@ -146,7 +158,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Daily update: ${{ steps.check.outputs.as_of }} (Asia/Seoul)"
+            git commit -m "Daily update: ${{ steps.check.outputs.run_date }} (Asia/Seoul)"
             git push
           fi
 
@@ -175,30 +187,50 @@ jobs:
             exit 1
           fi
 
-  deploy-pages:
-    name: Deploy Static Dashboard to GitHub Pages
+  # 대시보드는 공개 GitHub Pages 가 아니라 Cloudflare Access 뒤의
+  # Cloudflare Pages 로 배포된다. 인증 문제를 "공개로 전환"으로 해결하는
+  # 경로는 이 워크플로우에 존재하지 않는다(spec 122).
+  deploy:
+    name: Deploy dashboard to Cloudflare Pages (private, behind Access)
     needs: research
     if: always() && needs.research.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout (latest, including today's committed dashboard data)
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      # 자격 증명이 없으면 배포는 실패로 끝난다. 절대 공개 호스트로
+      # 대체 배포하지 않는다. "오늘 대시보드가 없다"는 되돌릴 수 있고
+      # "리서치가 공개 인터넷에 올라갔다"는 되돌릴 수 없다.
+      - name: Fail closed when deployment credentials are missing
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          MISSING=""
+          if [ -z "$CF_TOKEN" ]; then MISSING="$MISSING CLOUDFLARE_API_TOKEN"; fi
+          if [ -z "$CF_ACCOUNT" ]; then MISSING="$MISSING CLOUDFLARE_ACCOUNT_ID"; fi
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing GitHub Secret(s):$MISSING -- refusing to deploy. The dashboard is never published to a public host as a fallback."
+            exit 1
+          fi
 
-      - name: Upload site/ as the Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          path: site
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      # 업로드 직전, 실제로 올라갈 디렉터리를 대상으로 검사한다.
+      # 특히 "DATA INTEGRITY PASS" 헤드라인 아래에 합성/낡은 데이터가
+      # 깔려 있는 자기모순 상태를 잡는다 -- 실제로 게시됐던 상태다.
+      - name: Verify dashboard build before publishing
+        run: python tools/verify_dashboard_build.py --site-dir site
+
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site --project-name=quant-platform --branch=main
