@@ -42,6 +42,7 @@ from quant.ranking.overfitting import assess_overfitting  # noqa: E402
 from quant.research_db.db import ResearchDB  # noqa: E402
 from quant.research_db.models import ExperimentRecord, current_code_version, dataset_version_tag  # noqa: E402
 from quant.strategy import registry  # noqa: E402
+from quant.utils.calendar import default_as_of  # noqa: E402
 from quant.validation.walk_forward import WalkForwardAnalyzer  # noqa: E402
 
 
@@ -85,7 +86,7 @@ def main() -> int:
     parser.add_argument("--as-of", default=None, help="Override the as-of date (YYYY-MM-DD); default: today.")
     args = parser.parse_args()
 
-    as_of = args.as_of or pd.Timestamp.today().strftime("%Y-%m-%d")
+    as_of = args.as_of or default_as_of(args.market)
     provider = get_provider(args.market, demo=args.demo)
 
     # Today's screened universe still goes through the Fail-Closed Data
