@@ -1,31 +1,28 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-08-26T09:01:24.023835+00:00",
-  "as_of": null,
-  "data_source_mode": "synthetic",
+  "generated_at": "2026-10-01T01:53:44.688706+00:00",
+  "as_of": "2026-09-30",
+  "data_source_mode": "real",
   "publishability": {
-    "data_source_mode": "synthetic",
-    "publishable": false,
+    "data_source_mode": "real",
+    "publishable": true,
     "markets": {
       "korea": {
         "market": "korea",
-        "expected_session": null,
-        "actual_session": null,
-        "gap_sessions": null,
-        "status": "UNKNOWN"
+        "expected_session": "2026-09-30",
+        "actual_session": "2026-09-30",
+        "gap_sessions": 0,
+        "status": "FRESH"
       },
       "us": {
         "market": "us",
-        "expected_session": null,
-        "actual_session": null,
-        "gap_sessions": null,
-        "status": "UNKNOWN"
+        "expected_session": "2026-09-30",
+        "actual_session": "2026-09-30",
+        "gap_sessions": 0,
+        "status": "FRESH"
       }
     },
-    "reasons": [
-      "아직 실제 시장 데이터로 생성된 결과가 없습니다.",
-      "매일 07:00(KST) 자동 실행이 실제 데이터를 수집·검증한 뒤 이 파일을 갱신합니다."
-    ]
+    "reasons": []
   },
   "overview": {
     "data_integrity": "FAIL",
@@ -34,37 +31,1807 @@
     "strategy_validation": "FAIL",
     "investment_readiness": "DATA_INVALID",
     "investment_readiness_reasons": [
-      "실제 시장 데이터로 검증된 결과가 없어 어떤 투자 후보도 생성하지 않았습니다."
+      "필수 데이터 검증에 실패했거나, 해결되지 않은 심각한 데이터 이상이 있습니다. 이 상태에서는 투자 후보를 생성하지 않습니다."
     ],
-    "unit_tests": "SKIPPED",
-    "integration_tests": "SKIPPED",
-    "regression_tests": "SKIPPED",
+    "unit_tests": "PASS",
+    "integration_tests": "PASS",
+    "regression_tests": "PASS",
     "disclaimer": "Data Validation 100% means all mandatory data-quality checks passed. It does not mean that future investment returns can be predicted with 100% accuracy or that loss is impossible."
   },
   "data_quality": {
     "korea": null,
-    "us": null
+    "us": {
+      "market": "us",
+      "as_of": "2026-09-30",
+      "generated_at": "2026-10-01T01:52:24.050569+00:00",
+      "n_symbols_checked": 400,
+      "data_integrity_score": 1.0,
+      "mandatory_validation_pass_rate": 0.0,
+      "overall_status": "FAIL",
+      "outlier_counts": {
+        "VALID": 221205,
+        "REVIEW": 101,
+        "QUARANTINED": 0,
+        "REJECTED": 0
+      },
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "checks": {
+        "schema": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "ohlc_integrity": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "duplicates": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "corporate_action_consistency": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "missing_sessions": {
+          "passed": false,
+          "mandatory": true,
+          "issue_count": 720
+        },
+        "freshness": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "timezone": {
+          "passed": true,
+          "mandatory": true,
+          "issue_count": 0
+        },
+        "cross_source": {
+          "passed": true,
+          "mandatory": false,
+          "issue_count": 0
+        }
+      },
+      "checks_detail": [
+        {
+          "check": "schema",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "required_columns": [
+              "symbol",
+              "market",
+              "date",
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume",
+              "currency",
+              "source",
+              "retrieved_at"
+            ],
+            "found_columns": [
+              "adj_close",
+              "close",
+              "currency",
+              "date",
+              "high",
+              "low",
+              "market",
+              "open",
+              "retrieved_at",
+              "source",
+              "symbol",
+              "volume"
+            ]
+          }
+        },
+        {
+          "check": "ohlc_integrity",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "rows_checked": 221306,
+            "violations": 0
+          }
+        },
+        {
+          "check": "duplicates",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "duplicate_rows": 0
+          }
+        },
+        {
+          "check": "corporate_action_consistency",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "splits_checked": 0
+          }
+        },
+        {
+          "check": "missing_sessions",
+          "mandatory": true,
+          "passed": false,
+          "issue_count": 720,
+          "issues": [
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "AAOX",
+              "date": "2024-07-11"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "AVS",
+              "date": "2024-07-11"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "AXTX",
+              "date": "2024-07-11"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "BAI",
+              "date": "2024-07-11"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "BEX",
+              "date": "2024-07-11"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "BMNU",
+              "date": "2024-07-11"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "CORO",
+              "date": "2024-07-11"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "DLLL",
+              "date": "2024-07-11"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "DRAM",
+              "date": "2024-07-11"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-12",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-12"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-13",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-13"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-14",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-14"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-17",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-17"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-18",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-18"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-20",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-20"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-21",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-21"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-24",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-24"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-25",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-25"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-26",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-26"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-27",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-27"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-06-28",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-06-28"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-01",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-07-01"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-02",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-07-02"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-03",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-07-03"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-05",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-07-05"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-08",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-07-08"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-09",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-07-09"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-10",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-07-10"
+            },
+            {
+              "check": "missing_sessions",
+              "severity": "FATAL",
+              "message": "No row for expected trading session 2024-07-11",
+              "market": "us",
+              "symbol": "ETH",
+              "date": "2024-07-11"
+            }
+          ],
+          "details": {
+            "total_missing_sessions": 9494,
+            "expected_sessions": 577
+          }
+        },
+        {
+          "check": "freshness",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "latest_present_date": "2026-09-30",
+            "latest_expected_session": "2026-09-30",
+            "lag_sessions": 0
+          }
+        },
+        {
+          "check": "timezone",
+          "mandatory": true,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "naive_timestamp_count": 0
+          }
+        },
+        {
+          "check": "cross_source",
+          "mandatory": false,
+          "passed": true,
+          "issue_count": 0,
+          "issues": [],
+          "details": {
+            "secondary_available": false,
+            "status": "SKIPPED"
+          }
+        }
+      ]
+    }
   },
   "markets": {
     "korea": {
       "market": "korea",
-      "label": "국내시장 (KOSPI/KOSDAQ)",
-      "status": "DATA UNAVAILABLE",
+      "label": "Korea (KOSPI/KOSDAQ)",
+      "status": "DATA VALIDATION FAILED",
       "blocked": true,
-      "block_reason": "실제 시장 데이터로 생성된 분석 결과가 아직 없습니다. 이전에 게시되어 있던 값은 개발용 합성 데이터였으므로 제거했습니다.",
+      "block_reason": "korea 시장 데이터를 가져오지 못해 이 시장의 분석을 중단했습니다 (데이터 소스 접근 실패: KeyError: '시장'). 후보 종목·전략 평가·모의매매는 생성되지 않았습니다.",
       "candidates": [],
-      "universe_size": 0,
-      "excluded_for_quality": 0
+      "universe_size": 0
     },
     "us": {
       "market": "us",
-      "label": "미국시장 (NYSE/NASDAQ/AMEX)",
-      "status": "DATA UNAVAILABLE",
+      "label": "US (NYSE/NASDAQ/AMEX)",
+      "status": "DATA VALIDATION FAILED",
       "blocked": true,
-      "block_reason": "실제 시장 데이터로 생성된 분석 결과가 아직 없습니다. 이전에 게시되어 있던 값은 개발용 합성 데이터였으므로 제거했습니다.",
+      "block_reason": "DATA VALIDATION FAILED for market=us as_of=2026-09-30: mandatory check(s) failed: ['missing_sessions']. No investment candidates will be generated from this data.",
       "candidates": [],
-      "universe_size": 0,
-      "excluded_for_quality": 0
+      "universe_size": 0
     }
   },
   "strategies": {
@@ -78,11 +1845,23 @@
   "paper_trading": {
     "korea": {
       "market": "korea",
-      "error": "unavailable"
+      "cash": 100000000.0,
+      "positions": {},
+      "n_positions": 0,
+      "equity_history_tail": [],
+      "sessions_completed": 0,
+      "sessions_required": 250,
+      "sessions_progress_label": "0/250"
     },
     "us": {
       "market": "us",
-      "error": "unavailable"
+      "cash": 100000.0,
+      "positions": {},
+      "n_positions": 0,
+      "equity_history_tail": [],
+      "sessions_completed": 0,
+      "sessions_required": 250,
+      "sessions_progress_label": "0/250"
     }
   },
   "risk": {
@@ -93,22 +1872,402 @@
     "investment_readiness": {
       "level": "DATA_INVALID",
       "reasons": [
-        "실제 시장 데이터로 검증된 결과가 없습니다."
+        "필수 데이터 검증에 실패했거나, 해결되지 않은 심각한 데이터 이상이 있습니다. 이 상태에서는 투자 후보를 생성하지 않습니다."
       ],
       "disclaimer": "Data Validation 100% means all mandatory data-quality checks passed. It does not mean that future investment returns can be predicted with 100% accuracy or that loss is impossible."
     },
     "test_buckets": {
-      "unit_tests": "SKIPPED",
-      "integration_tests": "SKIPPED",
-      "regression_tests": "SKIPPED"
+      "unit_tests": "PASS",
+      "integration_tests": "PASS",
+      "regression_tests": "PASS"
     },
     "pipeline_health": "FAIL",
-    "markets": {}
+    "markets": {
+      "korea": null,
+      "us": {
+        "market": "us",
+        "as_of": "2026-09-30",
+        "generated_at": "2026-10-01T01:52:24.050569+00:00",
+        "n_symbols_checked": 400,
+        "data_integrity_score": 1.0,
+        "mandatory_validation_pass_rate": 0.0,
+        "overall_status": "FAIL",
+        "outlier_counts": {
+          "VALID": 221205,
+          "REVIEW": 101,
+          "QUARANTINED": 0,
+          "REJECTED": 0
+        },
+        "data_version": "us_2026-09-30_v3",
+        "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+        "checks": {
+          "schema": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "ohlc_integrity": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "duplicates": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "corporate_action_consistency": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "missing_sessions": {
+            "passed": false,
+            "mandatory": true,
+            "issue_count": 720
+          },
+          "freshness": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "timezone": {
+            "passed": true,
+            "mandatory": true,
+            "issue_count": 0
+          },
+          "cross_source": {
+            "passed": true,
+            "mandatory": false,
+            "issue_count": 0
+          }
+        }
+      }
+    }
   },
-  "audit_log": [],
+  "audit_log": [
+    {
+      "timestamp": "2026-10-01T01:27:12.107528+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v1",
+      "checksum": "36fee01a1e30fc9dd0f8bfc8b51d36130e36987f07a762af39ae757f2cba0c8a",
+      "check": "schema",
+      "result": "PASS",
+      "rule": "schema",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:27:12.107697+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v1",
+      "checksum": "36fee01a1e30fc9dd0f8bfc8b51d36130e36987f07a762af39ae757f2cba0c8a",
+      "check": "ohlc_integrity",
+      "result": "FAIL",
+      "rule": "ohlc_integrity",
+      "error": "13 issue(s)",
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:27:12.107734+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v1",
+      "checksum": "36fee01a1e30fc9dd0f8bfc8b51d36130e36987f07a762af39ae757f2cba0c8a",
+      "check": "duplicates",
+      "result": "PASS",
+      "rule": "duplicates",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:27:12.107755+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v1",
+      "checksum": "36fee01a1e30fc9dd0f8bfc8b51d36130e36987f07a762af39ae757f2cba0c8a",
+      "check": "corporate_action_consistency",
+      "result": "PASS",
+      "rule": "corporate_action_consistency",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:27:12.107776+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v1",
+      "checksum": "36fee01a1e30fc9dd0f8bfc8b51d36130e36987f07a762af39ae757f2cba0c8a",
+      "check": "missing_sessions",
+      "result": "FAIL",
+      "rule": "missing_sessions",
+      "error": "740 issue(s)",
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:27:12.107796+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v1",
+      "checksum": "36fee01a1e30fc9dd0f8bfc8b51d36130e36987f07a762af39ae757f2cba0c8a",
+      "check": "freshness",
+      "result": "PASS",
+      "rule": "freshness",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:27:12.107815+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v1",
+      "checksum": "36fee01a1e30fc9dd0f8bfc8b51d36130e36987f07a762af39ae757f2cba0c8a",
+      "check": "timezone",
+      "result": "PASS",
+      "rule": "timezone",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:27:12.107835+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v1",
+      "checksum": "36fee01a1e30fc9dd0f8bfc8b51d36130e36987f07a762af39ae757f2cba0c8a",
+      "check": "cross_source",
+      "result": "PASS",
+      "rule": "cross_source",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:40:10.167152+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v2",
+      "checksum": "4e69849797e31777edb9aa30cf52c75db30b87c00139949bfb37c5d79fb279dc",
+      "check": "schema",
+      "result": "PASS",
+      "rule": "schema",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:40:10.167298+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v2",
+      "checksum": "4e69849797e31777edb9aa30cf52c75db30b87c00139949bfb37c5d79fb279dc",
+      "check": "ohlc_integrity",
+      "result": "PASS",
+      "rule": "ohlc_integrity",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:40:10.167329+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v2",
+      "checksum": "4e69849797e31777edb9aa30cf52c75db30b87c00139949bfb37c5d79fb279dc",
+      "check": "duplicates",
+      "result": "PASS",
+      "rule": "duplicates",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:40:10.167367+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v2",
+      "checksum": "4e69849797e31777edb9aa30cf52c75db30b87c00139949bfb37c5d79fb279dc",
+      "check": "corporate_action_consistency",
+      "result": "PASS",
+      "rule": "corporate_action_consistency",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:40:10.167406+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v2",
+      "checksum": "4e69849797e31777edb9aa30cf52c75db30b87c00139949bfb37c5d79fb279dc",
+      "check": "missing_sessions",
+      "result": "FAIL",
+      "rule": "missing_sessions",
+      "error": "720 issue(s)",
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:40:10.167434+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v2",
+      "checksum": "4e69849797e31777edb9aa30cf52c75db30b87c00139949bfb37c5d79fb279dc",
+      "check": "freshness",
+      "result": "PASS",
+      "rule": "freshness",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:40:10.167455+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v2",
+      "checksum": "4e69849797e31777edb9aa30cf52c75db30b87c00139949bfb37c5d79fb279dc",
+      "check": "timezone",
+      "result": "PASS",
+      "rule": "timezone",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:40:10.167475+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v2",
+      "checksum": "4e69849797e31777edb9aa30cf52c75db30b87c00139949bfb37c5d79fb279dc",
+      "check": "cross_source",
+      "result": "PASS",
+      "rule": "cross_source",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:52:24.977758+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "check": "schema",
+      "result": "PASS",
+      "rule": "schema",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:52:24.977888+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "check": "ohlc_integrity",
+      "result": "PASS",
+      "rule": "ohlc_integrity",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:52:24.977928+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "check": "duplicates",
+      "result": "PASS",
+      "rule": "duplicates",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:52:24.977950+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "check": "corporate_action_consistency",
+      "result": "PASS",
+      "rule": "corporate_action_consistency",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:52:24.977971+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "check": "missing_sessions",
+      "result": "FAIL",
+      "rule": "missing_sessions",
+      "error": "720 issue(s)",
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:52:24.977993+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "check": "freshness",
+      "result": "PASS",
+      "rule": "freshness",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:52:24.978013+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "check": "timezone",
+      "result": "PASS",
+      "rule": "timezone",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    },
+    {
+      "timestamp": "2026-10-01T01:52:24.978032+00:00",
+      "market": "us",
+      "symbol": null,
+      "source": "USDataProvider",
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "check": "cross_source",
+      "result": "PASS",
+      "rule": "cross_source",
+      "error": null,
+      "canonical_source": "USDataProvider"
+    }
+  ],
   "provenance": {
     "korea": null,
-    "us": null
+    "us": {
+      "source": "primary market data provider",
+      "data_version": "us_2026-09-30_v3",
+      "checksum": "6a91528226dfef1f3eeb0ff613cf8d5d3e0da53b65eb9a73125a274f81c96a36",
+      "validation_status": "FAIL",
+      "generated_at": "2026-10-01T01:52:24.050569+00:00"
+    }
   },
   "disclaimer": "Data Validation 100% means all mandatory data-quality checks passed. It does not mean that future investment returns can be predicted with 100% accuracy or that loss is impossible."
 }

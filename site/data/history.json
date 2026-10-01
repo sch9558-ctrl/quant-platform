@@ -1,1 +1,33 @@
-[]
+[
+  {
+    "as_of": "2026-09-30",
+    "generated_at": "2026-10-01T01:53:44.688706+00:00",
+    "data_source_mode": "real",
+    "publishable": true,
+    "freshness": {
+      "korea": "FRESH",
+      "us": "FRESH"
+    },
+    "data_integrity": "FAIL",
+    "pipeline_health": "FAIL",
+    "strategy_validation": "FAIL",
+    "investment_readiness": "DATA_INVALID",
+    "outlier_counts": {
+      "korea": null,
+      "us": {
+        "VALID": 221205,
+        "REVIEW": 101,
+        "QUARANTINED": 0,
+        "REJECTED": 0
+      }
+    },
+    "n_source_mismatch": {
+      "korea": null,
+      "us": 0
+    },
+    "historical_revisions": {
+      "korea": null,
+      "us": 0
+    }
+  }
+]

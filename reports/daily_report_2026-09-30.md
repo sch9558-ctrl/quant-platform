@@ -21,7 +21,7 @@ _전략 랭킹 결과 없음_
 
 ### ⛔ DATA VALIDATION FAILED / 오늘의 투자 후보 생성 중단
 
-> us 시장 데이터를 가져오지 못해 이 시장의 분석을 중단했습니다 (데이터 소스 접근 실패: TypeError: cannot unpack non-iterable DataQualityReport object). 후보 종목·전략 평가·모의매매는 생성되지 않았습니다.
+> DATA VALIDATION FAILED for market=us as_of=2026-09-30: mandatory check(s) failed: ['missing_sessions']. No investment candidates will be generated from this data.
 
 이 시장에 대해 오늘은 투자 후보가 생성되지 않았습니다. 이전 영업일의 결과를 오늘의 결과인 것처럼 재사용하지 않습니다.
 
