@@ -29,5 +29,31 @@
       "korea": null,
       "us": 0
     }
+  },
+  {
+    "as_of": "2026-10-01",
+    "generated_at": "2026-10-02T02:07:54.703651+00:00",
+    "data_source_mode": "real",
+    "publishable": true,
+    "freshness": {
+      "korea": "FRESH",
+      "us": "FRESH"
+    },
+    "data_integrity": "FAIL",
+    "pipeline_health": "FAIL",
+    "strategy_validation": "FAIL",
+    "investment_readiness": "DATA_INVALID",
+    "outlier_counts": {
+      "korea": null,
+      "us": null
+    },
+    "n_source_mismatch": {
+      "korea": null,
+      "us": null
+    },
+    "historical_revisions": {
+      "korea": null,
+      "us": null
+    }
   }
 ]
