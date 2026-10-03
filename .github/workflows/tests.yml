@@ -19,3 +19,19 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run full test suite
         run: python -m pytest tests -q -W ignore
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dashboard dependencies
+        run: npm install --prefix dashboard --no-audit --no-fund
+      - name: Build dashboard
+        run: npm run build --prefix dashboard
+      - name: Verify React build files
+        run: |
+          test -s site/index.html
+          grep -q 'type="module"' site/index.html
