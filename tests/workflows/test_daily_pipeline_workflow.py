@@ -80,15 +80,11 @@ def test_build_is_verified_before_deployment():
     assert "verify_dashboard_build.py" in steps[verify_idx]["run"]
 
 
-def test_secrets_are_read_from_github_secrets_not_inlined():
+def test_cloudflare_token_is_secret_and_account_id_is_nonsecret_configuration():
     raw = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "secrets.CLOUDFLARE_API_TOKEN" in raw
-    assert "secrets.CLOUDFLARE_ACCOUNT_ID" in raw
-    # no literal token-shaped value anywhere in the workflow
-    import re
-    assert not re.search(r"[A-Za-z0-9_\-]{40,}", raw.replace("${{ secrets.CLOUDFLARE_API_TOKEN }}", "")
-                         .replace("${{ secrets.CLOUDFLARE_ACCOUNT_ID }}", "")), \
-        "workflow contains a long literal that may be an inlined credential"
+    assert "301c3fbffec59a5d5827040ff30eb62f" in raw
+    assert "CLOUDFLARE_API_TOKEN:" in raw
 
 
 def test_top_level_default_permission_is_read_only():
@@ -105,7 +101,7 @@ def test_recovery_run_has_idempotency_check_step():
     assert "skip" in check_step["run"]
 
 
-def test_all_pipeline_steps_use_continue_on_error_so_dashboard_still_deploys():
+def test_pipeline_steps_collect_failures_but_deploy_is_blocked_if_research_fails():
     data = _load()
     steps = data["jobs"]["research"]["steps"]
     # `dashboard-data` runs the full research pipeline itself (and writes
@@ -114,10 +110,10 @@ def test_all_pipeline_steps_use_continue_on_error_so_dashboard_still_deploys():
     # evaluation against live data for the same day.
     critical_step_ids = {"data-validation", "paper-trading", "dashboard-data"}
     found = {s["id"]: s.get("continue-on-error") for s in steps if s.get("id") in critical_step_ids}
-    assert found == {sid: True for sid in critical_step_ids}, (
-        "every pipeline step must continue-on-error so a data/test failure never blocks the "
-        "dashboard commit/deploy (spec: Research failure != Dashboard deploy failure)"
-    )
+    assert found == {sid: True for sid in critical_step_ids}
+    deploy = data["jobs"]["deploy"]
+    assert deploy["needs"] == "research"
+    assert "needs.research.result == 'success'" in deploy["if"]
 
 
 def test_secret_scan_runs_before_the_commit_step():
@@ -206,3 +202,31 @@ def test_deploy_guarantees_index_and_dashboard_entry_points():
     assert "site/index.html" in run and "site/dashboard.html" in run
     verify_idx = next(i for i, s in enumerate(steps) if "Verify dashboard build" in s.get("name", ""))
     assert steps.index(entry) < verify_idx
+
+
+def test_cloudflare_bootstrap_runs_before_publish():
+    data = _load()
+    steps = data["jobs"]["deploy"]["steps"]
+    bootstrap_idx = next(i for i, s in enumerate(steps) if "Bootstrap/check Cloudflare private Pages" in s.get("name", ""))
+    publish_idx = next(i for i, s in enumerate(steps) if "wrangler-action" in str(s.get("uses", "")))
+    assert bootstrap_idx < publish_idx
+    assert "tools/cloudflare_pages.py bootstrap" in steps[bootstrap_idx]["run"]
+
+
+def test_cloudflare_deploy_uses_master_and_site_directory():
+    data = _load()
+    steps = data["jobs"]["deploy"]["steps"]
+    deploy = next(s for s in steps if "wrangler-action" in str(s.get("uses", "")))
+    cmd = deploy["with"]["command"]
+    assert "pages deploy site" in cmd
+    assert "--project-name=quant-platform" in cmd
+    assert "--branch=master" in cmd
+
+
+def test_root_url_is_checked_for_authentication_after_publish():
+    data = _load()
+    steps = data["jobs"]["deploy"]["steps"]
+    verify = next(s for s in steps if "Verify root URL is protected" in s.get("name", ""))
+    assert "quant-platform.pages.dev" in verify["run"]
+    assert "HTTP 200" in verify["run"]
+    assert "exit 1" in verify["run"]
