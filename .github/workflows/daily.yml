@@ -249,6 +249,9 @@ jobs:
       # 업로드 직전, 실제로 올라갈 디렉터리를 대상으로 검사한다.
       # 특히 "DATA INTEGRITY PASS" 헤드라인 아래에 합성/낡은 데이터가
       # 깔려 있는 자기모순 상태를 잡는다 -- 실제로 게시됐던 상태다.
+      - name: Install Cloudflare bootstrap dependency
+        run: python -m pip install requests
+
       - name: Ensure dashboard entry points
         run: |
           if [ -f site/dashboard.html ]; then
