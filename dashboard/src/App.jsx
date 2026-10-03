@@ -11,6 +11,15 @@ function AnalystTable({consensus}){
  const rows=consensus?.institutions||[]
  return <section className="panel"><div className="section-title"><div><span className="eyebrow">REPORT TRACKER</span><h2>증권사·IB 신뢰도</h2></div><p>3개월 평가기간이 끝난 리포트만 미적중으로 확정하며, 표본이 적으면 등급을 ‘관찰중’으로 제한합니다.</p></div><div className="table-wrap"><table><thead><tr><th>기관</th><th>전체</th><th>평가가능</th><th>평가중</th><th>적중률</th><th>표본신뢰</th><th>신뢰도</th><th>등급</th></tr></thead><tbody>{rows.length?rows.slice(0,20).map((r,i)=><tr key={i}><td>{r.institution}</td><td>{r.n_reports}</td><td>{r.n_evaluable ?? 0}</td><td>{r.n_pending_target_reports ?? 0}</td><td>{r.hit_rate==null?'평가중':Math.round(r.hit_rate*100)+'%'}</td><td>{Math.round((r.sample_confidence||0)*100)}%</td><td>{r.credibility_score}</td><td><b>{r.tier}</b></td></tr>):<tr><td colSpan="8" className="muted">과거 리포트 메타데이터가 쌓이면 자동으로 순위가 표시됩니다.</td></tr>}</tbody></table></div></section>
 }
+function InstitutionalDiagnostics({data,market}){
+ const p=data?.portfolio?.[market]||{}
+ const strategies=data?.strategies?.[market]||[]
+ const top=strategies[0]
+ const method=(p.notes||[]).find(x=>String(x).startsWith('institutional allocator:'))||'기관형 포트폴리오 미사용'
+ const methodKo=method.includes('black_litterman')?'Black-Litterman':method.includes('hrp')?'HRP':method.includes('legacy')?'기존 제약형':'확인 필요'
+ const dsr=top?.deflated_sharpe_probability
+ return <section className="market-summary"><div><span>포트폴리오 엔진</span><b>{methodKo}</b></div><div><span>현금 비중</span><b>{p.cash_weight==null?'—':(Number(p.cash_weight)*100).toFixed(1)+'%'}</b></div><div><span>상위 전략 DSR</span><b>{dsr==null?'평가대기':(Number(dsr)*100).toFixed(1)+'%'}</b></div><div><span>전략 승인</span><b>{top?.meets_minimum_requirements===true?'통과':top?.meets_minimum_requirements===false?'보류':'—'}</b></div></section>
+}
 function SourceStatus({consensus}){
  const rows=consensus?.source_status||[]
  return <section className="panel source-panel"><div className="section-title"><div><span className="eyebrow">SOURCE COVERAGE</span><h2>리포트 수집 상태</h2></div><p>‘모든 보고서’ 커버리지를 가장해 표시하지 않고 실제 수집 소스와 건수를 공개합니다.</p></div><div className="source-grid">{rows.length?rows.map((r,i)=><div className={'source-card '+(r.ok?'ok':'bad')} key={i}><span>{SOURCE_NAME[r.source]||r.source}</span><b>{r.ok?'연결됨':'수집 실패'}</b><strong>{r.records||0}건</strong>{r.error&&<small>{r.error}</small>}</div>):<div className="muted">이번 실행의 소스 상태 정보가 없습니다.</div>}</div><p className="source-note">개별 애널리스트 이름·과거 전수 리포트는 무료 공개 소스만으로 완전하지 않을 수 있습니다. 보유/라이선스 CSV를 추가하면 동일 검증 엔진으로 합산합니다.</p></section>
@@ -36,6 +45,7 @@ export default function App(){
    <div className="market-toolbar"><nav className="market-tabs">{Object.entries(MARKET).map(([k,v])=><button key={k} className={market===k?'active':''} onClick={()=>setMarket(k)}>{v}</button>)}</nav>{market==='us'&&<div className="fx-toggle"><button disabled={!fxRate} className={convertUsd?'active':''} onClick={()=>fxRate&&setConvertUsd(v=>!v)}>{convertUsd?'원화 환산 ON':'USD 표시'}</button><span>{fxRate?('USD/KRW '+Number(fxRate).toLocaleString('ko-KR')+' · '+(fx?.quote_date||'')):'환율 미수집'}</span></div>}</div>
    {section?.blocked ? <section className="blocked"><h2>⛔ {MARKET[market]} 데이터 검증 실패</h2><p>{section.block_reason}</p><p>검증되지 않은 전일 후보를 오늘 후보처럼 재사용하지 않습니다.</p></section> :
    <><section className="market-summary"><div><span>시장 국면</span><b>{section?.regime?.summary||'—'}</b></div><div><span>분석 유니버스</span><b>{section?.universe_size||0}종목</b></div><div><span>오늘 후보</span><b>{cards.length}종목</b></div><div><span>데이터 상태</span><b>{koStatus(data?.data_quality?.[market]?.overall_status)}</b></div></section><section className="cards">{cards.length?cards.map(c=><ActionableTradeCard key={c.symbol} candidate={c} market={market} consensus={cmap[market+':'+c.symbol]} fxRate={fxRate} convertUsd={convertUsd}/>):<div className="empty">조건을 통과한 후보가 없습니다.</div>}</section></>}
+   <InstitutionalDiagnostics data={data} market={market}/>
    <InstitutionalTerminal signals={actionable?.signals||[]} market={market} fxRate={fxRate} convertUsd={convertUsd}/>
    <AnalystTable consensus={consensus}/>
    <SourceStatus consensus={consensus}/>
