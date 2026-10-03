@@ -93,3 +93,40 @@ def test_missing_service_key_fails_closed(tmp_path,monkeypatch):
     monkeypatch.delenv("DATA_GO_KR_SERVICE_KEY",raising=False)
     p=DataGoKrProvider(service_key="",cache_dir=tmp_path,request_sleep_sec=0)
     with pytest.raises(RuntimeError,match="DATA_GO_KR_SERVICE_KEY"): p.fetch_daily_snapshot("20261001")
+
+
+def test_publication_lag_uses_exact_pykrx_fallback(tmp_path, monkeypatch):
+    p = DataGoKrProvider(service_key="key", cache_dir=tmp_path, request_sleep_sec=0)
+    monkeypatch.setattr(
+        p, "_request_daily_snapshot",
+        lambda d: (_ for _ in ()).throw(
+            RuntimeError(f"data.go.kr returned no rows for basDt={d}")
+        ),
+    )
+    fallback = pd.DataFrame({
+        "date": [pd.Timestamp("2026-10-02")],
+        "ticker": ["005930"],
+        "name": ["005930"],
+        "exchange": ["KOSPI"],
+        "open": [100.0], "high": [105.0], "low": [99.0], "close": [104.0],
+        "volume": [1000.0], "turnover": [104000.0],
+        "market_cap": [1e9], "change_pct": [1.0],
+    })
+    monkeypatch.setattr(p, "_pykrx_exact_snapshot", lambda d: fallback.copy())
+    out = p.fetch_daily_snapshot("2026-10-02")
+    assert out["date"].max() == pd.Timestamp("2026-10-02")
+    assert out.loc[0, "ticker"] == "005930"
+
+
+def test_contract_error_does_not_fallback_to_pykrx(tmp_path, monkeypatch):
+    p = DataGoKrProvider(service_key="key", cache_dir=tmp_path, request_sleep_sec=0)
+    monkeypatch.setattr(
+        p, "_request_daily_snapshot",
+        lambda d: (_ for _ in ()).throw(RuntimeError("response contract changed")),
+    )
+    monkeypatch.setattr(
+        p, "_pykrx_exact_snapshot",
+        lambda d: pytest.fail("contract drift must fail closed"),
+    )
+    with pytest.raises(RuntimeError, match="contract changed"):
+        p.fetch_daily_snapshot("2026-10-02")

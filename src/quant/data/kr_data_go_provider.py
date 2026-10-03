@@ -155,6 +155,89 @@ class DataGoKrProvider(KRDataProvider):
             + " | ".join(failures)
         )
 
+
+    def _pykrx_exact_snapshot(self, clean_date: str) -> pd.DataFrame:
+        """Fallback exact-session snapshot from KRX via pykrx.
+
+        This fallback is used only when data.go.kr explicitly has *no rows*
+        for an otherwise valid trading date. It never changes the requested
+        date and therefore cannot disguise a stale bar as current.
+        """
+        from pykrx import stock
+
+        frames = []
+        for market_name in ("KOSPI", "KOSDAQ"):
+            try:
+                raw = stock.get_market_ohlcv_by_ticker(clean_date, market=market_name)
+            except Exception as exc:
+                logger.warning(
+                    "pykrx exact %s snapshot failed for %s: %s",
+                    market_name, clean_date, exc,
+                )
+                continue
+            finally:
+                self._sleep()
+            if raw is None or raw.empty:
+                continue
+
+            renamed = raw.rename(columns={
+                "시가": "open", "고가": "high", "저가": "low", "종가": "close",
+                "거래량": "volume", "거래대금": "turnover", "등락률": "change_pct",
+            }).copy()
+            required = {"open", "high", "low", "close", "volume"}
+            if not required.issubset(renamed.columns):
+                continue
+
+            market_cap = None
+            try:
+                caps = stock.get_market_cap_by_ticker(clean_date, market=market_name)
+                if caps is not None and not caps.empty and "시가총액" in caps.columns:
+                    market_cap = pd.to_numeric(caps["시가총액"], errors="coerce")
+            except Exception as exc:
+                logger.warning(
+                    "pykrx exact %s market-cap fetch failed for %s: %s",
+                    market_name, clean_date, exc,
+                )
+            finally:
+                self._sleep()
+
+            frame = pd.DataFrame({
+                "date": pd.Timestamp(clean_date),
+                "ticker": renamed.index.astype(str).str.zfill(6),
+                # Metadata names are deliberately not invented here.
+                # list_symbols() uses the separately backfilled data.go snapshot.
+                "name": renamed.index.astype(str).str.zfill(6),
+                "exchange": market_name,
+                "open": pd.to_numeric(renamed["open"], errors="coerce").values,
+                "high": pd.to_numeric(renamed["high"], errors="coerce").values,
+                "low": pd.to_numeric(renamed["low"], errors="coerce").values,
+                "close": pd.to_numeric(renamed["close"], errors="coerce").values,
+                "volume": pd.to_numeric(renamed["volume"], errors="coerce").values,
+                "turnover": pd.to_numeric(
+                    renamed.get("turnover", pd.Series(index=renamed.index, dtype=float)),
+                    errors="coerce",
+                ).values,
+                "market_cap": (
+                    market_cap.reindex(renamed.index).values
+                    if market_cap is not None
+                    else float("nan")
+                ),
+                "change_pct": pd.to_numeric(
+                    renamed.get("change_pct", pd.Series(index=renamed.index, dtype=float)),
+                    errors="coerce",
+                ).values,
+            })
+            frames.append(frame)
+
+        if not frames:
+            return pd.DataFrame(columns=list(COLUMN_MAP.values()))
+        out = pd.concat(frames, ignore_index=True)
+        return (
+            out.drop_duplicates(subset=["date", "ticker"], keep="last")
+            .sort_values("ticker")
+            .reset_index(drop=True)
+        )
+
     def fetch_daily_snapshot(self, date_str: str | pd.Timestamp) -> pd.DataFrame:
         """Fetch the exact requested trading date; never relabel stale data."""
         clean_date = self._fmt(date_str)
@@ -166,7 +249,28 @@ class DataGoKrProvider(KRDataProvider):
                 "DATA_GO_KR_SERVICE_KEY is not set; refusing to fabricate or "
                 "silently substitute the primary Korean daily snapshot."
             )
-        df = self._request_daily_snapshot(clean_date)
+        try:
+            df = self._request_daily_snapshot(clean_date)
+        except RuntimeError as exc:
+            message = str(exc)
+            publication_lag = (
+                "returned no rows for basDt=" in message
+                or "returned no KOSPI/KOSDAQ rows" in message
+            )
+            if not publication_lag:
+                raise
+            logger.warning(
+                "data.go.kr has not published %s yet; trying exact-session pykrx fallback",
+                clean_date,
+            )
+            df = self._pykrx_exact_snapshot(clean_date)
+            if df.empty:
+                raise
+            actual = pd.Timestamp(df["date"].max()).strftime("%Y%m%d")
+            if actual != clean_date:
+                raise RuntimeError(
+                    f"pykrx fallback returned {actual}, expected exact session {clean_date}"
+                ) from exc
         self._write_snapshot_cache(clean_date, df)
         return df
 
@@ -190,7 +294,9 @@ class DataGoKrProvider(KRDataProvider):
         failures: list[str] = []
         for ts in reversed(sessions[-(max_backtrack_sessions + 1):]):
             try:
-                df = self.fetch_daily_snapshot(ts)
+                # Metadata availability follows data.go publication, not the
+                # pykrx price fallback. This preserves the true metadata date.
+                df = self._request_daily_snapshot(self._fmt(ts))
                 actual = pd.Timestamp(df["date"].max()).strftime("%Y-%m-%d")
                 if actual != end.strftime("%Y-%m-%d"):
                     logger.warning(
