@@ -233,6 +233,8 @@ def run_market_research(
     # DATA VALIDATION FAILED state instead of candidates ("Research 실패 !=
     # Dashboard 배포 실패").
     gated = run_gated_scan(market, provider=provider, as_of=as_of, demo=demo, top_n=top_n)
+    # From here on every calculation/report is dated to the bars actually used.
+    as_of = gated.as_of
     if gated.blocked:
         logger.error("Research pipeline BLOCKED for market=%s as_of=%s: %s", market, as_of, gated.block_reason)
         return MarketResearchResult(
