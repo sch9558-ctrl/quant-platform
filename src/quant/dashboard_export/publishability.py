@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from quant import config
 from quant.utils.calendar import latest_closed_session, trading_days
 from quant.utils.logging import get_logger
 
@@ -53,6 +54,7 @@ REAL = "real"
 SYNTHETIC = "synthetic"
 
 FRESH = "FRESH"
+DELAYED_ACCEPTABLE = "DELAYED_ACCEPTABLE"
 STALE = "STALE"
 UNKNOWN = "UNKNOWN"
 
@@ -97,7 +99,10 @@ class PublishabilityReport:
 
     @property
     def all_fresh(self) -> bool:
-        return bool(self.markets) and all(m.status == FRESH for m in self.markets.values())
+        return bool(self.markets) and all(
+            m.status in {FRESH, DELAYED_ACCEPTABLE}
+            for m in self.markets.values()
+        )
 
     @property
     def publishable(self) -> bool:
@@ -146,7 +151,15 @@ def assess_market_freshness(
     if actual > expected:
         status = UNKNOWN
     else:
-        status = FRESH if gap == 0 else STALE
+        lag_cfg = config.quality_config().get("freshness", {}).get(
+            "provider_delay_max_lag_sessions", {}
+        )
+        allowed_lag = int(lag_cfg.get(market, 0) or 0)
+        status = (
+            FRESH if gap == 0
+            else DELAYED_ACCEPTABLE if 0 < gap <= allowed_lag
+            else STALE
+        )
     return MarketFreshness(
         market=market,
         expected_session=expected.strftime("%Y-%m-%d"),
@@ -177,7 +190,14 @@ def assess(
         )
     for market, fresh in report.markets.items():
         label = {"korea": "국내시장", "us": "미국시장"}.get(market, market)
-        if fresh.status == STALE:
+        if fresh.status == DELAYED_ACCEPTABLE:
+            report.reasons.append(
+                f"{label}은 공급자 게시 지연으로 최신 완료 세션보다 "
+                f"{fresh.gap_sessions}거래일 늦은 데이터를 사용합니다. "
+                f"예상 최신 거래일: {fresh.expected_session} / "
+                f"실제 분석 거래일: {fresh.actual_session}."
+            )
+        elif fresh.status == STALE:
             report.reasons.append(
                 f"{label} 데이터가 최신 거래일까지 갱신되지 않았습니다. "
                 f"예상 최신 거래일: {fresh.expected_session} / "
