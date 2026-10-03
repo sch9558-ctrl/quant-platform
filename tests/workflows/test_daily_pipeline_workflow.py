@@ -85,6 +85,8 @@ def test_cloudflare_secret_names_support_canonical_and_legacy_aliases():
     raw = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "secrets.CLOUDFLARE_API_TOKEN" in raw
     assert "secrets.CF_API_TOKEN" in raw
+    assert "secrets.CLOUDFLARE_ACCESS_API_TOKEN" in raw
+    assert "secrets.CF_ACCESS_API_TOKEN" in raw
     assert "secrets.CLOUDFLARE_ACCOUNT_ID" in raw
     assert "secrets.CF_ACCOUNT_ID" in raw
     assert "301c3fbffec59a5d5827040ff30eb62f" in raw
@@ -253,3 +255,12 @@ def test_cloudflare_action_uses_resolved_env_credentials():
     publish = next(s for s in steps if "wrangler-action" in str(s.get("uses", "")))
     assert publish["with"]["apiToken"] == "${{ env.CLOUDFLARE_API_TOKEN }}"
     assert publish["with"]["accountId"] == "${{ env.CLOUDFLARE_ACCOUNT_ID }}"
+
+
+def test_daily_cloudflare_access_preflight_gates_publish():
+    data = _load()
+    steps = data["jobs"]["deploy"]["steps"]
+    preflight = next(s for s in steps if s.get("id") == "cf-preflight")
+    assert "cloudflare_pages.py preflight" in preflight["run"]
+    publish = next(s for s in steps if "wrangler-action" in str(s.get("uses", "")))
+    assert "cf-preflight.outputs.ready == 'true'" in publish["if"]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from tools.cloudflare_pages import (
+    AccessPermissionError,
     CloudflareError,
     _app_matches,
     _assert_no_broad_policy,
@@ -77,3 +78,9 @@ def test_project_create_error_stays_fatal_when_project_still_missing():
 
     with pytest.raises(CloudflareError, match="forbidden"):
         ensure_project(FailingClient(), "quant-platform")
+
+
+def test_access_permission_error_is_distinct():
+    err = AccessPermissionError("missing", status=403)
+    assert isinstance(err, CloudflareError)
+    assert err.status == 403

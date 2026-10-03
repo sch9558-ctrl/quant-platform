@@ -29,6 +29,10 @@ class CloudflareError(RuntimeError):
         self.status = status
 
 
+class AccessPermissionError(CloudflareError):
+    """The configured token cannot inspect/manage Cloudflare Access."""
+
+
 @dataclass
 class Client:
     account_id: str
@@ -125,11 +129,11 @@ def probe_access_permissions(client: Client) -> tuple[list[dict[str, Any]], list
         idps = client.idps()
     except CloudflareError as exc:
         if exc.status in (401, 403):
-            raise CloudflareError(
-                "CLOUDFLARE_API_TOKEN can deploy Pages but cannot manage/inspect Access. "
-                "Add token permissions 'Access: Apps and Policies Write' and "
-                "'Access: Organizations, Identity Providers, and Groups Write'. "
-                "No Pages project was created by this bootstrap."
+            raise AccessPermissionError(
+                "Cloudflare Access management is not authorized by the configured token. "
+                "Set CLOUDFLARE_ACCESS_API_TOKEN (or grant the existing token Access "
+                "Apps/Policies and Identity Providers write permissions). No Pages "
+                "project was created and no public fallback was attempted."
             ) from exc
         raise
     return apps, idps
@@ -232,59 +236,84 @@ def ensure_owner_policy(client: Client, app: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def check_ready(client: Client, project: str, hostname: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    project_obj = client.request(
+def check_ready(
+    pages_client: Client,
+    access_client: Client,
+    project: str,
+    hostname: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    project_obj = pages_client.request(
         "GET",
-        f"/accounts/{client.account_id}/pages/projects/{project}",
+        f"/accounts/{pages_client.account_id}/pages/projects/{project}",
         allow_404=True,
     )
     if not project_obj:
         raise CloudflareError(f"Cloudflare Pages project {project!r} does not exist.")
-    apps = client.apps()
+    apps = access_client.apps()
     app = find_app(apps, hostname)
     if not app:
         raise CloudflareError(f"No Cloudflare Access application protects {hostname}.")
-    current = policies(client, app["id"])
-    _assert_no_broad_policy(current, client.account_id)
-    if not any(_policy_is_strict_owner_policy(p, client.account_id) for p in current):
+    current = policies(access_client, app["id"])
+    _assert_no_broad_policy(current, access_client.account_id)
+    if not any(
+        _policy_is_strict_owner_policy(p, access_client.account_id)
+        for p in current
+    ):
         raise CloudflareError(
             f"{hostname} has no strict Cloudflare-account-member allow policy."
         )
     return project_obj, app
 
 
-def bootstrap(client: Client, project: str, hostname: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    # Permission probe deliberately runs before project creation: if the token
-    # is Pages-only, there is no chance of accidentally making a public site.
-    apps, idps = probe_access_permissions(client)
-    idp = ensure_cloudflare_idp(client, idps)
-    ensure_project(client, project)
-    # Re-list in case Pages/Zero Trust created metadata while the project was made.
-    apps = client.apps()
-    app = ensure_access_app(client, apps, idp, hostname)
-    ensure_owner_policy(client, app)
-    return check_ready(client, project, hostname)
+def bootstrap(
+    pages_client: Client,
+    access_client: Client,
+    project: str,
+    hostname: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    # Access capability is proved before Pages creation, so a Pages-only token
+    # can never accidentally create an unauthenticated public dashboard.
+    apps, idps = probe_access_permissions(access_client)
+    idp = ensure_cloudflare_idp(access_client, idps)
+    ensure_project(pages_client, project)
+    apps = access_client.apps()
+    app = ensure_access_app(access_client, apps, idp, hostname)
+    ensure_owner_policy(access_client, app)
+    return check_ready(pages_client, access_client, project, hostname)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("bootstrap", "check"))
+    parser.add_argument("mode", choices=("preflight", "bootstrap", "check"))
     parser.add_argument("--project", default=DEFAULT_PROJECT)
     parser.add_argument("--hostname", default=DEFAULT_HOSTNAME)
     args = parser.parse_args()
 
     account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
-    token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
-    if not account_id or not token:
+    pages_token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
+    access_token = os.getenv("CLOUDFLARE_ACCESS_API_TOKEN", "").strip() or pages_token
+    if not account_id or not pages_token:
         print("Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN", file=sys.stderr)
         return 2
 
-    client = Client(account_id=account_id, token=token)
+    pages_client = Client(account_id=account_id, token=pages_token)
+    access_client = Client(account_id=account_id, token=access_token)
     try:
+        if args.mode == "preflight":
+            probe_access_permissions(access_client)
+            print("Cloudflare Access capability ready.")
+            return 0
         if args.mode == "bootstrap":
-            project, app = bootstrap(client, args.project, args.hostname)
+            project, app = bootstrap(
+                pages_client, access_client, args.project, args.hostname
+            )
         else:
-            project, app = check_ready(client, args.project, args.hostname)
+            project, app = check_ready(
+                pages_client, access_client, args.project, args.hostname
+            )
+    except AccessPermissionError as exc:
+        print(f"ACCESS_PERMISSION_MISSING: {exc}", file=sys.stderr)
+        return 3
     except CloudflareError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

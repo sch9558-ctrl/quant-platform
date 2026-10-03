@@ -13,6 +13,7 @@ permissions:
 
 env:
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
+  CLOUDFLARE_ACCESS_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_API_TOKEN || secrets.CF_ACCESS_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || '301c3fbffec59a5d5827040ff30eb62f' }}
   CLOUDFLARE_PROJECT_NAME: "quant-platform"
   CLOUDFLARE_PAGES_HOSTNAME: "quant-platform.pages.dev"
@@ -61,10 +62,30 @@ jobs:
       - name: Verify dashboard build
         run: python tools/verify_dashboard_build.py --site-dir site
 
+      - name: Cloudflare private deployment preflight
+        id: cf-preflight
+        run: |
+          set +e
+          python tools/cloudflare_pages.py preflight
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$rc" -eq 3 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Cloudflare Access permission is not configured; private dashboard deployment is safely skipped."
+            exit 0
+          fi
+          exit "$rc"
+
       - name: Bootstrap Pages project and private Access policy
         run: python tools/cloudflare_pages.py bootstrap
+        if: steps.cf-preflight.outputs.ready == 'true'
 
       - name: Publish to Cloudflare Pages
+        if: steps.cf-preflight.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ env.CLOUDFLARE_API_TOKEN }}
@@ -72,6 +93,7 @@ jobs:
           command: pages deploy site --project-name=quant-platform --branch=master --commit-dirty=true
 
       - name: Verify root URL is protected, not public
+        if: steps.cf-preflight.outputs.ready == 'true'
         run: |
           code=$(curl -sS -o /dev/null -w "%{http_code}" "https://$CLOUDFLARE_PAGES_HOSTNAME/")
           echo "Unauthenticated root HTTP status: $code"
@@ -86,3 +108,10 @@ jobs:
               exit 1
               ;;
           esac
+
+      - name: Record safe deployment skip
+        if: steps.cf-preflight.outputs.ready != 'true'
+        run: |
+          echo "## Private dashboard deployment skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "Cloudflare Pages was not published because Access management permission is not configured." >> "$GITHUB_STEP_SUMMARY"
+          echo "Add CLOUDFLARE_ACCESS_API_TOKEN (or CF_ACCESS_API_TOKEN) with Access management scope to enable private deployment." >> "$GITHUB_STEP_SUMMARY"

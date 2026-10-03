@@ -12,6 +12,8 @@ def test_secret_fallbacks_are_present():
     raw = PATH.read_text(encoding="utf-8")
     assert "secrets.CLOUDFLARE_API_TOKEN" in raw
     assert "secrets.CF_API_TOKEN" in raw
+    assert "secrets.CLOUDFLARE_ACCESS_API_TOKEN" in raw
+    assert "secrets.CF_ACCESS_API_TOKEN" in raw
     assert "secrets.CLOUDFLARE_ACCOUNT_ID" in raw
     assert "secrets.CF_ACCOUNT_ID" in raw
 
@@ -40,3 +42,17 @@ def test_public_github_pages_fallback_is_absent():
     raw = PATH.read_text(encoding="utf-8")
     assert "actions/deploy-pages" not in raw
     assert "github.io" not in raw
+
+
+def test_access_preflight_safely_gates_private_publish():
+    data = _load()
+    steps = data["jobs"]["deploy"]["steps"]
+    preflight = next(s for s in steps if s.get("id") == "cf-preflight")
+    assert "cloudflare_pages.py preflight" in preflight["run"]
+    assert '"ready=false"' in preflight["run"]
+    publish = next(s for s in steps if "wrangler-action" in str(s.get("uses", "")))
+    verify = next(s for s in steps if "Verify root URL is protected" in s.get("name", ""))
+    assert "cf-preflight.outputs.ready == 'true'" in publish["if"]
+    assert "cf-preflight.outputs.ready == 'true'" in verify["if"]
+    skip = next(s for s in steps if s.get("name") == "Record safe deployment skip")
+    assert "CLOUDFLARE_ACCESS_API_TOKEN" in skip["run"]
