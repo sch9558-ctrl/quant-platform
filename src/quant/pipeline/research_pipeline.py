@@ -56,6 +56,7 @@ from quant.research_db.db import ResearchDB
 from quant.utils.calendar import default_as_of
 from quant.research_db.models import ExperimentRecord, current_code_version, dataset_version_tag
 from quant.risk.manager import PortfolioState, RiskManager
+from quant.risk.filing_filter import FilingRiskService
 from quant.scanner.scanner import ScanResult
 from quant.strategy import registry
 from quant.utils.logging import get_logger
@@ -225,6 +226,7 @@ def run_market_research(
     as_of = as_of or default_as_of(market)
     provider = get_provider(market, demo=demo)
     db = db or ResearchDB()
+    filing_service = None if demo else FilingRiskService()
 
     # step 1 (Fail-Closed gate) + steps 2-5: Data Quality Engine -> universe
     # -> features -> regime -> screening, via the same DailyScanner used by
@@ -323,11 +325,31 @@ def run_market_research(
             "composite_score": candidate.composite_score,
             "trade_plan": build_trade_plan(candidate),
         }
-        institutional_overlays[candidate.symbol] = evaluate_candidate(
+        filing_result = (
+            filing_service.fetch(market, candidate.symbol, as_of=as_of)
+            if filing_service is not None else None
+        )
+        filing_rows = (
+            list(filing_result.filings)
+            if filing_result is not None and filing_result.available
+            else None
+        )
+        overlay = evaluate_candidate(
             candidate_payload,
-            filings=None,
+            filings=filing_rows,
             as_of=as_of,
         ).to_dict()
+        overlay["filing_source"] = (
+            filing_result.source if filing_result is not None else "demo_unavailable"
+        )
+        overlay["filing_fetch_error"] = (
+            filing_result.error if filing_result is not None else "demo mode"
+        )
+        overlay["filing_count"] = (
+            len(filing_result.filings)
+            if filing_result is not None and filing_result.available else 0
+        )
+        institutional_overlays[candidate.symbol] = overlay
 
     return MarketResearchResult(
         market=market, scan=scan, walk_forward_results=wf_results, ranking_df=ranking_df,
