@@ -262,3 +262,23 @@ def test_vite_built_entry_point_is_accepted(tmp_path):
     (data/"history.json").write_text("[]")
     from tools.verify_dashboard_build import Verifier
     assert Verifier(site,False).run()==0
+
+
+def test_delayed_acceptable_freshness_is_valid(tmp_path):
+    payload = _payload(
+        publishability={
+            "data_source_mode": "real",
+            "publishable": True,
+            "markets": {
+                "korea": {
+                    "market": "korea",
+                    "expected_session": "2026-10-02",
+                    "actual_session": "2026-10-01",
+                    "gap_sessions": 1,
+                    "status": "DELAYED_ACCEPTABLE",
+                },
+            },
+            "reasons": ["국내시장 공급자 게시 지연 1거래일"],
+        }
+    )
+    assert _run(_site(tmp_path, payload)).errors == []
