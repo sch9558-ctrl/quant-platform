@@ -58,8 +58,12 @@ def test_dsr_uses_observed_trial_sharpe_dispersion():
     trials=rng.normal(0,0.01,(51,252))
     sharpes=[annualized_sharpe(x) for x in trials]
     best=int(np.argmax(sharpes))
-    fallback=deflated_sharpe_ratio(trials[best],n_trials=51)
     observed=deflated_sharpe_ratio(trials[best],n_trials=51,trial_sharpes=sharpes)
+    center=float(np.mean(sharpes))
+    narrow=[center+(x-center)*0.25 for x in sharpes]
+    wide=[center+(x-center)*1.50 for x in sharpes]
+    narrow_dsr=deflated_sharpe_ratio(trials[best],n_trials=51,trial_sharpes=narrow)
+    wide_dsr=deflated_sharpe_ratio(trials[best],n_trials=51,trial_sharpes=wide)
     assert 0 <= observed <= 1
-    assert observed < fallback
+    assert wide_dsr < observed < narrow_dsr
     assert observed < 0.5
