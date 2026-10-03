@@ -17,12 +17,6 @@ data/db/*
 
 reports/*
 !reports/.gitkeep
-# The daily Markdown research report is a small, compact, aggregated
-# summary (no raw price data) -- the GitHub Actions daily pipeline commits
-# these so the report history is auditable in git, per the project's
-# "compact validation history/metrics only, never raw data" auto-commit
-# policy.
-!reports/*.md
 logs/*
 !logs/.gitkeep
 
@@ -33,3 +27,9 @@ secrets.yaml
 config/broker_secrets.yaml
 
 .DS_Store
+
+# Private daily investment research is generated in CI and encrypted between jobs.
+site/data/*.json
+!site/data/.gitkeep
+data/analyst_reports/*
+!data/analyst_reports/.gitkeep
