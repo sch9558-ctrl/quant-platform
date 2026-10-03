@@ -312,9 +312,64 @@ class DataGoKrProvider(KRDataProvider):
             + " | ".join(failures)
         )
 
+    def resolve_as_of(
+        self,
+        requested_as_of: str | pd.Timestamp,
+        max_lag_sessions: int = 1,
+    ) -> str:
+        """Return the newest data.go session within an explicit lag budget.
+
+        The returned date is the date actually analysed. An older bar is
+        never relabelled as the requested session.
+        """
+        expected = pd.Timestamp(requested_as_of).normalize()
+        try:
+            df = self._request_daily_snapshot(self._fmt(expected))
+            self._write_snapshot_cache(expected, df)
+            return expected.strftime("%Y-%m-%d")
+        except Exception as exact_exc:
+            actual_str, df = self.fetch_latest_available_snapshot(expected)
+            actual = pd.Timestamp(actual_str).normalize()
+            if actual > expected:
+                raise RuntimeError(
+                    f"KR provider returned future session {actual.date()} for {expected.date()}"
+                ) from exact_exc
+            try:
+                sessions = trading_days(actual, expected, "korea")
+                lag = max(len(sessions) - 1, 0)
+            except Exception:
+                lag = max(len(pd.bdate_range(actual, expected)) - 1, 0)
+            if lag > int(max_lag_sessions):
+                raise RuntimeError(
+                    f"KR provider data is {lag} session(s) behind requested "
+                    f"{expected.date()} (latest published {actual.date()}, "
+                    f"max allowed {max_lag_sessions})."
+                ) from exact_exc
+            self._write_snapshot_cache(actual, df)
+            logger.warning(
+                "KR provider publication lag: requested=%s actual=%s lag=%d session(s)",
+                expected.date(), actual.date(), lag,
+            )
+            return actual.strftime("%Y-%m-%d")
+
+    def _metadata_snapshot(
+        self, as_of: str | pd.Timestamp,
+    ) -> tuple[str, pd.DataFrame]:
+        """Prefer the exact/cached session and only then backtrack metadata."""
+        clean = pd.Timestamp(as_of).strftime("%Y-%m-%d")
+        cached = self._load_cached_snapshot(clean)
+        if cached is not None and not cached.empty:
+            return clean, cached
+        try:
+            df = self._request_daily_snapshot(self._fmt(as_of))
+            self._write_snapshot_cache(as_of, df)
+            return clean, df
+        except Exception:
+            return self.fetch_latest_available_snapshot(as_of)
+
     def list_symbols(self, as_of: str | None = None) -> list[SymbolInfo]:
         as_of = as_of or default_as_of("korea")
-        _, snapshot = self.fetch_latest_available_snapshot(as_of)
+        _, snapshot = self._metadata_snapshot(as_of)
         if snapshot.empty:
             return []
         return [SymbolInfo(symbol=str(r.ticker), name=str(r.name), market="korea",
@@ -393,7 +448,7 @@ class DataGoKrProvider(KRDataProvider):
         return out
 
     def get_market_cap(self, symbols: list[str], as_of: str) -> pd.Series:
-        _, snapshot = self.fetch_latest_available_snapshot(as_of)
+        _, snapshot = self._metadata_snapshot(as_of)
         if snapshot.empty:
             return pd.Series(dtype=float, name="market_cap")
         wanted = set(str(s).zfill(6) for s in symbols)
