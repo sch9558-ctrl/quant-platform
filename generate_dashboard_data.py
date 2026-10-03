@@ -48,6 +48,7 @@ from quant.dashboard_export.export import (  # noqa: E402
 from quant.dashboard_export.run_summary import write_job_summary  # noqa: E402
 from quant.pipeline.research_pipeline import run_full_pipeline  # noqa: E402
 from quant.quality.system_status import compute_system_status  # noqa: E402
+from quant.data.fx import fetch_usdkrw_reference  # noqa: E402
 
 
 def main() -> int:
@@ -91,6 +92,17 @@ def main() -> int:
     status = compute_system_status(list(markets), demo=args.demo, as_of=as_of, run_tests=not args.skip_tests)
 
     data = build_dashboard_data(pipeline_result, status, demo=args.demo)
+    data["fx"] = (
+        fetch_usdkrw_reference()
+        if not args.demo and "us" in markets
+        else {
+            "available": False,
+            "pair": "USD/KRW",
+            "rate": None,
+            "source": None,
+            "note_ko": "미국 실데이터 실행에서만 환율 참고값을 수집합니다.",
+        }
+    )
 
     output_dir = Path(args.output_dir) if args.output_dir else default_site_data_dir()
 
