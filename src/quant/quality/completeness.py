@@ -52,6 +52,7 @@ def validate_missing_sessions(
     delisting_dates = delisting_dates or {}
     issues: list[ValidationIssue] = []
     total_missing = 0
+    inferred_listing_boundaries: dict[str, str] = {}
 
     if df is None or df.empty:
         issues.append(ValidationIssue("missing_sessions", "FATAL", "No data to check for missing sessions", market))
@@ -66,6 +67,11 @@ def validate_missing_sessions(
         delisted = delisting_dates.get(symbol)
         if listed is not None and cfg["missing_sessions"]["allow_missing_before_listing"]:
             expected = expected[expected >= pd.Timestamp(listed).normalize()]
+        elif listed is None and cfg["missing_sessions"]["allow_missing_before_listing"] and len(present):
+            first_present = present.min()
+            if len(all_expected) and first_present > all_expected.min():
+                expected = expected[expected >= first_present]
+                inferred_listing_boundaries[str(symbol)] = str(first_present.date())
         if delisted is not None and cfg["missing_sessions"]["allow_missing_after_delisting"]:
             expected = expected[expected <= pd.Timestamp(delisted).normalize()]
 
@@ -80,8 +86,14 @@ def validate_missing_sessions(
                 ))
 
     passed = total_missing == 0
-    return CheckResult("missing_sessions", mandatory=True, passed=passed, issues=issues,
-                        details={"total_missing_sessions": total_missing, "expected_sessions": len(all_expected)})
+    return CheckResult(
+        "missing_sessions", mandatory=True, passed=passed, issues=issues,
+        details={
+            "total_missing_sessions": total_missing,
+            "expected_sessions": len(all_expected),
+            "inferred_listing_boundaries": inferred_listing_boundaries,
+        },
+    )
 
 
 def validate_freshness(
