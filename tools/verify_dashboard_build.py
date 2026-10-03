@@ -174,7 +174,7 @@ class Verifier:
 
         for market, fresh in (verdict.get("markets") or {}).items():
             status = fresh.get("status")
-            if status not in {"FRESH", "STALE", "UNKNOWN"}:
+            if status not in {"FRESH", "DELAYED_ACCEPTABLE", "STALE", "UNKNOWN"}:
                 self.error(f"{market} 신선도 상태값이 올바르지 않습니다: {status!r}")
 
         if not publishable:
