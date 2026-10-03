@@ -45,6 +45,8 @@ from quant.data.factory import get_provider
 from quant.features import fundamental as fnd
 from quant.features.engine import FeatureEngine
 from quant.portfolio.constructor import PortfolioAllocation, PortfolioConstructor, PortfolioItem
+from quant.analytics.trade_plan import build_trade_plan
+from quant.pipeline.institutional_overlay import evaluate_candidate
 from quant.quality.models import DataQualityReport
 from quant.quality.pipeline_gate import run_gated_scan
 from quant.ranking.scorer import extract_features, rank_strategies
@@ -80,6 +82,7 @@ class MarketResearchResult:
     updated_strategy_ids: list[str]
     portfolio_allocation: PortfolioAllocation | None
     risk_checks: list[dict]
+    institutional_overlays: dict[str, dict] = field(default_factory=dict)
     quality_report: DataQualityReport | None = None
     blocked: bool = False
     block_reason: str | None = None
@@ -240,7 +243,7 @@ def run_market_research(
         return MarketResearchResult(
             market=market, scan=None, walk_forward_results={}, ranking_df=pd.DataFrame(),
             experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
-            portfolio_allocation=None, risk_checks=[],
+            portfolio_allocation=None, risk_checks=[], institutional_overlays={},
             quality_report=gated.validation.report, blocked=True, block_reason=gated.block_reason,
             as_of=as_of,
         )
@@ -274,10 +277,30 @@ def run_market_research(
     allocation = PortfolioConstructor().compute_weights(items)
     risk_checks = _risk_analysis(market, allocation)
 
+    # Institutional safety/alpha overlay is part of the production research
+    # result, not an orphan library. External filing/event feeds are still
+    # wired separately; until they are available the overlay fails closed
+    # with FILING_DATA_UNAVAILABLE rather than claiming risk clearance.
+    institutional_overlays: dict[str, dict] = {}
+    for candidate in scan.top_candidates:
+        candidate_payload = {
+            "market": market,
+            "symbol": candidate.symbol,
+            "price": candidate.price,
+            "volatility": candidate.volatility,
+            "composite_score": candidate.composite_score,
+            "trade_plan": build_trade_plan(candidate),
+        }
+        institutional_overlays[candidate.symbol] = evaluate_candidate(
+            candidate_payload,
+            filings=None,
+            as_of=as_of,
+        ).to_dict()
+
     return MarketResearchResult(
         market=market, scan=scan, walk_forward_results=wf_results, ranking_df=ranking_df,
         experiment_ids=experiment_ids, new_strategy_ids=new_ids, updated_strategy_ids=updated_ids,
-        portfolio_allocation=allocation, risk_checks=risk_checks,
+        portfolio_allocation=allocation, risk_checks=risk_checks, institutional_overlays=institutional_overlays,
         quality_report=gated.validation.report, blocked=False, block_reason=None,
         as_of=as_of,
     )
@@ -331,7 +354,7 @@ def run_full_pipeline(
             market_results[market] = MarketResearchResult(
                 market=market, scan=None, walk_forward_results={}, ranking_df=pd.DataFrame(),
                 experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
-                portfolio_allocation=None, risk_checks=[], quality_report=None,
+                portfolio_allocation=None, risk_checks=[], institutional_overlays={}, quality_report=None,
                 blocked=True,
                 block_reason=(
                     f"{market} 시장 데이터를 가져오지 못해 이 시장의 분석을 중단했습니다 "
