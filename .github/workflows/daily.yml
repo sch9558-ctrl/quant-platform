@@ -77,7 +77,7 @@ jobs:
           p=pathlib.Path("site/data/consensus_accuracy.json")
           p.parent.mkdir(parents=True,exist_ok=True)
           p.write_text(json.dumps({
-            "schema_version":1,
+            "schema_version":2,
             "generated_at":pd.Timestamp.now(tz="UTC").isoformat(),
             "coverage":{"korea_symbols":0,"us_symbols":0,"reports":0,"evaluations":0},
             "overall":None,"institutions":[],"analysts":[],"by_symbol":{},
@@ -85,6 +85,11 @@ jobs:
           },ensure_ascii=False,indent=2),encoding="utf-8")
           PY
           }
+
+      - name: Build calibrated actionable signals
+        run: |
+          python generate_actionable_signals.py
+          test -s site/data/actionable_signals.json
 
       - name: Encrypt private research payload
         run: |
@@ -126,11 +131,14 @@ jobs:
           from pathlib import Path
           d=json.loads(Path("site/data/dashboard.json").read_text())
           c=json.loads(Path("site/data/consensus_accuracy.json").read_text())
+          a=json.loads(Path("site/data/actionable_signals.json").read_text())
           assert d["data_source_mode"]=="real"
           assert d["publishability"]["publishable"] is True
-          assert c["schema_version"]==1
+          assert c["schema_version"]==2
           assert isinstance(c["by_symbol"],dict)
-          print("Data Quality Gate passed for deployable real/fresh payload.")
+          assert a["schema_version"]==1
+          assert isinstance(a["signals"],list)
+          print("Data Quality Gate passed for deployable real/fresh/calibrated payload.")
           PY
 
   dashboard-build:
