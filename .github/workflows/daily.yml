@@ -1,283 +1,219 @@
-name: Daily Research Pipeline & Dashboard
-
-# 매일 07:00 KST 자동 실행(0 22 * * * UTC) + 07:15 KST 복구 실행 + 수동 실행.
-# 복구 실행은 오늘자 대시보드 데이터가 이미 정상적으로 만들어져 있으면
-# 아무것도 하지 않는다.
-#
-# FAIL-CLOSED:
-# 리서치/검증 단계가 실패하면 대시보드를 새로 배포하지 않는다. 실패한
-# 데이터나 불완전한 산출물을 최신 정상 대시보드 위에 덮어쓰지 않는다.
-#
-# --real: 실제 시장 데이터(pykrx / yfinance)를 쓴다. 이 옵션이 없으면
-# 모든 스크립트가 합성(가짜) 데이터로 돌아가며, 그게 이 프로젝트가
-# 실제로 겪었던 문제다 -- 진짜처럼 보이는 무작위 가격 대시보드.
-#
-# --as-of 는 의도적으로 넘기지 않는다. 3주 반 동안 매일 아침 파이프라인이
-# 죽은 원인이 바로 그것이었다. 이 워크플로우는 07:00 Asia/Seoul 에 도는데,
-# 그 시각 한국 장은 아직 열리지도 않았고(09:00 개장) 같은 날짜의 미국 장은
-# 12시간 뒤다. 주말이면 아예 거래일조차 아니다. 그런 날짜를 요구하면
-# 필수 검사인 freshness(max_lag_sessions: 0)가 존재할 수 없는 봉을 찾다가
-# 매일 두 시장을 모두 Fail-Closed 시킨다. 이제는 각 스크립트가
-# quant.utils.calendar.default_as_of() 로 **시장별로** 이미 종료된 최신
-# 세션을 스스로 고른다.
+name: Daily Research Pipeline & Private Dashboard
 
 on:
   schedule:
-    - cron: "0 22 * * *"   # 07:00 KST daily (primary)
-    - cron: "15 22 * * *"  # 07:15 KST daily (idempotent recovery)
+    - cron: "0 22 * * *"   # 07:00 KST
   workflow_dispatch:
     inputs:
       markets:
         description: "Markets to run (space-separated: korea us)"
         required: false
         default: "korea us"
-      param_search:
-        description: "Run full parameter-search Walk-Forward (slow)"
-        type: boolean
-        required: false
-        default: false
 
 permissions:
   contents: read
 
+concurrency:
+  group: quant-daily-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   PYTHON_VERSION: "3.11"
+  NODE_VERSION: "24"
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || '301c3fbffec59a5d5827040ff30eb62f' }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
+  CLOUDFLARE_ACCESS_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_API_TOKEN || secrets.CF_ACCESS_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
+  CLOUDFLARE_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PROJECT_NAME || 'quant-platform' }}
+  DASHBOARD_ARTIFACT_KEY: ${{ secrets.DASHBOARD_ARTIFACT_KEY || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
 
 jobs:
   research:
-    name: Research Pipeline + Data Quality Gate + Dashboard Data
+    name: Research Pipeline
     runs-on: ubuntu-latest
-    # 실데이터 실행은 외부 서버(KRX/Yahoo)에 시간이 달려 있다. 멈춘
-    # 제공자 때문에 6시간을 쓰지 않도록 상한을 둔다.
-    timeout-minutes: 150
-    permissions:
-      contents: write
+    timeout-minutes: 120
     env:
       DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
-    outputs:
-      any_failure: ${{ steps.final-status.outputs.any_failure }}
+      FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+      - uses: actions/checkout@v4
 
-      # 복구 실행(07:15)은 첫 실행이 "오늘 날짜로, 게시 가능한" 데이터를
-      # 이미 만들어 둔 경우에만 건너뛴다. 예전 버전은 as_of 만 비교해서,
-      # 첫 실행이 실패해 낡은/합성 파일이 그대로 남아 있어도 복구 실행이
-      # 스스로를 건너뛰었다 -- 복구 실행이 존재하는 이유를 정확히 무력화한 것.
-      - name: Recovery-run idempotency check
-        id: check
-        run: |
-          SKIP=false
-          RUN_DATE=$(TZ=Asia/Seoul date +%F)
-          if [ "${{ github.event.schedule }}" = "15 22 * * *" ]; then
-            if [ -f site/data/dashboard.json ]; then
-              FRESH=$(python3 tools/dashboard_state.py "$RUN_DATE" 2>/dev/null || echo "no")
-              if [ "$FRESH" = "yes" ]; then
-                echo "Today's ($RUN_DATE) dashboard data already exists and is publishable -- skipping recovery run."
-                SKIP=true
-              fi
-            fi
-          fi
-          echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
-          echo "run_date=$RUN_DATE" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Python
-        if: steps.check.outputs.skip != 'true'
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
+          cache: pip
 
-      - name: Install dependencies
-        if: steps.check.outputs.skip != 'true'
+      - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Data Validation (validate_data.py)
-        if: steps.check.outputs.skip != 'true'
-        id: data-validation
-        continue-on-error: true
-        run: python validate_data.py --market both --real
-
-      - name: Paper Trading Update (run_paper.py)
-        if: steps.check.outputs.skip != 'true'
-        id: paper-trading
-        continue-on-error: true
+      - name: Require private artifact encryption key
         run: |
-          for market in korea us; do
-            python run_paper.py --market "$market" --real || true
-          done
-
-      # 이 단계가 전체 리서치 파이프라인(+ reports/*.md 생성)과 시스템
-      # 상태 점검을 한 번에 돌린다. 별도의 run_research.py 단계를 두면
-      # 같은 날 데이터를 두 번 받아오고 워크포워드를 두 번 돌리게 된다.
-      - name: Research Pipeline + System Validation + Dashboard Data
-        if: steps.check.outputs.skip != 'true'
-        id: dashboard-data
-        continue-on-error: true
-        run: |
-          python generate_dashboard_data.py --real \
-            --markets ${{ github.event.inputs.markets || 'korea us' }}
-
-      - name: Upload daily-validation artifact
-        if: always() && steps.check.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: daily-validation-${{ steps.check.outputs.run_date }}
-          path: |
-            site/data/dashboard.json
-          retention-days: 90
-          if-no-files-found: warn
-
-      - name: Upload daily-research artifact
-        if: always() && steps.check.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: daily-research-${{ steps.check.outputs.run_date }}
-          path: |
-            site/data/history.json
-            reports/*.md
-          retention-days: 90
-          if-no-files-found: warn
-
-      - name: Secret scan before commit (gitleaks)
-        if: steps.check.outputs.skip != 'true'
-        id: gitleaks
-        continue-on-error: true
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITLEAKS_NOTIFY_USER_LIST: ""
-
-      - name: Commit dashboard data + report (compact, no raw prices)
-        if: steps.check.outputs.skip != 'true' && steps.gitleaks.outcome == 'success'
-        run: |
-          git config user.name "quant-research-bot"
-          git config user.email "quant-research-bot@users.noreply.github.com"
-          git add site/data/dashboard.json site/data/history.json
-          git add reports/*.md 2>/dev/null || true
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-            exit 0
-          fi
-          git commit -m "Daily update: ${{ steps.check.outputs.run_date }} (Asia/Seoul)"
-
-          # The run takes the better part of an hour, and `master` moves
-          # while it does -- the 07:15 recovery run, a code change, or this
-          # workflow's own previous commit. A plain `git push` then loses to
-          # a fast-forward rejection and the whole run is reported as a
-          # failure even though the research succeeded. Rebase onto whatever
-          # landed and try again; this commit only ever touches generated
-          # output, so there is nothing for a rebase to conflict over.
-          for attempt in 1 2 3; do
-            if git push; then
-              echo "pushed on attempt $attempt"
-              exit 0
-            fi
-            echo "push rejected (attempt $attempt) -- rebasing onto the current remote"
-            # --no-tags/--depth: the checkout is shallow, so fetch enough to rebase on.
-            git fetch origin "$GITHUB_REF_NAME" --depth=20 || git fetch origin "$GITHUB_REF_NAME"
-            if ! git rebase "origin/$GITHUB_REF_NAME"; then
-              git rebase --abort || true
-              echo "::error::Could not rebase today's generated output onto the current branch."
-              exit 1
-            fi
-          done
-          echo "::error::Still could not push after 3 attempts -- the branch is being written to faster than this run can rebase."
-          exit 1
-
-      - name: Refuse to auto-commit if the secret scan itself failed to run cleanly
-        if: steps.check.outputs.skip != 'true' && steps.gitleaks.outcome != 'success'
-        run: |
-          echo "::error::gitleaks did not complete successfully -- refusing to auto-commit."
-          exit 1
-
-      - name: Final job status (fail the run visibly if anything failed)
-        id: final-status
-        if: steps.check.outputs.skip != 'true'
-        run: |
-          ANY_FAILURE=false
-          for outcome in \
-            "${{ steps.data-validation.outcome }}" \
-            "${{ steps.paper-trading.outcome }}" \
-            "${{ steps.dashboard-data.outcome }}"; do
-            if [ "$outcome" = "failure" ]; then
-              ANY_FAILURE=true
-            fi
-          done
-          echo "any_failure=$ANY_FAILURE" >> "$GITHUB_OUTPUT"
-          if [ "$ANY_FAILURE" = "true" ]; then
-            echo "::error::One or more pipeline steps failed today. Deployment is blocked and the last known-good private dashboard remains in place."
+          if [ -z "$DASHBOARD_ARTIFACT_KEY" ]; then
+            echo "::error::DASHBOARD_ARTIFACT_KEY (or Cloudflare token fallback) is required."
             exit 1
           fi
 
-  # 대시보드는 공개 GitHub Pages 가 아니라 Cloudflare Access 뒤의
-  # Cloudflare Pages 로 배포된다. 인증 문제를 "공개로 전환"으로 해결하는
-  # 경로는 이 워크플로우에 존재하지 않는다(spec 122).
-  deploy:
-    name: Deploy dashboard to Cloudflare Pages (private, behind Access)
+      - name: Run real research and dashboard-data generation
+        id: research-run
+        run: |
+          set +e
+          python generate_dashboard_data.py --real --markets ${{ github.event.inputs.markets || 'korea us' }}
+          rc=$?
+          set -e
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          test -s site/data/dashboard.json || {
+            echo "::error::Research did not produce site/data/dashboard.json"
+            exit 1
+          }
+          if [ "$rc" -ne 0 ]; then
+            echo "::warning::Research/status returned $rc; the quality job will inspect the honest blocked-state payload."
+          fi
+
+      - name: Build analyst/IB credibility dataset
+        run: |
+          python generate_consensus_accuracy.py || {
+            echo "::warning::Analyst metadata enrichment failed; writing an empty, explicit coverage payload."
+            python - <<'PY'
+          import json, pathlib, pandas as pd
+          p=pathlib.Path("site/data/consensus_accuracy.json")
+          p.parent.mkdir(parents=True,exist_ok=True)
+          p.write_text(json.dumps({
+            "schema_version":1,
+            "generated_at":pd.Timestamp.now(tz="UTC").isoformat(),
+            "coverage":{"korea_symbols":0,"us_symbols":0,"reports":0,"evaluations":0},
+            "overall":None,"institutions":[],"analysts":[],"by_symbol":{},
+            "source_notes_ko":["리포트 메타데이터 수집에 실패했습니다. 매매 후보 계산과는 분리되어 있습니다."]
+          },ensure_ascii=False,indent=2),encoding="utf-8")
+          PY
+          }
+
+      - name: Encrypt private research payload
+        run: |
+          tar -czf research-output.tgz site/data reports
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000             -pass env:DASHBOARD_ARTIFACT_KEY             -in research-output.tgz -out research-output.tgz.enc
+          rm -f research-output.tgz
+
+      - name: Upload encrypted research artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-research-${{ github.run_id }}
+          path: research-output.tgz.enc
+          retention-days: 1
+          if-no-files-found: error
+
+  data-quality:
+    name: Data Quality Gate
     needs: research
-    if: needs.research.result == 'success'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
-      CLOUDFLARE_ACCESS_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_API_TOKEN || secrets.CF_ACCESS_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || '301c3fbffec59a5d5827040ff30eb62f' }}
-      CLOUDFLARE_PROJECT_NAME: "quant-platform"
-      CLOUDFLARE_PAGES_HOSTNAME: "quant-platform.pages.dev"
+    timeout-minutes: 15
     steps:
-      - name: Checkout (latest, including today's committed dashboard data)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 자격 증명이 없으면 배포는 실패로 끝난다. 절대 공개 호스트로
-      # 대체 배포하지 않는다. "오늘 대시보드가 없다"는 되돌릴 수 있고
-      # "리서치가 공개 인터넷에 올라갔다"는 되돌릴 수 없다.
-      - name: Fail closed when deployment credentials are missing
-        env:
-          CF_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Download encrypted research artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: encrypted-research-${{ github.run_id }}
+
+      - name: Decrypt research payload
         run: |
-          MISSING=""
-          if [ -z "$CF_TOKEN" ]; then MISSING="$MISSING CLOUDFLARE_API_TOKEN"; fi
-          if [ -z "$CF_ACCOUNT" ]; then MISSING="$MISSING CLOUDFLARE_ACCOUNT_ID"; fi
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing GitHub Secret(s):$MISSING -- refusing to deploy. The dashboard is never published to a public host as a fallback."
-            exit 1
-          fi
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000             -pass env:DASHBOARD_ARTIFACT_KEY             -in research-output.tgz.enc -out research-output.tgz
+          tar -xzf research-output.tgz
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Validate research JSON and freshness contract
+        run: |
+          python tools/verify_dashboard_build.py --site-dir site
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("site/data/dashboard.json").read_text())
+          c=json.loads(Path("site/data/consensus_accuracy.json").read_text())
+          assert d["data_source_mode"]=="real"
+          assert d["publishability"]["publishable"] is True
+          assert c["schema_version"]==1
+          assert isinstance(c["by_symbol"],dict)
+          print("Data Quality Gate passed for deployable real/fresh payload.")
+          PY
+
+  dashboard-build:
+    name: Dashboard Build
+    needs: data-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download encrypted research artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: encrypted-research-${{ github.run_id }}
+
+      - name: Decrypt research payload
+        run: |
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000             -pass env:DASHBOARD_ARTIFACT_KEY             -in research-output.tgz.enc -out research-output.tgz
+          tar -xzf research-output.tgz
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: dashboard/package.json
+
+      - name: Install frontend dependencies
+        run: npm install --prefix dashboard --no-audit --no-fund
+
+      - name: Build Korean React dashboard
+        run: npm run build --prefix dashboard
+
+      - name: Ensure alternate dashboard entry point
+        run: cp site/index.html site/dashboard.html
+
+      - name: Verify built dashboard
+        run: python tools/verify_dashboard_build.py --site-dir site
+
+      - name: Encrypt deployable site
+        run: |
+          tar -czf dashboard-site.tgz site
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000             -pass env:DASHBOARD_ARTIFACT_KEY             -in dashboard-site.tgz -out dashboard-site.tgz.enc
+          rm -f dashboard-site.tgz
+
+      - name: Upload encrypted dashboard site
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-dashboard-site-${{ github.run_id }}
+          path: dashboard-site.tgz.enc
+          retention-days: 1
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy Private Dashboard
+    needs: dashboard-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      # 업로드 직전, 실제로 올라갈 디렉터리를 대상으로 검사한다.
-      # 특히 "DATA INTEGRITY PASS" 헤드라인 아래에 합성/낡은 데이터가
-      # 깔려 있는 자기모순 상태를 잡는다 -- 실제로 게시됐던 상태다.
       - name: Install Cloudflare bootstrap dependency
-        run: python -m pip install requests
+        run: pip install requests
 
-      - name: Prepare Site Directory
+      - name: Download encrypted dashboard site
+        uses: actions/download-artifact@v4
+        with:
+          name: encrypted-dashboard-site-${{ github.run_id }}
+
+      - name: Decrypt deployable site
         run: |
-          mkdir -p site
-          if [ -f reports/dashboard.html ]; then
-            cp reports/dashboard.html site/dashboard.html
-            cp reports/dashboard.html site/index.html
-          elif [ -f site/dashboard.html ]; then
-            cp site/dashboard.html site/index.html
-          elif [ -f site/index.html ]; then
-            cp site/index.html site/dashboard.html
-          else
-            printf '%s\n' '<html><body><h1>Quant Research Dashboard</h1><p>Initializing...</p></body></html>' > site/index.html
-            cp site/index.html site/dashboard.html
-          fi
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000             -pass env:DASHBOARD_ARTIFACT_KEY             -in dashboard-site.tgz.enc -out dashboard-site.tgz
+          tar -xzf dashboard-site.tgz
           test -s site/index.html
-          test -s site/dashboard.html
-          ls -la site
+          test -s site/data/dashboard.json
 
-      - name: Verify dashboard build before publishing
-        run: python tools/verify_dashboard_build.py --site-dir site
+      - name: Require Cloudflare Pages credentials
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing CLOUDFLARE_ACCOUNT_ID"; exit 1; }
 
       - name: Cloudflare private deployment preflight
         id: cf-preflight
@@ -288,18 +224,16 @@ jobs:
           set -e
           if [ "$rc" -eq 0 ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "$rc" -eq 3 ]; then
+          elif [ "$rc" -eq 3 ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Cloudflare Access permission is not configured; private dashboard deployment is safely skipped."
-            exit 0
+            echo "::warning::Access management permission is not configured; private publish safely skipped."
+          else
+            exit "$rc"
           fi
-          exit "$rc"
 
-      - name: Bootstrap/check Cloudflare private Pages configuration
-        run: python tools/cloudflare_pages.py bootstrap
+      - name: Bootstrap private Pages + Access
         if: steps.cf-preflight.outputs.ready == 'true'
+        run: python tools/cloudflare_pages.py bootstrap
 
       - name: Publish to Cloudflare Pages
         if: steps.cf-preflight.outputs.ready == 'true'
@@ -307,28 +241,21 @@ jobs:
         with:
           apiToken: ${{ env.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy site --project-name=quant-platform --branch=master --commit-dirty=true
+          command: pages deploy site --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=master --commit-dirty=true
 
-      - name: Verify root URL is protected, not public
+      - name: Verify root is authentication-protected
         if: steps.cf-preflight.outputs.ready == 'true'
         run: |
-          code=$(curl -sS -o /dev/null -w "%{http_code}" "https://$CLOUDFLARE_PAGES_HOSTNAME/")
-          echo "Unauthenticated root HTTP status: $code"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "https://${CLOUDFLARE_PROJECT_NAME}.pages.dev/")
+          echo "Anonymous HTTP status: $code"
           case "$code" in
             301|302|303|307|308|401|403) ;;
-            200)
-              echo "::error::Dashboard returned HTTP 200 without authentication."
-              exit 1
-              ;;
-            *)
-              echo "::error::Unexpected dashboard response: HTTP $code"
-              exit 1
-              ;;
+            200) echo "::error::Private dashboard is anonymously accessible"; exit 1 ;;
+            *) echo "::error::Unexpected dashboard response HTTP $code"; exit 1 ;;
           esac
 
-      - name: Record safe deployment skip
+      - name: Record safe private-deploy skip
         if: steps.cf-preflight.outputs.ready != 'true'
         run: |
-          echo "## Private dashboard deployment skipped" >> "$GITHUB_STEP_SUMMARY"
-          echo "Cloudflare Pages was not published because Access management permission is not configured." >> "$GITHUB_STEP_SUMMARY"
-          echo "Add CLOUDFLARE_ACCESS_API_TOKEN (or CF_ACCESS_API_TOKEN) with Access management scope to enable private deployment." >> "$GITHUB_STEP_SUMMARY"
+          echo "Private dashboard build is valid, but Cloudflare Access permission is not configured." >> "$GITHUB_STEP_SUMMARY"
+          echo "No public fallback was attempted." >> "$GITHUB_STEP_SUMMARY"
