@@ -23,12 +23,15 @@ from quant.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-DATA_GO_KR_URL = (
-    "https://apis.data.go.kr/1160100/service/"
-    "GetStockSecuritiesInfoService/getStockPriceInfo_V2"
+DATA_GO_KR_URLS = (
+    "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2/getStockPriceInfo_V2",
+    "https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService/getStockPriceInfo_V2",
 )
+# Backwards-compatible alias used by tests/integrations that import the old name.
+DATA_GO_KR_URL = DATA_GO_KR_URLS[0]
 DATA_GO_NUM_ROWS = 3500
-MAX_DATA_GO_SNAPSHOT_SESSIONS = 400
+MAX_DATA_GO_SNAPSHOT_SESSIONS = 450
+MAX_METADATA_BACKTRACK_SESSIONS = 5
 
 COLUMN_MAP = {
     "basDt": "date", "srtnCd": "ticker", "itmsNm": "name", "mrktCtg": "exchange",
@@ -75,61 +78,137 @@ class DataGoKrProvider(KRDataProvider):
         out.to_csv(tmp, index=False)
         tmp.replace(path)
 
+    def _request_daily_snapshot(self, clean_date: str) -> pd.DataFrame:
+        params = {
+            "serviceKey": self.service_key,
+            "resultType": "json",
+            "numOfRows": str(DATA_GO_NUM_ROWS),
+            "pageNo": "1",
+            "basDt": clean_date,
+        }
+        failures: list[str] = []
+        for url in DATA_GO_KR_URLS:
+            try:
+                response = requests.get(url, params=params, timeout=self.timeout)
+                response.raise_for_status()
+                if response.text.lstrip().startswith("<"):
+                    raise RuntimeError(
+                        f"data.go.kr returned XML/error content: {response.text[:300]}"
+                    )
+                payload = response.json()
+                envelope = payload.get("response", {}) if isinstance(payload, dict) else {}
+                header = envelope.get("header") or {}
+                code = str(header.get("resultCode", "00"))
+                if code not in {"0", "00", "0000"}:
+                    raise RuntimeError(
+                        f"data.go.kr error {code}: {header.get('resultMsg') or header}"
+                    )
+                body = envelope.get("body") or {}
+                try:
+                    total_count = int(body.get("totalCount") or 0)
+                except (TypeError, ValueError):
+                    total_count = 0
+                if total_count > DATA_GO_NUM_ROWS:
+                    raise RuntimeError(
+                        f"data.go.kr totalCount={total_count} exceeds "
+                        f"numOfRows={DATA_GO_NUM_ROWS}; refusing a silently "
+                        "truncated market snapshot."
+                    )
+                items = body.get("items") or {}
+                raw_items = items.get("item", []) if isinstance(items, dict) else items
+                if isinstance(raw_items, dict):
+                    raw_items = [raw_items]
+                if not raw_items:
+                    raise RuntimeError(
+                        f"data.go.kr returned no rows for basDt={clean_date}"
+                    )
+                raw = pd.DataFrame(raw_items)
+                missing = sorted(REQUIRED_FIELDS - set(raw.columns))
+                if missing:
+                    raise RuntimeError(
+                        f"data.go.kr response contract changed; missing fields: {missing}"
+                    )
+                df = raw.rename(columns=COLUMN_MAP)[list(COLUMN_MAP.values())].copy()
+                df["ticker"] = df["ticker"].astype(str).str.zfill(6)
+                df["date"] = pd.to_datetime(
+                    df["date"], format="%Y%m%d", errors="raise"
+                )
+                df["exchange"] = df["exchange"].astype(str).str.upper()
+                df = df[df["exchange"].isin(["KOSPI", "KOSDAQ"])].copy()
+                for col in NUMERIC_COLUMNS:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+                if df.empty:
+                    raise RuntimeError(
+                        f"data.go.kr returned no KOSPI/KOSDAQ rows for {clean_date}"
+                    )
+                return (
+                    df.drop_duplicates(subset=["date", "ticker"], keep="last")
+                    .sort_values("ticker")
+                    .reset_index(drop=True)
+                )
+            except Exception as exc:
+                failures.append(f"{url}: {type(exc).__name__}: {exc}")
+            finally:
+                self._sleep()
+        raise RuntimeError(
+            f"data.go.kr snapshot unavailable for basDt={clean_date}; "
+            + " | ".join(failures)
+        )
+
     def fetch_daily_snapshot(self, date_str: str | pd.Timestamp) -> pd.DataFrame:
+        """Fetch the exact requested trading date; never relabel stale data."""
         clean_date = self._fmt(date_str)
         cached = self._load_cached_snapshot(clean_date)
         if cached is not None:
             return cached
         if not self.service_key:
-            raise RuntimeError("DATA_GO_KR_SERVICE_KEY is not set; refusing to fabricate or silently substitute the primary Korean daily snapshot.")
-        params = {"serviceKey": self.service_key, "resultType": "json",
-                  "numOfRows": str(DATA_GO_NUM_ROWS), "pageNo": "1", "basDt": clean_date}
-        response = requests.get(DATA_GO_KR_URL, params=params, timeout=self.timeout)
-        try:
-            response.raise_for_status()
-            if response.text.lstrip().startswith("<"):
-                raise RuntimeError(f"data.go.kr returned XML/error content: {response.text[:300]}")
-            payload = response.json()
-        finally:
-            self._sleep()
-
-        envelope = payload.get("response", {}) if isinstance(payload, dict) else {}
-        header = envelope.get("header") or {}
-        code = str(header.get("resultCode", "00"))
-        if code not in {"0","00","0000"}:
-            raise RuntimeError(f"data.go.kr error {code}: {header.get('resultMsg') or header}")
-        body = envelope.get("body") or {}
-        try:
-            total_count = int(body.get("totalCount") or 0)
-        except (TypeError, ValueError):
-            total_count = 0
-        if total_count > DATA_GO_NUM_ROWS:
-            raise RuntimeError(f"data.go.kr totalCount={total_count} exceeds numOfRows={DATA_GO_NUM_ROWS}; refusing a silently truncated market snapshot.")
-        items = body.get("items") or {}
-        raw_items = items.get("item", []) if isinstance(items, dict) else items
-        if isinstance(raw_items, dict):
-            raw_items = [raw_items]
-        if not raw_items:
-            return pd.DataFrame(columns=list(COLUMN_MAP.values()))
-        raw = pd.DataFrame(raw_items)
-        missing = sorted(REQUIRED_FIELDS - set(raw.columns))
-        if missing:
-            raise RuntimeError(f"data.go.kr response contract changed; missing fields: {missing}")
-
-        df = raw.rename(columns=COLUMN_MAP)[list(COLUMN_MAP.values())].copy()
-        df["ticker"] = df["ticker"].astype(str).str.zfill(6)
-        df["date"] = pd.to_datetime(df["date"], format="%Y%m%d", errors="raise")
-        df["exchange"] = df["exchange"].astype(str).str.upper()
-        df = df[df["exchange"].isin(["KOSPI","KOSDAQ"])].copy()
-        for col in NUMERIC_COLUMNS:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-        df = df.drop_duplicates(subset=["date","ticker"], keep="last").sort_values("ticker").reset_index(drop=True)
+            raise RuntimeError(
+                "DATA_GO_KR_SERVICE_KEY is not set; refusing to fabricate or "
+                "silently substitute the primary Korean daily snapshot."
+            )
+        df = self._request_daily_snapshot(clean_date)
         self._write_snapshot_cache(clean_date, df)
         return df
 
+    def fetch_latest_available_snapshot(
+        self,
+        as_of: str | pd.Timestamp,
+        max_backtrack_sessions: int = MAX_METADATA_BACKTRACK_SESSIONS,
+    ) -> tuple[str, pd.DataFrame]:
+        """Metadata helper only: find the newest actually published snapshot.
+
+        This is safe for symbol-directory/market-cap discovery. Price-quality
+        validation still requests every exact session and will mark a missing
+        latest bar stale instead of pretending this fallback is current.
+        """
+        end = pd.Timestamp(as_of).normalize()
+        start = end - pd.Timedelta(days=max(14, max_backtrack_sessions * 3))
+        try:
+            sessions = list(trading_days(start, end, "korea"))
+        except Exception:
+            sessions = list(pd.bdate_range(start, end))
+        failures: list[str] = []
+        for ts in reversed(sessions[-(max_backtrack_sessions + 1):]):
+            try:
+                df = self.fetch_daily_snapshot(ts)
+                actual = pd.Timestamp(df["date"].max()).strftime("%Y-%m-%d")
+                if actual != end.strftime("%Y-%m-%d"):
+                    logger.warning(
+                        "KR metadata snapshot lag: requested=%s available=%s",
+                        end.strftime("%Y-%m-%d"),
+                        actual,
+                    )
+                return actual, df
+            except Exception as exc:
+                failures.append(f"{pd.Timestamp(ts).date()}: {exc}")
+        raise RuntimeError(
+            f"No data.go.kr market snapshot available through {end.date()}; "
+            + " | ".join(failures)
+        )
+
     def list_symbols(self, as_of: str | None = None) -> list[SymbolInfo]:
         as_of = as_of or default_as_of("korea")
-        snapshot = self.fetch_daily_snapshot(as_of)
+        _, snapshot = self.fetch_latest_available_snapshot(as_of)
         if snapshot.empty:
             return []
         return [SymbolInfo(symbol=str(r.ticker), name=str(r.name), market="korea",
@@ -142,8 +221,21 @@ class DataGoKrProvider(KRDataProvider):
     def _snapshot_bulk(self, symbols: list[str], sessions: pd.DatetimeIndex) -> dict[str, pd.DataFrame]:
         wanted = set(symbols)
         collected = []
+        consecutive_failures = 0
         for ts in sessions:
-            daily = self.fetch_daily_snapshot(ts)
+            try:
+                daily = self.fetch_daily_snapshot(ts)
+                consecutive_failures = 0
+            except Exception as exc:
+                consecutive_failures += 1
+                logger.warning("KR exact-session snapshot unavailable for %s: %s", ts, exc)
+                # If credentials/the service are wholly unavailable, avoid
+                # hundreds of identical calls. A missing latest one or two
+                # sessions is still preserved as an honest quality failure.
+                if consecutive_failures >= 3:
+                    logger.error("Stopping KR snapshot range after 3 consecutive failures.")
+                    break
+                continue
             if daily.empty:
                 continue
             sub = daily[daily["ticker"].isin(wanted)][["date","ticker",*PRICE_COLUMNS]].copy()
@@ -195,7 +287,7 @@ class DataGoKrProvider(KRDataProvider):
         return out
 
     def get_market_cap(self, symbols: list[str], as_of: str) -> pd.Series:
-        snapshot = self.fetch_daily_snapshot(as_of)
+        _, snapshot = self.fetch_latest_available_snapshot(as_of)
         if snapshot.empty:
             return pd.Series(dtype=float, name="market_cap")
         wanted = set(str(s).zfill(6) for s in symbols)
