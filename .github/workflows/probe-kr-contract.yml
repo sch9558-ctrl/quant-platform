@@ -3,19 +3,21 @@ name: Probe — what shape does data.go.kr actually return?
 # 진단 전용. 스케줄 없음, 저장소에 아무것도 쓰지 않는다. 수동 실행만.
 #
 # 왜 필요한가: provider 를 문서 기억에 의존해서 쓰면 "자신 있게 틀린" 코드가
-# 나온다. 이 프로젝트의 1순위가 데이터 정확성인데 그건 정확히 반대 방향이다.
-# 그래서 코드를 쓰기 전에 **실제 응답의 필드 이름**을 한 번 찍어 본다.
+# 나온다. 1순위가 데이터 정확성인 프로젝트에서 그건 정확히 반대 방향이다.
+# 코드를 쓰기 전에 **실제 응답의 필드 이름**을 한 번 찍어 본다.
 #
-# 1차 시도(2026-10-03)는 첫 요청이 응답 없이 끝나자 거기서 죽었다. 진단
-# 도구가 첫 문제에서 멈추면 아무것도 진단하지 못한다 -- 그래서 이제 어떤
-# 호출도 단계를 죽이지 않고, curl 의 실제 오류 문구와 연결 단계별 소요
-# 시간까지 같이 남긴다. "응답 없음"의 원인이 DNS 인지 TLS 인지 타임아웃인지
-# 구분되지 않으면 다음 수를 고를 수 없다.
+# 2차 시도에서 다섯 경로 모두 빠르게 JSON 을 돌려줬지만 전부 오류 봉투
+# (OpenAPI_ServiceResponse)였다. 즉 경로 문제가 아니라 **키가 받아들여지지
+# 않는다**는 뜻인데, 어느 쪽인지 알려면 오류 문구를 봐야 한다.
 #
-# 키 취급: DATA_GO_KR_SERVICE_KEY 는 env 로만 넘기고 URL 을 통째로 출력하지
-# 않는다(--data-urlencode 로 붙인다). 포털의 Decoding 키에는 '+', '/', '='
-# 가 들어 있어 직접 이어붙이면 깨지므로 curl 이 인코딩하게 맡긴다.
-# 출력하는 값은 공개 시세 데이터뿐이다.
+# 가장 흔한 원인은 키의 형태다. 포털은 인증키를 Encoding(%2F, %2B, %3D 가
+# 보이는 것)과 Decoding 두 가지로 준다. 이미 인코딩된 키를 다시 인코딩하면
+# '%' 가 '%25' 가 되어 전혀 다른 문자열이 된다. 그래서 같은 요청을 키를
+# 넘기는 두 가지 방식으로 각각 보내 본다 -- 어느 쪽이 통하는지가 곧
+# provider 가 써야 할 방식이다. 저장된 키의 형태를 추측하지 않고 측정한다.
+#
+# 키 취급: env 로만 넘기고 URL 을 통째로 출력하지 않는다. 출력하는 값은
+# 오류 문구와 공개 시세 데이터뿐이다.
 
 on:
   workflow_dispatch:
@@ -45,20 +47,29 @@ jobs:
           fi
           echo "service key present (value never printed)"
 
-      - name: Probe each service and report its shape
+      - name: Probe each service, each key form, and report
         shell: bash
         run: |
-          # Deliberately NOT `set -e`: every probe below must run even when
-          # the one before it failed. That is the whole point of a probe.
+          # Deliberately NOT `set -e`: every probe must run even when the one
+          # before it failed. That is the whole point of a probe.
           set +e
           set -u
 
           S="$GITHUB_STEP_SUMMARY"
+
+          # Shape of the stored key, without revealing it: only whether it
+          # *looks* already-percent-encoded, and how long it is.
+          shape="decoded처럼 보임"
+          case "$SERVICE_KEY" in
+            *%2F*|*%2B*|*%3D*|*%2f*|*%2b*|*%3d*) shape="**encoded 처럼 보임** (%2F/%2B/%3D 포함)";;
+          esac
           {
             echo "## data.go.kr 응답 구조 (기준일 \`$BAS_DT\`)"
             echo
-            echo "| # | 서비스 / 운영 | http | 연결 | 총 | 결과 |"
-            echo "|---|---|---|---|---|---|"
+            echo "저장된 키: 길이 ${#SERVICE_KEY}자, $shape"
+            echo
+            echo "| # | 서비스 / 운영 | 키 전달 | http | 결과 |"
+            echo "|---|---|---|---|---|"
           } >> "$S"
 
           N=0
@@ -67,44 +78,46 @@ jobs:
 
           probe() {
             N=$((N+1))
-            local label="$1" url="$2"
+            local label="$1" url="$2" mode="$3"
             local out=/tmp/resp_$N.json err=/tmp/err_$N.txt
             : > "$out"; : > "$err"
 
-            local w
-            w=$(curl -sS -G -o "$out" \
-                  -w '%{http_code}|%{time_connect}|%{time_total}' \
-                  --connect-timeout 10 --max-time 30 --retry 1 \
-                  --data-urlencode "serviceKey=$SERVICE_KEY" \
-                  --data-urlencode "resultType=json" \
-                  --data-urlencode "numOfRows=3" \
-                  --data-urlencode "pageNo=1" \
-                  --data-urlencode "basDt=$BAS_DT" \
-                  "$url" 2>"$err")
-            local code="${w%%|*}" rest="${w#*|}"
-            local tconn="${rest%%|*}" ttot="${rest#*|}"
-            local errmsg
-            errmsg=$(tr -d '\n|' < "$err" | head -c 100)
-
-            local verdict
-            if jq -e . "$out" >/dev/null 2>&1; then
-              verdict="JSON 수신"
-            elif [ -s "$out" ]; then
-              verdict="본문 있으나 JSON 아님"
+            local code
+            if [ "$mode" = "urlencode" ]; then
+              # curl encodes the key for us -- correct for a Decoding key.
+              code=$(curl -sS -G -o "$out" -w '%{http_code}' \
+                      --connect-timeout 10 --max-time 30 \
+                      --data-urlencode "serviceKey=$SERVICE_KEY" \
+                      --data-urlencode "resultType=json" \
+                      --data-urlencode "numOfRows=3" \
+                      --data-urlencode "basDt=$BAS_DT" \
+                      "$url" 2>"$err")
             else
-              verdict="본문 없음 — ${errmsg:-원인 미상}"
+              # key appended verbatim -- correct for an Encoding key, which is
+              # already percent-encoded and must not be encoded again.
+              code=$(curl -sS -o "$out" -w '%{http_code}' \
+                      --connect-timeout 10 --max-time 30 \
+                      "$url?serviceKey=$SERVICE_KEY&resultType=json&numOfRows=3&basDt=$BAS_DT" 2>"$err")
             fi
 
-            echo "| $N | $label | ${code:-000} | ${tconn:-?}s | ${ttot:-?}s | $verdict |" >> "$S"
+            local verdict="본문 없음 — $(tr -d '\n|' < "$err" | head -c 80)"
+            if jq -e . "$out" >/dev/null 2>&1; then
+              if jq -e '.response.body' "$out" >/dev/null 2>&1; then
+                verdict="**데이터 수신** (totalCount $(jq -r '.response.body.totalCount // "?"' "$out"))"
+              else
+                # the error envelope -- the message is the whole point
+                verdict="오류: $(jq -r '.. | .errMsg? // empty' "$out" | head -1) / $(jq -r '.. | .returnAuthMsg? // empty' "$out" | head -1)"
+              fi
+            elif [ -s "$out" ]; then
+              verdict="JSON 아님: $(tr -d '\n|' < "$out" | head -c 80)"
+            fi
 
-            {
-              echo
-              echo "### $N. $label"
-              echo
-              if jq -e . "$out" >/dev/null 2>&1; then
-                echo "- 최상위 키: \`$(jq -r 'keys | join(", ")' "$out")\`"
-                echo "- resultCode / resultMsg: \`$(jq -r '[(.response.header.resultCode//"-"), (.response.header.resultMsg//"-")] | join(" / ")' "$out")\`"
-                echo "- totalCount: \`$(jq -r '.response.body.totalCount // "?"' "$out")\`"
+            echo "| $N | $label | $mode | ${code:-000} | $verdict |" >> "$S"
+
+            if jq -e '.response.body' "$out" >/dev/null 2>&1; then
+              {
+                echo
+                echo "### $N. $label ($mode) — 성공"
                 echo
                 echo "필드 이름 (provider 가 맞춰야 할 계약):"
                 echo
@@ -118,55 +131,31 @@ jobs:
                 jq -c '(.response.body.items.item // .response.body.items // empty) | (if type=="array" then .[0] else . end)' "$out" 2>/dev/null | head -c 1000
                 echo
                 echo '```'
-              else
-                echo "응답 앞부분:"
-                echo
-                echo '```'
-                head -c 400 "$out" 2>/dev/null
-                echo
-                echo '```'
-                echo
-                echo "curl stderr:"
-                echo
-                echo '```'
-                head -c 400 "$err" 2>/dev/null
-                echo
-                echo '```'
-              fi
-            } >> "$DETAIL"
+              } >> "$DETAIL"
+            fi
           }
 
           B2=https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2
           B1=https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService
           L2=https://apis.data.go.kr/1160100/GetKrxListedInfoService_V2
-          L1=https://apis.data.go.kr/1160100/service/GetKrxListedInfoService
 
-          # 포털이 알려준 _V2 경로와, 도달 가능한 것이 확인된 구 경로를 모두
-          # 시도한다. 어느 쪽이 답하는지가 provider 가 쓸 주소를 결정한다.
-          probe "시세 _V2 / getStockPriceInfo_V2" "$B2/getStockPriceInfo_V2"
-          probe "시세 _V2 / getStockPriceInfo"    "$B2/getStockPriceInfo"
-          probe "시세 구경로 / getStockPriceInfo"  "$B1/getStockPriceInfo"
-          probe "종목 _V2 / getItemInfo_V2"       "$L2/getItemInfo_V2"
-          probe "종목 구경로 / getItemInfo"        "$L1/getItemInfo"
-
-          # 호스트 자체가 살아 있는지 (키 없이, 경로만)
-          {
-            echo
-            echo "### 호스트 자체"
-            echo
-            echo '```'
-            curl -sS -o /dev/null -w 'apis.data.go.kr  http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n' \
-              --connect-timeout 10 --max-time 20 "https://apis.data.go.kr/" 2>&1 | head -c 300
-            echo '```'
-          } >> "$DETAIL"
+          for mode in urlencode verbatim; do
+            probe "시세 _V2 / getStockPriceInfo_V2" "$B2/getStockPriceInfo_V2" "$mode"
+            probe "시세 구경로 / getStockPriceInfo"  "$B1/getStockPriceInfo"    "$mode"
+            probe "종목 _V2 / getItemInfo_V2"       "$L2/getItemInfo_V2"       "$mode"
+          done
 
           cat "$DETAIL" >> "$S"
 
           {
             echo
-            echo "**읽는 법**: 본문이 오면(JSON 이든 아니든) 그 주소는 살아 있다."
-            echo "\`SERVICE_KEY_IS_NOT_REGISTERED_ERROR\` 는 차단이 아니라 키 문제이고,"
-            echo "본문이 아예 없으면 그 경로는 이 러너에서 쓸 수 없다."
+            echo "**읽는 법**"
+            echo
+            echo "- \`데이터 수신\` 이 하나라도 있으면, 그 조합(경로 + 키 전달 방식)이 정답이다."
+            echo "- 전부 \`SERVICE_KEY_IS_NOT_REGISTERED_ERROR\` 면 키가 아직 반영되지 않았거나"
+            echo "  (등록 직후 수분~1시간), 다른 서비스의 키다."
+            echo "- urlencode 만 실패하고 verbatim 이 되면 저장된 키가 Encoding 형태라는 뜻이고,"
+            echo "  그 반대면 Decoding 형태라는 뜻이다. provider 는 측정된 쪽을 쓴다."
           } >> "$S"
 
           echo "probe finished; see the job summary"
