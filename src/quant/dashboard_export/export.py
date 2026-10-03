@@ -72,7 +72,7 @@ FORBIDDEN_PHRASES = [
 _DISCLAIMER_EXEMPT = [DISCLAIMER]
 
 
-def _candidate_to_dict(rank: int, c) -> dict:
+def _candidate_to_dict(rank: int, c, institutional_overlay: dict | None = None) -> dict:
     edge = c.historical_signal_edge or {}
     return {
         "rank": rank,
@@ -98,6 +98,7 @@ def _candidate_to_dict(rank: int, c) -> dict:
         "composite_score": c.composite_score,
         "price_history": list(getattr(c, "price_history", []) or []),
         "trade_plan": build_trade_plan(c),
+        "institutional_overlay": institutional_overlay or {},
     }
 
 
@@ -142,7 +143,7 @@ def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
         ),
         "universe_size": scan.universe_size,
         "excluded_for_quality": len(scan.excluded_for_quality),
-        "candidates": [_candidate_to_dict(i, c) for i, c in enumerate(scan.top_candidates, 1)],
+        "candidates": [_candidate_to_dict(i, c, mrr.institutional_overlays.get(c.symbol)) for i, c in enumerate(scan.top_candidates, 1)],
     }
 
 
