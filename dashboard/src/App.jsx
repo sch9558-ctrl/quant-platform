@@ -16,7 +16,7 @@ export default function App(){
  if(!data)return <main className="shell"><div className="loading">퀀트 데이터를 불러오는 중…</div></main>
  return <main className="shell">
    <header className="hero"><div><span className="eyebrow">KOREA + US QUANT RESEARCH</span><h1>오늘의 퀀트 매매 가이드</h1><p>어떤 종목을 · 어느 가격에 · 언제 정리할지 한 화면에서 확인합니다.</p></div><Status d={data}/></header>
-   <div className="disclaimer">모델·과거 데이터 기반 연구 정보이며 투자 자문이나 수익 보장이 아닙니다. 데이터 검증 실패 시 후보를 표시하지 않습니다.</div>
+   <div className="disclaimer">모델·과거 데이터 기반 연구 정보이며 투자 자문이 아니고 수익을 약속하지 않습니다. 데이터 검증 실패 시 후보를 표시하지 않습니다.</div>
    <nav className="market-tabs">{Object.entries(MARKET).map(([k,v])=><button key={k} className={market===k?'active':''} onClick={()=>setMarket(k)}>{v}</button>)}</nav>
    {section?.blocked ? <section className="blocked"><h2>⛔ {MARKET[market]} 데이터 검증 실패</h2><p>{section.block_reason}</p><p>검증되지 않은 전일 후보를 오늘 후보처럼 재사용하지 않습니다.</p></section> :
    <><section className="market-summary"><div><span>시장 국면</span><b>{section?.regime?.summary||'—'}</b></div><div><span>분석 유니버스</span><b>{section?.universe_size||0}종목</b></div><div><span>오늘 후보</span><b>{cards.length}종목</b></div></section><section className="cards">{cards.length?cards.map(c=><ActionableTradeCard key={c.symbol} candidate={c} market={market} consensus={cmap[market+':'+c.symbol]}/>):<div className="empty">조건을 통과한 후보가 없습니다.</div>}</section></>}
