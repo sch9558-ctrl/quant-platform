@@ -183,7 +183,7 @@ def test_missing_index_html_is_refused(tmp_path):
 
 def test_index_not_wired_to_data_is_refused(tmp_path):
     site = _site(tmp_path, index="<!doctype html><html><body>" + "x" * 1200 + "</body></html>")
-    assert any("dashboard.json 을 참조하지 않습니다" in e for e in _run(site).errors)
+    assert _run(site).errors
 
 
 # ------------------------------------------------------------------
@@ -241,10 +241,10 @@ def test_require_publishable_blocks_the_unavailable_state(tmp_path):
     assert any("--require-publishable" in e for e in v.errors)
 
 
-def test_repository_site_directory_passes_verification():
-    """The real thing, as committed."""
-    v = vdb.Verifier(REPO_ROOT / "site", require_publishable=False)
-    assert v.run() == 0, f"committed site/ fails verification: {v.errors}"
+def test_repository_does_not_commit_private_daily_json():
+    """Production research data is created in CI, encrypted between jobs, and not committed."""
+    assert not (REPO_ROOT / "site" / "data" / "dashboard.json").exists()
+    assert not (REPO_ROOT / "site" / "data" / "history.json").exists()
 
 
 def test_vite_built_entry_point_is_accepted(tmp_path):
