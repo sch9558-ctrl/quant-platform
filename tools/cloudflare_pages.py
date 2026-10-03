@@ -151,15 +151,26 @@ def ensure_cloudflare_idp(client: Client, idps: list[dict[str, Any]]) -> dict[st
 
 
 def ensure_project(client: Client, project: str) -> dict[str, Any]:
+    """Create the Pages project idempotently, including concurrent-create races.
+
+    Permission/authentication failures remain fatal. A create error is ignored
+    only when a follow-up GET proves that the requested project now exists.
+    """
     path = f"/accounts/{client.account_id}/pages/projects/{project}"
     existing = client.request("GET", path, allow_404=True)
     if existing:
         return existing
-    return client.request(
-        "POST",
-        f"/accounts/{client.account_id}/pages/projects",
-        payload={"name": project, "production_branch": "master"},
-    )
+    try:
+        return client.request(
+            "POST",
+            f"/accounts/{client.account_id}/pages/projects",
+            payload={"name": project, "production_branch": "master"},
+        )
+    except CloudflareError:
+        existing = client.request("GET", path, allow_404=True)
+        if existing:
+            return existing
+        raise
 
 
 def find_app(apps: list[dict[str, Any]], hostname: str) -> dict[str, Any] | None:

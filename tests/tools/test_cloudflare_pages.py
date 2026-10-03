@@ -7,6 +7,7 @@ from tools.cloudflare_pages import (
     _app_matches,
     _assert_no_broad_policy,
     _policy_is_strict_owner_policy,
+    ensure_project,
 )
 
 
@@ -50,3 +51,29 @@ def test_only_account_member_allow_policy_is_accepted():
         "include": [{"cloudflare_account_member": {"account_id": ACCOUNT}}],
     }
     _assert_no_broad_policy([policy], ACCOUNT)
+
+
+def test_project_create_race_is_accepted_only_when_project_can_be_re_read():
+    class RacingClient:
+        account_id = ACCOUNT
+        def __init__(self):
+            self.gets = 0
+        def request(self, method, path, *, payload=None, allow_404=False):
+            if method == "GET":
+                self.gets += 1
+                return None if self.gets == 1 else {"name": "quant-platform"}
+            raise CloudflareError("already exists", status=409)
+
+    assert ensure_project(RacingClient(), "quant-platform")["name"] == "quant-platform"
+
+
+def test_project_create_error_stays_fatal_when_project_still_missing():
+    class FailingClient:
+        account_id = ACCOUNT
+        def request(self, method, path, *, payload=None, allow_404=False):
+            if method == "GET":
+                return None
+            raise CloudflareError("forbidden", status=403)
+
+    with pytest.raises(CloudflareError, match="forbidden"):
+        ensure_project(FailingClient(), "quant-platform")

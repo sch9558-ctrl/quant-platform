@@ -81,11 +81,13 @@ def test_build_is_verified_before_deployment():
     assert "verify_dashboard_build.py" in steps[verify_idx]["run"]
 
 
-def test_cloudflare_token_is_secret_and_account_id_is_nonsecret_configuration():
+def test_cloudflare_secret_names_support_canonical_and_legacy_aliases():
     raw = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "secrets.CLOUDFLARE_API_TOKEN" in raw
+    assert "secrets.CF_API_TOKEN" in raw
+    assert "secrets.CLOUDFLARE_ACCOUNT_ID" in raw
+    assert "secrets.CF_ACCOUNT_ID" in raw
     assert "301c3fbffec59a5d5827040ff30eb62f" in raw
-    assert "CLOUDFLARE_API_TOKEN:" in raw
 
 
 def test_top_level_default_permission_is_read_only():
@@ -198,8 +200,10 @@ def test_data_go_service_key_is_injected_from_github_secret():
 def test_deploy_guarantees_index_and_dashboard_entry_points():
     data = _load()
     steps = data["jobs"]["deploy"]["steps"]
-    entry = next(s for s in steps if "Ensure dashboard entry points" in s.get("name", ""))
+    entry = next(s for s in steps if "Prepare Site Directory" in s.get("name", ""))
     run = entry["run"]
+    assert "mkdir -p site" in run
+    assert "reports/dashboard.html" in run
     assert "site/index.html" in run and "site/dashboard.html" in run
     verify_idx = next(i for i, s in enumerate(steps) if "Verify dashboard build" in s.get("name", ""))
     assert steps.index(entry) < verify_idx
@@ -228,7 +232,7 @@ def test_root_url_is_checked_for_authentication_after_publish():
     data = _load()
     steps = data["jobs"]["deploy"]["steps"]
     verify = next(s for s in steps if "Verify root URL is protected" in s.get("name", ""))
-    assert "quant-platform.pages.dev" in verify["run"]
+    assert "CLOUDFLARE_PAGES_HOSTNAME" in verify["run"]
     assert "HTTP 200" in verify["run"]
     assert "exit 1" in verify["run"]
 
@@ -240,3 +244,12 @@ def test_cloudflare_bootstrap_dependency_is_installed_before_bootstrap():
     bootstrap_idx = next(i for i, s in enumerate(steps) if "Bootstrap/check Cloudflare private Pages" in s.get("name", ""))
     assert install_idx < bootstrap_idx
     assert "pip install requests" in steps[install_idx]["run"]
+
+
+def test_cloudflare_action_uses_resolved_env_credentials():
+    data = _load()
+    deploy = data["jobs"]["deploy"]
+    steps = deploy["steps"]
+    publish = next(s for s in steps if "wrangler-action" in str(s.get("uses", "")))
+    assert publish["with"]["apiToken"] == "${{ env.CLOUDFLARE_API_TOKEN }}"
+    assert publish["with"]["accountId"] == "${{ env.CLOUDFLARE_ACCOUNT_ID }}"
