@@ -79,6 +79,8 @@ def _candidate_to_dict(rank: int, c) -> dict:
         "symbol": c.symbol,
         "company": c.name,
         "market": c.market,
+        "exchange": c.exchange,
+        "asset_type": c.asset_type,
         "price": c.price,
         "momentum": c.momentum_rank,
         "trend": c.trend_score,
@@ -364,7 +366,14 @@ def build_dashboard_data(
     data_source_mode = publishability.SYNTHETIC if demo else publishability.REAL
     publish_report = publishability.assess(
         data_source_mode,
-        {m: pipeline_result.as_of for m in ("korea", "us")},
+        {
+            m: (
+                pipeline_result.markets[m].as_of
+                if m in pipeline_result.markets and pipeline_result.markets[m] is not None
+                else None
+            )
+            for m in ("korea", "us")
+        },
     )
 
     data = {
