@@ -16,6 +16,7 @@ import pandas as pd
 from quant import config
 from quant.ranking.overfitting import assess_overfitting
 from quant.validation.walk_forward import WalkForwardResult
+from quant.validation.cpcv import deflated_sharpe_ratio
 
 
 @dataclass
@@ -36,6 +37,7 @@ class StrategyFeatures:
     n_folds: int
     avg_turnover: float
     n_param_combos_tested: int = 1
+    deflated_sharpe_probability: float | None = None
 
 
 @dataclass
@@ -64,6 +66,8 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
             avg_oos_sortino=0.0, avg_oos_calmar=0.0, aggregate_oos_cagr=0.0,
             aggregate_oos_sharpe=0.0, aggregate_oos_mdd=0.0, stability_ratio=0.0,
             n_oos_trades=0, n_folds=0, avg_turnover=0.0,
+            n_param_combos_tested=max(1, n_param_combos_tested),
+            deflated_sharpe_probability=None,
         )
 
     def _avg(getter):
@@ -71,6 +75,18 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
         return float(np.nanmean(vals)) if vals else 0.0
 
     stable_flags = [f.stability.is_stable for f in folds if f.stability is not None]
+
+    trial_sharpes = list(getattr(wf, "parameter_trial_sharpes", ()) or ())
+    inferred_trials = max(1, len(trial_sharpes), int(n_param_combos_tested or 1))
+    dsr_probability = None
+    if wf.aggregate_oos_equity is not None and len(wf.aggregate_oos_equity) >= 4:
+        oos_returns = wf.aggregate_oos_equity.pct_change().dropna()
+        if len(oos_returns) >= 3:
+            dsr_probability = deflated_sharpe_ratio(
+                oos_returns,
+                n_trials=inferred_trials,
+                trial_sharpes=trial_sharpes or None,
+            )
 
     return StrategyFeatures(
         strategy_id=wf.strategy_id, market=wf.market,
@@ -87,7 +103,8 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
         n_oos_trades=sum(f.oos_metrics.num_trades for f in folds),
         n_folds=len(folds),
         avg_turnover=_avg(lambda f: f.oos_metrics.avg_turnover),
-        n_param_combos_tested=n_param_combos_tested,
+        n_param_combos_tested=inferred_trials,
+        deflated_sharpe_probability=dsr_probability,
     )
 
 
@@ -163,9 +180,17 @@ def rank_strategies(features: list[StrategyFeatures]) -> pd.DataFrame:
         "cost_efficiency_penalty": 1 - cost_penalty_score,
         "composite_score": composite,
         "n_oos_trades": df["n_oos_trades"], "n_folds": df["n_folds"],
+        "deflated_sharpe_probability": df["deflated_sharpe_probability"],
+        "n_param_combos_tested": df["n_param_combos_tested"],
     })
+    dsr_threshold = float(min_req.get("min_deflated_sharpe_probability", 0.5))
+    dsr_ok = df["deflated_sharpe_probability"].isna() | (
+        df["deflated_sharpe_probability"] >= dsr_threshold
+    )
     out["meets_minimum_requirements"] = (
-        (df["n_oos_trades"] >= min_req["min_trades"]) & (df["n_folds"] >= min_req["min_oos_periods"])
+        (df["n_oos_trades"] >= min_req["min_trades"])
+        & (df["n_folds"] >= min_req["min_oos_periods"])
+        & dsr_ok
     )
     out["overfitting_warnings"] = out.index.map(lambda sid: warnings_by_strategy.get(sid, []))
     out = out.sort_values("composite_score", ascending=False)
