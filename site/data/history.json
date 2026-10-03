@@ -58,7 +58,7 @@
   },
   {
     "as_of": "2026-10-02",
-    "generated_at": "2026-10-03T01:24:50.542238+00:00",
+    "generated_at": "2026-10-03T02:55:27.255347+00:00",
     "data_source_mode": "real",
     "publishable": true,
     "freshness": {
@@ -71,7 +71,12 @@
     "investment_readiness": "DATA_INVALID",
     "outlier_counts": {
       "korea": null,
-      "us": {}
+      "us": {
+        "VALID": 221322,
+        "REVIEW": 96,
+        "QUARANTINED": 0,
+        "REJECTED": 0
+      }
     },
     "n_source_mismatch": {
       "korea": null,
