@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import json
 import time
+from io import StringIO
 from pathlib import Path
 from typing import Callable
 
 import pandas as pd
+import requests
 
 from quant import config
 from quant.data.base import MarketDataProvider, SymbolInfo
@@ -28,6 +30,9 @@ logger = get_logger(__name__)
 
 SP500_WIKI_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 NASDAQ100_WIKI_URL = "https://en.wikipedia.org/wiki/Nasdaq-100"
+SP500_RAW_URL = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
+NASDAQ100_RAW_URL = "https://raw.githubusercontent.com/Gary-Strauss/nasdaq100-scraper/main/data/nasdaq100_constituents.csv"
+_HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; quant-platform/1.0; +https://github.com/sch9558-ctrl/quant-platform)"}
 
 CACHE_MAX_AGE_DAYS = 7
 
@@ -85,24 +90,49 @@ def _fetch_with_cache(cache_name: str, fetcher: Callable[[], list[str]]) -> list
     return []
 
 
+def _read_html_with_headers(url: str) -> list[pd.DataFrame]:
+    response = requests.get(url, headers=_HTTP_HEADERS, timeout=20)
+    response.raise_for_status()
+    return pd.read_html(StringIO(response.text))
+
+
+def _read_symbol_csv(url: str) -> list[str]:
+    response = requests.get(url, headers=_HTTP_HEADERS, timeout=20)
+    response.raise_for_status()
+    df = pd.read_csv(StringIO(response.text))
+    col = next((x for x in df.columns if str(x).lower() in ("symbol", "ticker")), df.columns[0])
+    return [str(s).strip().replace(".", "-") for s in df[col].dropna().tolist()]
+
+
 def fetch_sp500_constituents(fetch_html_fn: Callable[[str], list[pd.DataFrame]] | None = None) -> list[str]:
     def default_fetcher() -> list[str]:
-        tables = (fetch_html_fn or pd.read_html)(SP500_WIKI_URL)
-        df = tables[0]
-        col = "Symbol" if "Symbol" in df.columns else df.columns[0]
-        return [str(s).strip().replace(".", "-") for s in df[col].tolist()]
+        try:
+            tables = (fetch_html_fn or _read_html_with_headers)(SP500_WIKI_URL)
+            df = tables[0]
+            col = "Symbol" if "Symbol" in df.columns else df.columns[0]
+            symbols = [str(s).strip().replace(".", "-") for s in df[col].tolist()]
+            if symbols:
+                return symbols
+        except Exception as exc:
+            logger.warning("Wikipedia S&P 500 fetch failed; trying maintained raw dataset: %s", exc)
+        return _read_symbol_csv(SP500_RAW_URL)
 
     return _fetch_with_cache("sp500.json", default_fetcher)
 
 
 def fetch_nasdaq100_constituents(fetch_html_fn: Callable[[str], list[pd.DataFrame]] | None = None) -> list[str]:
     def default_fetcher() -> list[str]:
-        tables = (fetch_html_fn or pd.read_html)(NASDAQ100_WIKI_URL)
-        for df in tables:
-            cols = [c for c in df.columns if str(c).lower() in ("ticker", "symbol")]
-            if cols:
-                return [str(s).strip().replace(".", "-") for s in df[cols[0]].tolist()]
-        raise ValueError("Could not locate a ticker column in Nasdaq-100 Wikipedia tables")
+        try:
+            tables = (fetch_html_fn or _read_html_with_headers)(NASDAQ100_WIKI_URL)
+            for df in tables:
+                cols = [c for c in df.columns if str(c).lower() in ("ticker", "symbol")]
+                if cols:
+                    symbols = [str(s).strip().replace(".", "-") for s in df[cols[0]].tolist()]
+                    if symbols:
+                        return symbols
+        except Exception as exc:
+            logger.warning("Wikipedia Nasdaq-100 fetch failed; trying maintained raw dataset: %s", exc)
+        return _read_symbol_csv(NASDAQ100_RAW_URL)
 
     return _fetch_with_cache("nasdaq100.json", default_fetcher)
 
