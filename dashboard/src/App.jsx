@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from 'react'
 import ActionableTradeCard from './components/ActionableTradeCard'
+import InstitutionalTerminal from './components/InstitutionalTerminal'
 import './styles.css'
 
 const MARKET={korea:'국내 증시',us:'미국 증시'}
@@ -31,6 +32,7 @@ export default function App(){
    <div className="market-toolbar"><nav className="market-tabs">{Object.entries(MARKET).map(([k,v])=><button key={k} className={market===k?'active':''} onClick={()=>setMarket(k)}>{v}</button>)}</nav>{market==='us'&&<div className="fx-toggle"><button disabled={!fxRate} className={convertUsd?'active':''} onClick={()=>fxRate&&setConvertUsd(v=>!v)}>{convertUsd?'원화 환산 ON':'USD 표시'}</button><span>{fxRate?('USD/KRW '+Number(fxRate).toLocaleString('ko-KR')+' · '+(fx?.quote_date||'')):'환율 미수집'}</span></div>}</div>
    {section?.blocked ? <section className="blocked"><h2>⛔ {MARKET[market]} 데이터 검증 실패</h2><p>{section.block_reason}</p><p>검증되지 않은 전일 후보를 오늘 후보처럼 재사용하지 않습니다.</p></section> :
    <><section className="market-summary"><div><span>시장 국면</span><b>{section?.regime?.summary||'—'}</b></div><div><span>분석 유니버스</span><b>{section?.universe_size||0}종목</b></div><div><span>오늘 후보</span><b>{cards.length}종목</b></div><div><span>데이터 상태</span><b>{koStatus(data?.data_quality?.[market]?.overall_status)}</b></div></section><section className="cards">{cards.length?cards.map(c=><ActionableTradeCard key={c.symbol} candidate={c} market={market} consensus={cmap[market+':'+c.symbol]} fxRate={fxRate} convertUsd={convertUsd}/>):<div className="empty">조건을 통과한 후보가 없습니다.</div>}</section></>}
+   <InstitutionalTerminal candidates={cards} market={market} fxRate={fxRate} convertUsd={convertUsd}/>
    <AnalystTable consensus={consensus}/>
    <SourceStatus consensus={consensus}/>
    <section className="panel notes"><h2>데이터·검증 상태</h2><p>국내: {koStatus(data?.data_quality?.korea?.overall_status)} / 미국: {koStatus(data?.data_quality?.us?.overall_status)}</p>{fx&&<p>환율: {fx.available?('USD/KRW '+Number(fx.rate).toLocaleString('ko-KR')+' ('+(fx.quote_date||'기준일 미상')+')'):'미수집'} · {fx.note_ko}</p>}<p>{consensus?.source_notes_ko?.join(' · ')}</p></section>
