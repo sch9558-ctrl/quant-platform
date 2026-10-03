@@ -8,6 +8,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from quant import config
+
 from quant.data.base import MarketDataProvider
 from quant.data.quality import check_ohlcv
 from quant.features.engine import FeatureEngine
@@ -87,9 +89,12 @@ class DailyScanner:
         }
 
         equity_symbols = [s for s in feature_map if symbol_meta.get(s, {}).get("asset_type") == "equity"]
+        preliminary = score_candidates(self.market, feature_map, clean_ohlcv_map, symbol_meta, None)
+        lookup_limit = int(config.ranking_config().get("fundamental_lookup_limit", 60))
+        fundamental_symbols = [c.symbol for c in preliminary if c.symbol in equity_symbols][:lookup_limit]
         fundamental_scores = None
         try:
-            fund_df = self.provider.get_fundamentals(equity_symbols, as_of)
+            fund_df = self.provider.get_fundamentals(fundamental_symbols, as_of)
             if fund_df is not None and not fund_df.empty:
                 fundamental_scores = pd.concat([
                     fnd.value_score(fund_df), fnd.quality_score(fund_df), fnd.growth_score(fund_df),
