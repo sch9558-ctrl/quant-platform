@@ -94,6 +94,7 @@ def _candidate_to_dict(rank: int, c) -> dict:
             "win_rate": edge.get("win_rate"),
         },
         "composite_score": c.composite_score,
+        "price_history": list(getattr(c, "price_history", []) or []),
         "trade_plan": build_trade_plan(c),
     }
 

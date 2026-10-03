@@ -40,7 +40,7 @@ def test_candidate_has_all_required_fields(built):
     r = results[0]
     for attr in ["price", "recent_return_20d", "momentum_rank", "trend_score", "volume_score",
                  "volatility", "signal", "expected_cost_bps", "historical_signal_edge",
-                 "risk_score", "composite_score"]:
+                 "risk_score", "composite_score", "price_history"]:
         assert hasattr(r, attr)
     assert r.expected_cost_bps > 0
 
@@ -64,3 +64,12 @@ def test_historical_signal_edge_excludes_recent_unrealized_window():
 def test_score_candidates_empty_feature_map_returns_empty():
     results = score_candidates("korea", {}, {}, {})
     assert results == []
+
+
+def test_candidate_price_history_is_chronological_and_bounded(built):
+    ohlcv_map, feature_map, meta = built
+    result = score_candidates("korea", feature_map, ohlcv_map, meta)[0]
+    assert 1 <= len(result.price_history) <= 90
+    dates = [row["date"] for row in result.price_history]
+    assert dates == sorted(dates)
+    assert all(row["close"] > 0 for row in result.price_history)

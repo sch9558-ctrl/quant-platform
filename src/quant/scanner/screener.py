@@ -44,6 +44,7 @@ class CandidateResult:
     risk_score: float
     composite_score: float
     sub_scores: dict = field(default_factory=dict)
+    price_history: list[dict] = field(default_factory=list)
 
 
 def _safe_last(series: pd.Series | None) -> float | None:
@@ -182,6 +183,11 @@ def score_candidates(
         composite = sum(cfg.get(k, 0) * v for k, v in sub.items())
 
         edge = historical_signal_edge(feat_df, close)
+        recent_close = pd.to_numeric(close, errors="coerce").dropna().tail(90)
+        price_history = [
+            {"date": str(pd.Timestamp(idx).date()), "close": float(value)}
+            for idx, value in recent_close.items()
+        ]
 
         results.append(CandidateResult(
             symbol=symbol, name=meta.get("name", symbol), market=market,
@@ -201,6 +207,7 @@ def score_candidates(
             risk_score=risk_score if risk_score is not None else 0.5,
             composite_score=float(composite),
             sub_scores=sub,
+            price_history=price_history,
         ))
 
     results.sort(key=lambda r: r.composite_score, reverse=True)

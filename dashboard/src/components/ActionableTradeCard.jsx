@@ -10,6 +10,38 @@ function pct(v, digits=1) {
 function hitRate(metric) {
   return metric?.hit_rate == null ? '평가중' : Math.round(metric.hit_rate * 100) + '%'
 }
+
+function PriceReportChart({history=[], events=[], market, fxRate, convertUsd}) {
+  const points=(history||[]).filter(x=>x?.close!=null)
+  if(points.length<2) return null
+  const width=560,height=150,pad=14
+  const vals=points.map(x=>Number(x.close))
+  const min=Math.min(...vals),max=Math.max(...vals)
+  const span=Math.max(max-min,1e-9)
+  const x=i=>pad+(width-pad*2)*(i/(points.length-1))
+  const y=v=>height-pad-(height-pad*2)*((v-min)/span)
+  const path=points.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(Number(p.close)).toFixed(1)).join(' ')
+  const byDate=new Map(points.map((p,i)=>[p.date,i]))
+  const dateValues=points.map(p=>p.date)
+  const markerIndex=date=>{
+    if(byDate.has(date)) return byDate.get(date)
+    const idx=dateValues.findIndex(d=>d>=date)
+    return idx<0?points.length-1:idx
+  }
+  const markers=(events||[]).slice(-12).map((e,i)=>({e,i:markerIndex(e.published_at)}))
+  return <div className="price-report-chart">
+    <div className="mini-title">최근 90거래일 주가 · 리포트 발행 마커</div>
+    <svg viewBox={'0 0 '+width+' '+height} role="img" aria-label="최근 주가와 리포트 발행 시점">
+      <path d={path} fill="none" stroke="currentColor" strokeWidth="2"/>
+      {markers.map(({e,i},k)=><g key={k} transform={'translate('+x(i)+','+y(Number(points[i].close))+')'}>
+        <circle r="5" className={e.hit===true?'chart-hit':e.hit===false?'chart-miss':'chart-pending'}/>
+        <text y="-9" textAnchor="middle">{e.hit===true?'O':e.hit===false?'X':'…'}</text>
+      </g>)}
+    </svg>
+    <div className="chart-range"><span>{points[0].date} · {formatPrice(points[0].close,market,fxRate,convertUsd)}</span><span>{points.at(-1).date} · {formatPrice(points.at(-1).close,market,fxRate,convertUsd)}</span></div>
+  </div>
+}
+
 function EventTimeline({events=[], market, fxRate, convertUsd}) {
   const rows = events.slice(-4).reverse()
   if (!rows.length) return null
@@ -57,6 +89,7 @@ export default function ActionableTradeCard({candidate, market, consensus, fxRat
         <p>목표가 평균 <b>{formatPrice(meanTarget, market, fxRate, convertUsd)}</b>{gap!=null && <> · 현재가 대비 <b className={gapClass}>{pct(gap)}</b></>} · 수집 {consensus.report_count || 0}건</p>
         {credibility ? <p>3개월 적중률 <b>{hitRate(credibility)}</b> · 성숙 표본 <b>{credibility.n_evaluable ?? 0}</b>건 · 평가중 목표 <b>{credibility.n_pending_target_reports ?? 0}</b>건 · 신뢰도 <b>{credibility.credibility_score}점 ({credibility.tier})</b></p> : <p className="muted">충분한 과거 검증 표본이 아직 없습니다.</p>}
         {topSource && <p>신뢰도 상위 기관 <b>{topSource.institution}</b> · {topSource.credibility.tier} · 평가표본 {topSource.credibility.n_evaluable ?? 0}건{topSource.target_price_mean!=null && <> · 해당 기관 평균 목표가 <b>{formatPrice(topSource.target_price_mean, market, fxRate, convertUsd)}</b></>}</p>}
+        <PriceReportChart history={candidate.price_history} events={consensus.events} market={market} fxRate={fxRate} convertUsd={convertUsd}/>
         <EventTimeline events={consensus.events} market={market} fxRate={fxRate} convertUsd={convertUsd}/>
       </> : <p className="muted">수집된 목표가/투자의견 메타데이터가 없습니다.</p>}
     </section>

@@ -76,7 +76,8 @@ def test_build_dashboard_data_end_to_end(dashboard_data):
         assert c["rank"] == 1
         assert set(["symbol", "company", "market", "price", "momentum", "trend",
                      "relative_strength", "volume", "volatility", "fundamental_score",
-                     "strategy_signal", "risk_score", "composite_score"]).issubset(c)
+                     "strategy_signal", "risk_score", "composite_score", "price_history"]).issubset(c)
+        assert len(c["price_history"]) <= 90
 
     strategies = data["strategies"]["korea"]
     assert {r["strategy_id"] for r in strategies} == {"ma_crossover", "rsi_reversal"}
