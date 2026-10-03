@@ -31,5 +31,7 @@ config/broker_secrets.yaml
 # Private daily investment research is generated in CI and encrypted between jobs.
 site/data/*.json
 !site/data/.gitkeep
+dashboard/data/*
+!dashboard/data/.gitkeep
 data/analyst_reports/*
 !data/analyst_reports/.gitkeep
