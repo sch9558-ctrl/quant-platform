@@ -107,3 +107,15 @@ def test_naive_retrieved_at_fails():
     ])
     result = validate_timezone(df, "korea", CFG)
     assert not result.passed
+
+
+def test_unknown_listing_date_infers_first_observed_bar_but_internal_gap_still_fails():
+    dates=pd.bdate_range("2026-08-03",periods=8)
+    rows=[{"symbol":"IPO","date":d.strftime("%Y-%m-%d"),"open":100,"high":101,"low":99,"close":100,"volume":1000} for d in dates[3:]]
+    df=make_records(rows)
+    result=validate_missing_sessions(df,"korea",dates[0].strftime("%Y-%m-%d"),dates[-1].strftime("%Y-%m-%d"),CFG)
+    assert result.passed
+    assert "IPO" in result.details["inferred_listing_boundaries"]
+    broken=df[df["date"] != pd.Timestamp(dates[5])]
+    result2=validate_missing_sessions(broken,"korea",dates[0].strftime("%Y-%m-%d"),dates[-1].strftime("%Y-%m-%d"),CFG)
+    assert not result2.passed
