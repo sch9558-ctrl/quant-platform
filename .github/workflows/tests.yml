@@ -1,7 +1,7 @@
 name: Test Suite
 on:
   push:
-    branches: [master]
+    branches: [master, feature/institutional-engine]
   workflow_dispatch:
 permissions:
   contents: read
