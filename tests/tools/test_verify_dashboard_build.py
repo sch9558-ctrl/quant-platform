@@ -123,10 +123,25 @@ def test_publishable_true_with_synthetic_source_is_refused(tmp_path):
     assert any("합성 데이터는 게시 가능 상태가 될 수 없습니다" in e for e in errors)
 
 
-def test_publishable_true_with_failed_integrity_is_refused(tmp_path):
+def test_real_current_data_that_failed_its_checks_is_still_deployed(tmp_path):
+    """The state this check used to refuse, wrongly.
+
+    `publishable` answers "is this real, current data?"; `data_integrity`
+    answers "did it pass the mandatory quality checks?". Real, current data
+    that fails a check is not a contradiction -- it is the most important
+    thing this dashboard can say, and blocking the deployment would hide it.
+    Fail-Closed stops the research, not the reporting of it.
+
+    On 2026-10-01 the first run ever to reach real data for both markets
+    landed in exactly this state, and this check refused to publish the page
+    that would have explained why.
+    """
     payload = _payload(overview={**_payload()["overview"], "data_integrity": "FAIL"})
-    errors = _run(_site(tmp_path, payload)).errors
-    assert any("데이터 무결성이 FAIL" in e for e in errors)
+    result = _run(_site(tmp_path, payload))
+    assert result.errors == [], (
+        "a validation failure on real, current data must still be publishable "
+        f"-- refused with {result.errors}"
+    )
 
 
 def test_unpublishable_without_a_user_facing_reason_is_refused(tmp_path):
