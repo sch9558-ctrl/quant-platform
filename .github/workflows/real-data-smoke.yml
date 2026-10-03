@@ -1,0 +1,29 @@
+name: Real Data Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "tools/real_data_smoke.trigger"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+      FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Verify real providers and report metadata sources
+        run: python tools/real_data_smoke.py

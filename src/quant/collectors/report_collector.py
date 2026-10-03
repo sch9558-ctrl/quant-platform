@@ -172,15 +172,19 @@ class NaverResearchCollector:
     def collect(self, symbols: Iterable[str] | None = None, max_pages=3):
         wanted = {str(s).zfill(6) for s in symbols} if symbols else None
         out = []
-        for page in range(1, max_pages + 1):
+        seen_detail_urls = set()
+        page = 1
+        while max_pages is None or page <= max_pages:
             response = self.session.get(
                 self.LIST_URL, params={"page": page}, timeout=self.timeout
             )
             response.raise_for_status()
             rows = self.parse_list(response.text)
-            if not rows:
+            fresh_rows = [r for r in rows if r["detail_url"] not in seen_detail_urls]
+            if not fresh_rows:
                 break
-            for row in rows:
+            for row in fresh_rows:
+                seen_detail_urls.add(row["detail_url"])
                 if (
                     not row["published_at"]
                     or (wanted is not None and row["symbol"] not in wanted)
@@ -207,13 +211,14 @@ class NaverResearchCollector:
                         row["detail_url"],
                     )
                 )
+            page += 1
         return dedupe_reports(out)
 
 
 class YahooAnalystCollector:
     """Yahoo analyst actions plus the latest aggregate target snapshot."""
 
-    def collect(self, symbols):
+    def collect(self, symbols, max_actions=200):
         import yfinance as yf
 
         out = []
@@ -223,7 +228,8 @@ class YahooAnalystCollector:
             try:
                 upgrades = ticker.get_upgrades_downgrades()
                 if upgrades is not None and not upgrades.empty:
-                    for idx, row in upgrades.head(200).iterrows():
+                    rows = upgrades if max_actions is None else upgrades.head(max_actions)
+                    for idx, row in rows.iterrows():
                         target = _number(
                             row.get("currentPriceTarget")
                             if "currentPriceTarget" in row.index

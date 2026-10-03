@@ -32,3 +32,28 @@ def test_dedupe_reports_is_stable():
         "us", "ABC", None, "2026-01-01", "Bank", None, 120, "BUY", "USD", "fixture"
     )
     assert dedupe_reports([r, r]) == [r]
+
+
+class FakeResponse:
+    def __init__(self, text):
+        self.text=text
+    def raise_for_status(self):
+        return None
+
+
+class FakeSession:
+    def __init__(self, pages):
+        self.pages=pages
+        self.headers={}
+    def get(self, url, params=None, timeout=None):
+        if "company_list" in url:
+            page=(params or {}).get("page",1)
+            return FakeResponse(self.pages.get(page,"<table></table>"))
+        return FakeResponse("<div>목표가 100,000 투자의견 Buy  작성일 2026.10.01</div>")
+
+
+def test_naver_unbounded_pagination_stops_when_no_fresh_rows():
+    row='<tr><td><a href="/item/main.naver?code=005930">삼성전자</a></td><td><a href="/research/company_read.naver?nid=1&page=1">전망</a></td><td>증권</td><td></td><td>26.10.01</td></tr>'
+    session=FakeSession({1:"<table>"+row+"</table>",2:"<table>"+row+"</table>"})
+    rows=NaverResearchCollector(session=session).collect(["005930"],max_pages=None)
+    assert len(rows)==1
