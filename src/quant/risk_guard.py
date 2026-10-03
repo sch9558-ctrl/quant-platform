@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import math
-
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
@@ -25,14 +23,15 @@ class RiskGuard:
         soft_drawdown: float = -0.05,
         hard_drawdown: float = -0.08,
         confidence: float = 0.95,
-        min_risk_reward: float = 2.5,
+        min_entry_risk_reward: float = 2.5,
+        min_risk_reward: float | None = None,
     ):
         if not 0.5 < confidence < 1:
             raise ValueError("confidence must be between 0.5 and 1")
         self.soft_drawdown = float(soft_drawdown)
         self.hard_drawdown = float(hard_drawdown)
         self.confidence = float(confidence)
-        self.min_risk_reward = float(min_risk_reward)
+        self.min_entry_risk_reward = float(min_entry_risk_reward if min_risk_reward is None else min_risk_reward)
 
     @staticmethod
     def portfolio_returns(returns: pd.DataFrame, weights) -> pd.Series:
@@ -85,19 +84,25 @@ class RiskGuard:
             raise ValueError("invalid trailing-stop inputs")
         return float(max(0.0, highest_high - multiple * atr20))
 
+    def entry_risk_reward_allowed(self, expected_reward: float, expected_risk: float) -> bool:
+        """Entry-time filter only; never use shrinking remaining R/R to force an exit."""
+        if expected_risk <= 0:
+            return expected_reward > 0
+        return (float(expected_reward) / float(expected_risk)) >= self.min_entry_risk_reward
+
+    @staticmethod
     def position_exit_reason(
-        self,
         *,
         current_price: float,
         trailing_stop: float,
-        expected_reward: float,
-        expected_risk: float,
+        expected_reward: float | None = None,
+        expected_risk: float | None = None,
     ) -> str | None:
+        """Exit only on a real exit condition.
+
+        Remaining reward/risk naturally falls as a winning trade approaches
+        its target, so it must not be reused as a liquidation trigger.
+        """
         if current_price <= trailing_stop:
             return "TRAILING_STOP"
-        rr = math.inf if expected_risk <= 0 and expected_reward > 0 else (
-            expected_reward / expected_risk if expected_risk > 0 else 0.0
-        )
-        if rr < self.min_risk_reward:
-            return "RISK_REWARD_BELOW_MINIMUM"
         return None
