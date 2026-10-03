@@ -191,3 +191,18 @@ def test_the_auto_commit_push_survives_the_branch_moving_under_it():
     assert "rebase --abort" in run, (
         "a rebase that cannot be completed must not leave the working tree mid-rebase"
     )
+
+
+def test_data_go_service_key_is_injected_from_github_secret():
+    raw = WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert "secrets.DATA_GO_KR_SERVICE_KEY" in raw
+
+
+def test_deploy_guarantees_index_and_dashboard_entry_points():
+    data = _load()
+    steps = data["jobs"]["deploy"]["steps"]
+    entry = next(s for s in steps if "Ensure dashboard entry points" in s.get("name", ""))
+    run = entry["run"]
+    assert "site/index.html" in run and "site/dashboard.html" in run
+    verify_idx = next(i for i, s in enumerate(steps) if "Verify dashboard build" in s.get("name", ""))
+    assert steps.index(entry) < verify_idx

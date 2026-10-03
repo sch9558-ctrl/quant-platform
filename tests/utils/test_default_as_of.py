@@ -20,7 +20,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from quant.utils.calendar import default_as_of, is_trading_day, trading_days
+from quant.utils.calendar import default_as_of, get_latest_completed_session, is_trading_day, trading_days
 
 MARKETS = ["korea", "us"]
 
@@ -131,3 +131,10 @@ def test_resolved_session_is_never_in_the_future_of_the_calendar():
             resolved = default_as_of(market, now=now)
             sessions = trading_days("2026-09-01", "2026-09-30", market)
             assert pd.Timestamp(resolved) in set(sessions)
+
+
+def test_public_completed_session_api_respects_market_close():
+    assert get_latest_completed_session("korea", "2026-09-18T06:35:00Z") == pd.Timestamp("2026-09-17")
+    assert get_latest_completed_session("korea", "2026-09-18T07:30:00Z") == pd.Timestamp("2026-09-18")
+    assert get_latest_completed_session("us", "2026-09-18T20:30:00Z") == pd.Timestamp("2026-09-17")
+    assert get_latest_completed_session("us", "2026-09-18T21:00:00Z") == pd.Timestamp("2026-09-18")

@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>퀀트 리서치 대시보드</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #161d2e; --panel-2: #1c2438; --border: #2a3348;
+    --text: #e6e9f0; --text-dim: #9aa4bb; --text-faint: #6b7590;
+    --pass: #2ea043; --pass-bg: #103a1b; --warn: #d29922; --warn-bg: #3a2e0c;
+    --fail: #f85149; --fail-bg: #3a1414; --info: #58a6ff; --info-bg: #10233d;
+    --accent: #58a6ff;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+            "Malgun Gothic", "맑은 고딕", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+  body { font-size: 15px; line-height: 1.6; word-break: keep-all; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+  header.top h1 { font-size: 1.4rem; margin: 0; }
+  header.top .meta { color: var(--text-dim); font-size: 0.85rem; }
+
+  .disclaimer-banner {
+    background: var(--panel-2); border: 1px solid var(--border); border-left: 4px solid var(--info);
+    padding: 10px 14px; border-radius: 6px; font-size: 0.88rem; color: var(--text-dim); margin-bottom: 18px;
+  }
+  .disclaimer-banner strong { color: var(--text); }
+  .disclaimer-banner .original { display: block; margin-top: 6px; color: var(--text-faint); font-size: 0.78rem; }
+
+  .badge-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .badge {
+    flex: 1 1 160px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; min-width: 150px;
+  }
+  .badge .label { font-size: 0.74rem; letter-spacing: 0.02em; color: var(--text-faint); margin-bottom: 6px; }
+  .badge .value { font-size: 1.05rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+  .status-PASS, .status-ELIGIBLE_FOR_MANUAL_REVIEW { color: var(--pass); }
+  .status-PASS .dot, .status-ELIGIBLE_FOR_MANUAL_REVIEW .dot { background: var(--pass); }
+  .status-WARNING { color: var(--warn); }
+  .status-WARNING .dot { background: var(--warn); }
+  .status-FAIL, .status-DATA_INVALID, .status-NOT_READY { color: var(--fail); }
+  .status-FAIL .dot, .status-DATA_INVALID .dot, .status-NOT_READY .dot { background: var(--fail); }
+  .status-INFO, .status-DATA_VERIFIED, .status-RESEARCH_VALIDATED, .status-OOS_VALIDATED,
+  .status-PAPER_TRADING, .status-PAPER_VERIFIED, .status-SKIPPED { color: var(--info); }
+  .status-INFO .dot, .status-DATA_VERIFIED .dot, .status-RESEARCH_VALIDATED .dot, .status-OOS_VALIDATED .dot,
+  .status-PAPER_TRADING .dot, .status-PAPER_VERIFIED .dot, .status-SKIPPED .dot { background: var(--info); }
+
+  nav.tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; -webkit-overflow-scrolling: touch; }
+  nav.tabs button {
+    flex: 0 0 auto; background: none; border: none; color: var(--text-dim); padding: 10px 14px; font-size: 0.9rem;
+    cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; font-family: inherit;
+  }
+  nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+  nav.tabs button:hover { color: var(--text); }
+
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .panel h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  .panel h3 { font-size: 0.95rem; margin: 18px 0 8px; color: var(--text-dim); }
+  .subtle { color: var(--text-faint); font-size: 0.84rem; }
+
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--text-faint); font-weight: 600; font-size: 0.76rem; letter-spacing: 0.02em; }
+  tr:hover td { background: var(--panel-2); }
+  td.num { font-family: var(--mono); text-align: right; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; }
+  .pill-PASS { background: var(--pass-bg); color: var(--pass); }
+  .pill-WARNING { background: var(--warn-bg); color: var(--warn); }
+  .pill-FAIL, .pill-QUARANTINED, .pill-REJECTED { background: var(--fail-bg); color: var(--fail); }
+  .pill-REVIEW { background: var(--warn-bg); color: var(--warn); }
+  .pill-VALID { background: var(--pass-bg); color: var(--pass); }
+  .pill-SKIPPED { background: var(--info-bg); color: var(--info); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .provenance { font-size: 0.8rem; color: var(--text-faint); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; }
+  .provenance code { color: var(--text-dim); }
+
+  .empty-state { color: var(--text-faint); padding: 20px 0; }
+  .block-banner { background: var(--fail-bg); border: 1px solid var(--fail); color: var(--fail); border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; }
+  .block-banner strong { display: block; margin-bottom: 4px; font-size: 1rem; }
+
+  .warn-list { margin: 4px 0 0; padding-left: 18px; color: var(--warn); font-size: 0.86rem; }
+
+  footer.site-footer { margin-top: 28px; color: var(--text-faint); font-size: 0.8rem; text-align: center; }
+
+  code { font-family: var(--mono); }
+  .sparkline-row { display: flex; gap: 3px; align-items: flex-end; height: 40px; margin-top: 8px; }
+  .spark-bar { flex: 1; min-width: 2px; border-radius: 1px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>📊 퀀트 리서치 대시보드</h1>
+    <div class="meta" id="meta-line">불러오는 중…</div>
+  </header>
+
+  <div class="disclaimer-banner" id="disclaimer-banner"></div>
+
+  <div class="badge-row" id="overview-badges"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="active">종합</button>
+    <button data-tab="data-quality">데이터 품질</button>
+    <button data-tab="korea">한국 시장</button>
+    <button data-tab="us">미국 시장</button>
+    <button data-tab="strategies">전략</button>
+    <button data-tab="backtests">백테스트</button>
+    <button data-tab="paper">모의투자</button>
+    <button data-tab="risk">리스크</button>
+    <button data-tab="validation">검증</button>
+    <button data-tab="audit">감사 로그</button>
+  </nav>
+
+  <section class="tab active" id="tab-overview">
+    <div class="panel">
+      <h2>시스템 상태</h2>
+      <div id="overview-detail"></div>
+    </div>
+    <div class="panel">
+      <h2>30일 / 90일 / 365일 검증 이력</h2>
+      <div id="history-charts"></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-data-quality">
+    <div class="panel"><h2>한국</h2><div id="dq-korea"></div></div>
+    <div class="panel"><h2>미국</h2><div id="dq-us"></div></div>
+  </section>
+
+  <section class="tab" id="tab-korea"><div class="panel"><h2>한국 시장 스캔</h2><div id="market-korea"></div></div></section>
+  <section class="tab" id="tab-us"><div class="panel"><h2>미국 시장 스캔</h2><div id="market-us"></div></div></section>
+
+  <section class="tab" id="tab-strategies">
+    <div class="panel"><h2>한국 전략</h2><div id="strategies-korea"></div></div>
+    <div class="panel"><h2>미국 전략</h2><div id="strategies-us"></div></div>
+  </section>
+
+  <section class="tab" id="tab-backtests">
+    <div class="panel"><h2>한국 백테스트</h2><div id="backtests-korea"></div></div>
+    <div class="panel"><h2>미국 백테스트</h2><div id="backtests-us"></div></div>
+  </section>
+
+  <section class="tab" id="tab-paper">
+    <div class="grid-2">
+      <div class="panel"><h2>한국 모의투자 계좌</h2><div id="paper-korea"></div></div>
+      <div class="panel"><h2>미국 모의투자 계좌</h2><div id="paper-us"></div></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-risk">
+    <div class="panel"><h2>한국 리스크 점검</h2><div id="risk-korea"></div></div>
+    <div class="panel"><h2>미국 리스크 점검</h2><div id="risk-us"></div></div>
+  </section>
+
+  <section class="tab" id="tab-validation">
+    <div class="panel"><h2>투자 준비 단계</h2><div id="validation-readiness"></div></div>
+    <div class="panel"><h2>테스트 및 파이프라인</h2><div id="validation-tests"></div></div>
+  </section>
+
+  <section class="tab" id="tab-audit">
+    <div class="panel"><h2>감사 기록 (최근 순)</h2><div id="audit-log"></div></div>
+  </section>
+
+  <footer class="site-footer">
+    리서치 결과일 뿐이며 투자 자문이 아닙니다. 이 시스템은 실제 주문을 절대 내지 않으며(never places real orders),
+    실거래 기능은 기본적으로 코드 수준에서 잠겨 있습니다(Live Trading is hard-disabled by default).
+  </footer>
+</div>
+
+<script>
+const NA = "—";
+const fmtPct = (v, digits=1) => (v === null || v === undefined || Number.isNaN(v)) ? NA : (v * 100).toFixed(digits) + "%";
+const fmtNum = (v, digits=2) => (v === null || v === undefined || Number.isNaN(v)) ? NA : Number(v).toFixed(digits);
+const fmtPrice = (v) => (v === null || v === undefined) ? NA : Number(v).toLocaleString("ko-KR", {maximumFractionDigits: 2});
+const esc = (s) => (s === null || s === undefined) ? "" : String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+// Display-only translation. The raw value still drives the CSS class, so a
+// status the map does not know about degrades to showing its original text
+// rather than silently rendering as something else.
+const STATUS_KO = {
+  PASS: "통과", FAIL: "실패", WARNING: "주의", SKIPPED: "실행 안 함",
+  VALID: "정상", REVIEW: "검토 필요", QUARANTINED: "격리", REJECTED: "제외",
+};
+const READINESS_KO = {
+  DATA_INVALID: "데이터 무효",
+  DATA_VERIFIED: "데이터 검증 완료",
+  RESEARCH_VALIDATED: "리서치 검증 완료",
+  OOS_VALIDATED: "표본외 검증 완료",
+  PAPER_TRADING: "모의투자 진행 중",
+  PAPER_VERIFIED: "모의투자 검증 완료",
+  ELIGIBLE_FOR_MANUAL_REVIEW: "사람이 검토할 수 있는 단계",
+};
+const koStatus = (v) => STATUS_KO[v] ?? String(v ?? "");
+const koReadiness = (v) => READINESS_KO[v] ?? String(v ?? "").replace(/_/g, " ");
+
+// The exact English sentence below is mandated verbatim by the project spec
+// and arrives in the JSON payload; it is always displayed alongside this
+// Korean rendering rather than being replaced by it.
+const DISCLAIMER_KO =
+  "‘데이터 검증 100%’는 모든 필수 데이터 품질 검사를 통과했다는 뜻입니다. " +
+  "미래의 투자 수익률을 100% 정확하게 예측할 수 있다는 뜻이 아니며, 손실이 불가능하다는 뜻도 아닙니다.";
+
+function statusClass(v) { return "status-" + String(v).replace(/[^A-Za-z0-9_]/g, "_"); }
+function pillClass(v) { return "pill pill-" + String(v).replace(/[^A-Za-z0-9_]/g, "_"); }
+function statusPill(v) { return `<span class="${pillClass(v)}">${esc(koStatus(v))}</span>`; }
+
+function badge(label, value, cls) {
+  return `<div class="badge"><div class="label">${esc(label)}</div>
+    <div class="value ${cls}"><span class="dot"></span>${esc(value)}</div></div>`;
+}
+
+function provenanceBlock(p) {
+  if (!p) return "";
+  return `<div class="provenance">출처: <code>${esc(p.source)}</code> &middot; 데이터 버전: <code>${esc(p.data_version)}</code>
+    &middot; 검증: ${statusPill(p.validation_status)}
+    &middot; 생성 시각: <code>${esc(p.generated_at)}</code></div>`;
+}
+
+function renderOverview(d) {
+  const ov = d.overview;
+  document.getElementById("meta-line").textContent =
+    `기준일: ${d.as_of}  ·  생성: ${d.generated_at}`;
+  document.getElementById("disclaimer-banner").innerHTML =
+    `<strong>먼저 읽어주세요:</strong> ${esc(DISCLAIMER_KO)}
+     <span class="original">원문: ${esc(ov.disclaimer)}</span>`;
+
+  document.getElementById("overview-badges").innerHTML = [
+    badge("데이터 무결성", koStatus(ov.data_integrity), statusClass(ov.data_integrity)),
+    badge("필수 검증 통과율", ov.mandatory_validation_pass_rate + "%", statusClass(ov.data_integrity)),
+    badge("파이프라인 상태", koStatus(ov.pipeline_health), statusClass(ov.pipeline_health)),
+    badge("전략 검증", koStatus(ov.strategy_validation), statusClass(ov.strategy_validation)),
+    badge("투자 준비 단계", koReadiness(ov.investment_readiness), statusClass(ov.investment_readiness)),
+  ].join("");
+
+  const reasons = (ov.investment_readiness_reasons || []).map(r => `<li>${esc(r)}</li>`).join("");
+  document.getElementById("overview-detail").innerHTML = `
+    <table>
+      <tr><td>단위 테스트</td><td>${statusPill(ov.unit_tests)}</td></tr>
+      <tr><td>통합 테스트</td><td>${statusPill(ov.integration_tests)}</td></tr>
+      <tr><td>회귀 테스트</td><td>${statusPill(ov.regression_tests)}</td></tr>
+    </table>
+    <h3>이 단계로 판정된 이유</h3>
+    <ul class="warn-list">${reasons}</ul>
+    <p class="subtle">투자 준비 단계는 자동으로 ‘사람이 검토할 수 있는 단계’를 넘어서지 않습니다.
+      이 시스템은 실제 주문을 내지 않으며, 실거래 기능은 코드에서 기본으로 잠겨 있습니다.</p>
+  `;
+}
+
+function renderHistory(history) {
+  const el = document.getElementById("history-charts");
+  if (!history || !history.length) { el.innerHTML = '<div class="empty-state">아직 기록된 이력이 없습니다.</div>'; return; }
+  const windows = [["최근 30일", 30], ["최근 90일", 90], ["최근 365일", 365]];
+  el.innerHTML = windows.map(([label, n]) => {
+    const rows = history.slice(-n);
+    const passCount = rows.filter(r => r.data_integrity === "PASS").length;
+    const bars = rows.map(r => {
+      const color = r.data_integrity === "PASS" ? "var(--pass)" : "var(--fail)";
+      const h = r.data_integrity === "PASS" ? "100%" : "35%";
+      return `<div class="spark-bar" style="height:${h}; background:${color}" title="${esc(r.as_of)}: ${esc(koStatus(r.data_integrity))}"></div>`;
+    }).join("");
+    return `<h3>${label} (실행 ${rows.length}회 중 데이터 품질 통과 ${passCount}회)</h3>
+      <div class="sparkline-row">${bars}</div>`;
+  }).join("");
+}
+
+function renderDataQuality(containerId, report) {
+  const el = document.getElementById(containerId);
+  if (!report) { el.innerHTML = '<div class="empty-state">보고서가 없습니다.</div>'; return; }
+  const checkRows = (report.checks_detail || []).map(c => `
+    <tr>
+      <td>${esc(c.check)}</td>
+      <td>${c.mandatory ? "필수" : "참고"}</td>
+      <td>${statusPill(c.passed ? "PASS" : "FAIL")}</td>
+      <td class="num">${c.issue_count}</td>
+    </tr>`).join("");
+  el.innerHTML = `
+    <table>
+      <tr><td>종합 판정</td><td>${statusPill(report.overall_status)}</td></tr>
+      <tr><td>필수 검증 통과율</td><td>${report.mandatory_validation_pass_rate}%</td></tr>
+      <tr><td>데이터 무결성 점수 <span class="subtle">(참고용, 판정에 쓰이지 않음)</span></td><td>${fmtNum(report.data_integrity_score, 4)}</td></tr>
+      <tr><td>검사한 종목 수</td><td>${report.n_symbols_checked}</td></tr>
+      <tr><td>데이터 버전</td><td><code>${esc(report.data_version)}</code></td></tr>
+    </table>
+    <h3>검사 항목</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>검사 항목</th><th>구분</th><th>결과</th><th>문제 건수</th></tr></thead>
+      <tbody>${checkRows}</tbody>
+    </table></div>
+  `;
+}
+
+function renderMarket(containerId, market) {
+  const el = document.getElementById(containerId);
+  if (!market || market.blocked) {
+    el.innerHTML = `<div class="block-banner"><strong>⛔ 데이터 검증 실패 / 오늘의 투자 후보 생성 중단</strong>
+      ${esc(market ? market.block_reason : "데이터가 없습니다.")}</div>
+      <p class="subtle">오늘 이 시장의 후보는 표시하지 않습니다. 전날 결과를 오늘 것처럼 재사용하는 일은 없습니다.</p>`;
+    return;
+  }
+  const regime = market.regime
+    ? `${esc(market.regime.summary)} &middot; 6개월 수익률 ${fmtPct(market.regime.index_return_6m)} &middot; 연환산 변동성 ${fmtPct(market.regime.index_vol_annualized)}`
+    : NA;
+  const rows = (market.candidates || []).map(c => `
+    <tr>
+      <td class="num">${c.rank}</td>
+      <td>${esc(c.symbol)}</td>
+      <td>${esc(c.company)}</td>
+      <td class="num">${fmtPrice(c.price)}</td>
+      <td class="num">${fmtNum(c.momentum)}</td>
+      <td class="num">${fmtNum(c.trend)}</td>
+      <td class="num">${fmtNum(c.relative_strength)}</td>
+      <td class="num">${fmtNum(c.volume)}</td>
+      <td class="num">${fmtPct(c.volatility)}</td>
+      <td class="num">${fmtNum(c.fundamental_score)}</td>
+      <td>${esc(c.strategy_signal)}</td>
+      <td class="num">${fmtNum(c.risk_score)}</td>
+      <td class="num">${c.historical_signal_performance && c.historical_signal_performance.n_obs >= 5 ? fmtPct(c.historical_signal_performance.mean_fwd_20d_return) + " (표본 " + c.historical_signal_performance.n_obs + ")" : NA}</td>
+      <td class="num">${fmtNum(c.composite_score, 3)}</td>
+    </tr>`).join("");
+  el.innerHTML = `
+    <p><strong>시장 국면:</strong> ${regime}</p>
+    <p class="subtle">유니버스 종목 수: ${market.universe_size}개 (데이터 품질 문제로 제외: ${market.excluded_for_quality}개)</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>순위</th><th>종목코드</th><th>종목명</th><th>가격</th><th>모멘텀</th><th>추세</th>
+        <th>상대강도</th><th>거래량</th><th>변동성</th><th>재무점수</th><th>전략 신호</th>
+        <th>리스크</th><th>과거 신호 성과 (20일)</th><th>종합점수</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="14" class="empty-state">오늘은 조건을 통과한 후보가 없습니다.</td></tr>'}</tbody>
+    </table></div>
+  `;
+}
+
+function renderStrategies(containerId, rows) {
+  const el = document.getElementById(containerId);
+  if (!rows || !rows.length) { el.innerHTML = '<div class="empty-state">평가된 전략이 없습니다.</div>'; return; }
+  const body = rows.map(r => `
+    <tr>
+      <td>${esc(r.strategy_id)}</td>
+      <td class="num">${fmtNum(r.composite_score, 3)}</td>
+      <td>${r.meets_minimum_requirements ? '<span class="pill pill-PASS">충족</span>' : '<span class="pill pill-WARNING">미충족</span>'}</td>
+      <td class="num">${fmtNum(r.aggregate_oos_sharpe)}</td>
+      <td class="num">${fmtNum(r.aggregate_oos_sortino)}</td>
+      <td class="num">${fmtPct(r.aggregate_oos_cagr)}</td>
+      <td class="num">${fmtPct(r.aggregate_oos_mdd)}</td>
+      <td class="num">${fmtNum(r.aggregate_oos_calmar)}</td>
+      <td class="num">${r.n_oos_trades ?? NA}</td>
+      <td class="num">${r.n_folds ?? NA}</td>
+      <td>${(r.overfitting_warnings || []).map(w => `<div>&#9888; ${esc(w)}</div>`).join("") || NA}</td>
+    </tr>`).join("");
+  el.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr><th>전략</th><th>종합점수</th><th>최소요건</th><th>표본외 샤프지수</th><th>표본외 소르티노지수</th>
+      <th>표본외 연평균수익률</th><th>표본외 최대낙폭</th><th>표본외 칼마지수</th><th>표본외 매매횟수</th><th>검증 구간 수</th><th>과최적화 경고</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table></div>
+  <p class="subtle">‘표본외(Out-of-Sample)’는 전략을 만들 때 쓰지 않은 기간에서의 성과입니다. 과거 성과가 미래 수익을 보장하지 않습니다.</p>`;
+}
+
+function renderBacktests(containerId, rows) {
+  const el = document.getElementById(containerId);
+  if (!rows || !rows.length) { el.innerHTML = '<div class="empty-state">백테스트 결과가 없습니다.</div>'; return; }
+  el.innerHTML = rows.map(r => {
+    const foldRows = (r.folds || []).map(f => `
+      <tr>
+        <td>${f.fold_id}</td>
+        <td>${esc(f.is_period[0])} → ${esc(f.is_period[1])}</td>
+        <td>${esc(f.oos_period[0])} → ${esc(f.oos_period[1])}</td>
+        <td class="num">${fmtNum(f.is_metrics.sharpe)}</td>
+        <td class="num">${fmtNum(f.oos_metrics.sharpe)}</td>
+        <td class="num">${fmtPct(f.oos_metrics.max_drawdown)}</td>
+        <td>${f.parameter_stable === null ? NA : (f.parameter_stable ? '<span class="pill pill-PASS">안정</span>' : '<span class="pill pill-WARNING">불안정</span>')}</td>
+      </tr>`).join("");
+    return `<h3>${esc(r.strategy_id)} &mdash; 검증 구간 ${r.n_folds}개</h3>
+      <div class="table-scroll"><table>
+        <thead><tr><th>구간</th><th>학습 기간</th><th>검증 기간</th><th>학습 샤프</th><th>표본외 샤프</th><th>표본외 최대낙폭</th><th>파라미터 안정성</th></tr></thead>
+        <tbody>${foldRows}</tbody>
+      </table></div>`;
+  }).join("");
+}
+
+function renderPaper(containerId, p) {
+  const el = document.getElementById(containerId);
+  if (!p || p.error) { el.innerHTML = '<div class="empty-state">모의투자 데이터를 불러올 수 없습니다.</div>'; return; }
+  const positions = Object.entries(p.positions || {}).map(([sym, pos]) => `
+    <tr><td>${esc(sym)}</td><td class="num">${pos.quantity}</td><td class="num">${fmtPrice(pos.avg_cost)}</td></tr>
+  `).join("");
+  el.innerHTML = `
+    <table>
+      <tr><td>현금</td><td class="num">${fmtPrice(p.cash)}</td></tr>
+      <tr><td>보유 종목 수</td><td class="num">${p.n_positions}</td></tr>
+      <tr><td>완료된 세션 <span class="subtle">(실제 경과 거래일)</span></td><td class="num">${p.sessions_progress_label}</td></tr>
+    </table>
+    <h3>보유 종목</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>종목</th><th>수량</th><th>평균 단가</th></tr></thead>
+      <tbody>${positions || '<tr><td colspan="3" class="empty-state">보유 중인 종목이 없습니다.</td></tr>'}</tbody>
+    </table></div>
+    <p class="subtle">모의투자 전용입니다. 이 시스템은 실제 주문을 절대 내지 않으며, 실거래 기능은 기본으로 잠겨 있습니다.
+      세션 수는 실제로 흘러간 거래일만 세며, 과거 데이터로 소급해 채우지 않습니다.</p>
+  `;
+}
+
+function renderRisk(containerId, rows) {
+  const el = document.getElementById(containerId);
+  if (!rows || !rows.length) { el.innerHTML = '<div class="empty-state">기록된 리스크 점검이 없습니다.</div>'; return; }
+  const body = rows.map(r => `
+    <tr>
+      <td>${esc(r.symbol)}</td>
+      <td class="num">${fmtPct(r.requested_weight)}</td>
+      <td class="num">${fmtPct(r.approved_weight)}</td>
+      <td>${r.approved ? '<span class="pill pill-PASS">승인</span>' : '<span class="pill pill-FAIL">거부</span>'}</td>
+      <td>${(r.reasons || []).join("; ") || NA}</td>
+    </tr>`).join("");
+  el.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr><th>종목</th><th>요청 비중</th><th>승인 비중</th><th>결과</th><th>사유</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table></div>`;
+}
+
+function renderValidation(v) {
+  const readinessEl = document.getElementById("validation-readiness");
+  readinessEl.innerHTML = `
+    <p><span class="${statusClass(v.investment_readiness.level)}"><span class="dot"></span>
+      <strong>${esc(koReadiness(v.investment_readiness.level))}</strong></span>
+      <span class="subtle">(${esc(v.investment_readiness.level)})</span></p>
+    <ul class="warn-list">${(v.investment_readiness.reasons || []).map(r => `<li>${esc(r)}</li>`).join("")}</ul>
+    <p class="subtle">${esc(DISCLAIMER_KO)}</p>
+    <p class="subtle">원문: ${esc(v.investment_readiness.disclaimer)}</p>
+  `;
+  const testsEl = document.getElementById("validation-tests");
+  const marketLabel = {korea: "한국", us: "미국"};
+  const marketRows = Object.entries(v.markets || {}).map(([m, r]) => r ? `
+    <tr><td>${esc(marketLabel[m] ?? m)}</td><td>${statusPill(r.overall_status)}</td>
+      <td class="num">${r.mandatory_validation_pass_rate}%</td><td class="num">${fmtNum(r.data_integrity_score, 4)}</td></tr>
+  ` : "").join("");
+  testsEl.innerHTML = `
+    <table>
+      <tr><td>단위 테스트</td><td>${statusPill(v.test_buckets.unit_tests)}</td></tr>
+      <tr><td>통합 테스트</td><td>${statusPill(v.test_buckets.integration_tests)}</td></tr>
+      <tr><td>회귀 테스트</td><td>${statusPill(v.test_buckets.regression_tests)}</td></tr>
+      <tr><td>파이프라인 상태</td><td>${statusPill(v.pipeline_health)}</td></tr>
+    </table>
+    <h3>시장별 데이터 품질</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>시장</th><th>판정</th><th>필수 검증 통과율</th><th>무결성 점수 (참고용)</th></tr></thead>
+      <tbody>${marketRows}</tbody>
+    </table></div>
+  `;
+}
+
+function renderAuditLog(rows) {
+  const el = document.getElementById("audit-log");
+  if (!rows || !rows.length) { el.innerHTML = '<div class="empty-state">아직 감사 기록이 없습니다.</div>'; return; }
+  const marketLabel = {korea: "한국", us: "미국"};
+  const body = rows.slice().reverse().map(r => `
+    <tr>
+      <td>${esc(r.timestamp)}</td>
+      <td>${esc(marketLabel[r.market] ?? r.market)}</td>
+      <td>${esc(r.check)}</td>
+      <td>${statusPill(r.result)}</td>
+      <td><code>${esc(r.data_version)}</code></td>
+      <td>${esc(r.source)}</td>
+      <td>${esc(r.error) || NA}</td>
+    </tr>`).join("");
+  el.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr><th>시각</th><th>시장</th><th>검사 항목</th><th>결과</th><th>데이터 버전</th><th>출처</th><th>오류</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table></div>`;
+}
+
+function setupTabs() {
+  document.querySelectorAll("nav.tabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("nav.tabs button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll("section.tab").forEach(s => s.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+}
+
+async function loadData() {
+  setupTabs();
+  try {
+    const [dashRes, histRes] = await Promise.all([
+      fetch("data/dashboard.json", {cache: "no-store"}),
+      fetch("data/history.json", {cache: "no-store"}).catch(() => null),
+    ]);
+    if (!dashRes.ok) throw new Error("dashboard.json HTTP " + dashRes.status);
+    const d = await dashRes.json();
+    const history = histRes && histRes.ok ? await histRes.json() : [];
+
+    renderOverview(d);
+    renderHistory(history);
+    renderDataQuality("dq-korea", d.data_quality.korea);
+    renderDataQuality("dq-us", d.data_quality.us);
+    renderMarket("market-korea", d.markets.korea);
+    renderMarket("market-us", d.markets.us);
+    document.getElementById("market-korea").insertAdjacentHTML("beforeend", provenanceBlock(d.provenance.korea));
+    document.getElementById("market-us").insertAdjacentHTML("beforeend", provenanceBlock(d.provenance.us));
+    renderStrategies("strategies-korea", d.strategies.korea);
+    renderStrategies("strategies-us", d.strategies.us);
+    renderBacktests("backtests-korea", d.backtests.korea);
+    renderBacktests("backtests-us", d.backtests.us);
+    renderPaper("paper-korea", d.paper_trading.korea);
+    renderPaper("paper-us", d.paper_trading.us);
+    renderRisk("risk-korea", d.risk.korea);
+    renderRisk("risk-us", d.risk.us);
+    renderValidation(d.validation);
+    renderAuditLog(d.audit_log);
+  } catch (err) {
+    document.getElementById("meta-line").textContent = "대시보드 데이터를 불러오지 못했습니다.";
+    document.getElementById("disclaimer-banner").innerHTML =
+      `<strong>오류:</strong> site/data/dashboard.json 을 불러올 수 없습니다 (${esc(err.message)}). ` +
+      `<code>python generate_dashboard_data.py</code> 를 실행해 파일을 만들었는지, ` +
+      `그리고 이 페이지를 파일(file://)이 아니라 웹 서버를 통해 열었는지 확인해 주세요.`;
+    console.error(err);
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

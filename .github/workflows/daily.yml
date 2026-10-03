@@ -53,6 +53,8 @@ jobs:
     timeout-minutes: 150
     permissions:
       contents: write
+    env:
+      DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
     outputs:
       any_failure: ${{ steps.final-status.outputs.any_failure }}
     steps:
@@ -248,6 +250,17 @@ jobs:
       # 업로드 직전, 실제로 올라갈 디렉터리를 대상으로 검사한다.
       # 특히 "DATA INTEGRITY PASS" 헤드라인 아래에 합성/낡은 데이터가
       # 깔려 있는 자기모순 상태를 잡는다 -- 실제로 게시됐던 상태다.
+      - name: Ensure dashboard entry points
+        run: |
+          if [ -f site/dashboard.html ]; then
+            cp site/dashboard.html site/index.html
+          elif [ -f site/index.html ]; then
+            cp site/index.html site/dashboard.html
+          else
+            echo "::error::Neither site/index.html nor site/dashboard.html exists."
+            exit 1
+          fi
+
       - name: Verify dashboard build before publishing
         run: python tools/verify_dashboard_build.py --site-dir site
 

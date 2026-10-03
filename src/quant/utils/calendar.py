@@ -148,6 +148,14 @@ def latest_closed_session(
     return days[-1]
 
 
+def get_latest_completed_session(
+    market: str,
+    current_dt: pd.Timestamp | str | None = None,
+) -> pd.Timestamp:
+    """Return the newest real session whose close + EOD settling has passed."""
+    return latest_closed_session(market, now=current_dt)
+
+
 def default_as_of(market: str, now: pd.Timestamp | str | None = None) -> str:
     """The session the daily pipeline should analyse for this market.
 
@@ -170,7 +178,7 @@ def default_as_of(market: str, now: pd.Timestamp | str | None = None) -> str:
     session are frequently different dates, and a single shared `as_of`
     cannot be right for both.
     """
-    return latest_closed_session(market, now=now).strftime("%Y-%m-%d")
+    return get_latest_completed_session(market, current_dt=now).strftime("%Y-%m-%d")
 
 
 def expected_sessions_between(start: str, end: str, market: str) -> pd.DatetimeIndex:
