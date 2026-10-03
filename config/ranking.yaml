@@ -18,6 +18,8 @@ minimum_requirements:
   min_oos_periods: 2
   min_is_oos_ratio_trades: 0.2       # OOS must have at least this fraction of IS trade count
 
+fundamental_lookup_limit: 60  # only leading technical candidates trigger per-symbol fundamentals
+
 candidate_score_weights:
   momentum: 0.20
   trend: 0.20
