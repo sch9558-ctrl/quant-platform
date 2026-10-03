@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Sequence
 from itertools import combinations
 import math
 
@@ -73,16 +74,42 @@ def deflated_sharpe_ratio(
     *,
     n_trials: int = 1,
     periods_per_year: int = 252,
+    trial_sharpes: Sequence[float] | None = None,
 ) -> float:
-    """Approximate Deflated Sharpe Ratio as a probability in [0, 1]."""
-    r = pd.Series(returns, dtype=float).dropna()
+    """Approximate Deflated Sharpe Ratio probability in [0, 1].
+
+    If multiple strategies or parameter sets were tried, pass their annualized
+    Sharpe ratios via trial_sharpes. The expected maximum Sharpe benchmark then
+    uses the observed cross-trial dispersion. Without that history the function
+    falls back to a moment-adjusted sampling-error approximation.
+    """
+    r = pd.Series(returns, dtype=float).replace([np.inf, -np.inf], np.nan).dropna()
     n = len(r)
     if n < 3:
         return 0.0
+
     sr_ann = annualized_sharpe(r, periods_per_year)
     sr = sr_ann / math.sqrt(periods_per_year)
+    sk = float(skew(r, bias=False)) if n >= 3 else 0.0
+    ku = float(kurtosis(r, fisher=False, bias=False)) if n >= 4 else 3.0
+
+    sampling_var = max(
+        1e-12,
+        (1.0 - sk * sr + ((ku - 1.0) / 4.0) * sr * sr) / max(n - 1, 1),
+    )
+    sr_std = math.sqrt(sampling_var)
+
+    if trial_sharpes is not None:
+        trial = np.asarray(list(trial_sharpes), dtype=float)
+        trial = trial[np.isfinite(trial)]
+        if len(trial) >= 2:
+            observed = trial / math.sqrt(periods_per_year)
+            observed_std = float(np.std(observed, ddof=1))
+            if observed_std > 0:
+                sr_std = observed_std
+            n_trials = max(int(n_trials), len(observed))
+
     trials = max(int(n_trials), 1)
-    sr_std = 1.0 / math.sqrt(max(n - 1, 1))
     if trials == 1:
         benchmark = 0.0
     else:
@@ -90,9 +117,11 @@ def deflated_sharpe_ratio(
         a = norm.ppf(max(1e-12, 1.0 - 1.0 / trials))
         b = norm.ppf(max(1e-12, 1.0 - 1.0 / (trials * math.e)))
         benchmark = sr_std * ((1.0 - gamma) * a + gamma * b)
-    sk = float(skew(r, bias=False)) if n >= 3 else 0.0
-    ku = float(kurtosis(r, fisher=False, bias=False)) if n >= 4 else 3.0
-    denom = math.sqrt(max(1e-12, 1.0 - sk * sr + ((ku - 1.0) / 4.0) * sr * sr))
+
+    denom = math.sqrt(max(
+        1e-12,
+        1.0 - sk * sr + ((ku - 1.0) / 4.0) * sr * sr,
+    ))
     z = (sr - benchmark) * math.sqrt(n - 1) / denom
     return float(np.clip(norm.cdf(z), 0.0, 1.0))
 
