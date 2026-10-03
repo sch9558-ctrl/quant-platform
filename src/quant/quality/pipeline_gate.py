@@ -55,7 +55,7 @@ def validate_market(
     if not symbols:
         logger.warning("Universe for market=%s as_of=%s is empty -- nothing to validate", market, as_of)
 
-    lookback_start = (pd.Timestamp(as_of) - pd.tseries.offsets.BDay(int(lookback_days * 1.5))).strftime("%Y-%m-%d")
+    lookback_start = (pd.Timestamp(as_of) - pd.tseries.offsets.BDay(int(lookback_days))).strftime("%Y-%m-%d")
     primary_map = provider.get_ohlcv_bulk(symbols, lookback_start, as_of)
     secondary_map = secondary.get_ohlcv_bulk(symbols, lookback_start, as_of) if secondary else None
 
