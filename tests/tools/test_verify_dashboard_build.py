@@ -262,3 +262,19 @@ def test_vite_built_entry_point_is_accepted(tmp_path):
     (data/"history.json").write_text("[]")
     from tools.verify_dashboard_build import Verifier
     assert Verifier(site,False).run()==0
+
+
+def test_delayed_acceptable_provider_state_is_valid(tmp_path):
+    payload=_payload()
+    payload["publishability"]["markets"]["korea"].update({
+        "expected_session":"2026-08-25",
+        "actual_session":"2026-08-24",
+        "gap_sessions":1,
+        "status":"DELAYED_ACCEPTABLE",
+    })
+    assert _run(_site(tmp_path,payload)).errors == []
+
+
+def test_gitignore_blocks_private_dashboard_runtime_data():
+    ignored=(REPO_ROOT/".gitignore").read_text(encoding="utf-8")
+    assert "dashboard/data/*" in ignored
