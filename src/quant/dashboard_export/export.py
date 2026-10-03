@@ -39,6 +39,7 @@ from pathlib import Path
 import pandas as pd
 
 from quant import config
+from quant.analytics.trade_plan import build_trade_plan
 from quant.pipeline.research_pipeline import MarketResearchResult, ResearchPipelineResult
 from quant.dashboard_export import publishability
 from quant.quality.readiness import DISCLAIMER
@@ -47,7 +48,7 @@ from quant.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-_MARKET_LABEL = {"korea": "Korea (KOSPI/KOSDAQ)", "us": "US (NYSE/NASDAQ/AMEX)"}
+_MARKET_LABEL = {"korea": "국내 증시 (KOSPI/KOSDAQ)", "us": "미국 증시 (NYSE/NASDAQ/AMEX)"}
 
 #: Never allowed anywhere in dashboard text (spec section 0/73) -- checked
 #: by tests/dashboard_export/test_export.py so a future edit cannot
@@ -93,6 +94,7 @@ def _candidate_to_dict(rank: int, c) -> dict:
             "win_rate": edge.get("win_rate"),
         },
         "composite_score": c.composite_score,
+        "trade_plan": build_trade_plan(c),
     }
 
 
