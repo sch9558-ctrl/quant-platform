@@ -1,3 +1,4 @@
+import {companyDisplayName} from '../companyNamesKo'
 export function formatPrice(v, market, fxRate=null, convertUsd=false) {
   if (v == null || Number.isNaN(Number(v))) return '—'
   if (market === 'korea') return Math.round(Number(v)).toLocaleString('ko-KR') + '원'
@@ -65,7 +66,7 @@ export default function ActionableTradeCard({candidate, market, consensus, fxRat
   const gapClass = gap != null && gap >= 25 ? 'warn' : ''
   return <article className="trade-card">
     <header className="trade-head">
-      <div><div className="eyebrow">#{candidate.rank} {market==='korea'?'국내':'미국'} 후보</div><h2>{candidate.company || candidate.symbol}</h2><span className="ticker">{candidate.symbol}</span></div>
+      <div><div className="eyebrow">#{candidate.rank} {market==='korea'?'국내':'미국'} 후보</div><h2>{companyDisplayName(candidate,market)}</h2><span className="ticker">{candidate.symbol}{market==='us'&&candidate.company&&companyDisplayName(candidate,market)!==candidate.company?' · '+candidate.company:''}</span></div>
       <div className={'action action-' + (p.action||'HOLD').toLowerCase()}>{p.action_ko || '관망'}</div>
     </header>
     <div className="snapshot-row">
