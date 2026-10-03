@@ -36,6 +36,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install Cloudflare bootstrap dependency
+        run: python -m pip install requests
+
       - name: Ensure dashboard entry points
         run: |
           if [ -f site/dashboard.html ]; then
