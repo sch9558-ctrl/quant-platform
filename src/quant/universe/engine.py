@@ -69,7 +69,32 @@ class UniverseEngine:
 
     def build(self, as_of: str, symbols_override: list[SymbolInfo] | None = None) -> UniverseSnapshot:
         as_of_ts = pd.Timestamp(as_of)
-        symbols_info = symbols_override if symbols_override is not None else self.provider.list_symbols(as_of)
+        index_based_us = False
+        if symbols_override is not None:
+            symbols_info = symbols_override
+        elif self.market == "us" and not self.cfg.get("future_expansion", {}).get("full_market_universe", False):
+            from quant.universe.us_constituents import build_index_based_symbols
+            symbols_info = build_index_based_symbols(self.provider, as_of)
+            index_based_us = True
+            try:
+                directory = {s.symbol: s for s in self.provider.list_symbols(as_of)}
+                symbols_info = [
+                    SymbolInfo(
+                        symbol=s.symbol,
+                        name=directory.get(s.symbol, s).name,
+                        market=s.market,
+                        exchange=directory.get(s.symbol, s).exchange,
+                        asset_type=s.asset_type,
+                        sector=directory.get(s.symbol, s).sector,
+                        listing_date=directory.get(s.symbol, s).listing_date,
+                        is_active=directory.get(s.symbol, s).is_active,
+                    )
+                    for s in symbols_info
+                ]
+            except Exception as exc:
+                logger.warning("US symbol-directory enrichment skipped: %s", exc)
+        else:
+            symbols_info = self.provider.list_symbols(as_of)
 
         filt = self.cfg["filters"]
         etf_filt = self.cfg.get("etf_filters", {})
@@ -81,7 +106,11 @@ class UniverseEngine:
         relevant_symbols = equity_symbols + etf_symbols
 
         ohlcv_map = self.provider.get_ohlcv_bulk(relevant_symbols, lookback_start, as_of)
-        market_caps = self.provider.get_market_cap(equity_symbols, as_of)
+        market_caps = (
+            pd.Series(dtype=float)
+            if index_based_us
+            else self.provider.get_market_cap(equity_symbols, as_of)
+        )
 
         members: list[UniverseMember] = []
         for info in symbols_info:
@@ -125,7 +154,7 @@ class UniverseEngine:
                     "min_market_cap_krw", filt.get("min_market_cap_usd", 0)
                 ):
                     reasons.append("market_cap_below_minimum")
-                elif market_cap is None:
+                elif market_cap is None and not index_based_us:
                     reasons.append("market_cap_unknown")
             else:  # etf
                 if avg_trading_value is not None and avg_trading_value < etf_filt.get("min_avg_trading_value_krw", 0):
