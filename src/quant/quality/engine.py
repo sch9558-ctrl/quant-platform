@@ -65,9 +65,24 @@ class DataQualityEngine:
         schema_result = schema.validate_schema(primary, self.market, self.cfg["schema"])
         checks.append(schema_result)
         if not schema_result.passed:
-            # every subsequent check assumes the required columns exist --
+            # Every subsequent check assumes the required columns exist --
             # stop here rather than raising confusing secondary errors.
-            return self._finalize(checks, primary, pd.DataFrame(), [], n_symbols=len(primary_ohlcv_map), as_of=as_of)
+            #
+            # This early exit used to return the report alone while the
+            # normal exit returned three values, so the caller's
+            # `report, canonical_map, provenance = engine.run(...)` raised
+            # `TypeError: cannot unpack non-iterable DataQualityReport`.
+            # The one path that exists to fail cleanly was the only path
+            # that crashed -- and it crashed in a way that said nothing
+            # about the schema problem that triggered it. The canonical map
+            # is empty here for the same reason it is empty on any FAIL:
+            # Fail-Closed means no data leaves this function unvalidated.
+            return (
+                self._finalize(checks, primary, pd.DataFrame(), [],
+                               n_symbols=len(primary_ohlcv_map), as_of=as_of),
+                {},
+                [],
+            )
 
         ohlc_result = ohlc.validate_ohlc_integrity(primary, self.market)
         checks.append(ohlc_result)
