@@ -13,3 +13,12 @@ def test_overlay_rejects_filing_risk_and_accepts_clean_high_alpha():
     assert not bad.approved and not bad.risk_cleared
     good=evaluate_candidate(c,filings=[],as_of="2026-10-04",adv_notional=1e9,order_notional=1e6)
     assert good.approved and good.net_alpha_pct>3
+
+
+def test_overlay_fails_closed_when_filing_feed_is_unavailable():
+    c={"market":"us","price":100,"volatility":.2,"composite_score":.9,"trade_plan":{"target_1":115}}
+    out=evaluate_candidate(c,filings=None,as_of="2026-10-04",adv_notional=1e9,order_notional=1e6)
+    assert not out.approved
+    assert not out.risk_cleared
+    assert not out.external_checks_complete
+    assert "FILING_DATA_UNAVAILABLE" in out.reasons
