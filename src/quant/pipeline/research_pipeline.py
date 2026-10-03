@@ -45,6 +45,7 @@ from quant.data.factory import get_provider
 from quant.features import fundamental as fnd
 from quant.features.engine import FeatureEngine
 from quant.portfolio.constructor import PortfolioAllocation, PortfolioConstructor, PortfolioItem
+from quant.portfolio.institutional import build_institutional_allocation
 from quant.analytics.trade_plan import build_trade_plan
 from quant.pipeline.institutional_overlay import evaluate_candidate
 from quant.quality.models import DataQualityReport
@@ -274,7 +275,38 @@ def run_market_research(
         )
         for c in scan.top_candidates
     ]
-    allocation = PortfolioConstructor().compute_weights(items)
+    member_by_symbol = {
+        m.symbol: m for m in gated.validation.universe_snapshot.members
+    }
+    market_caps = {
+        c.symbol: (
+            member_by_symbol[c.symbol].market_cap
+            if c.symbol in member_by_symbol else None
+        )
+        for c in scan.top_candidates
+    }
+    signal_edges = {
+        c.symbol: (c.historical_signal_edge or {})
+        for c in scan.top_candidates
+    }
+    allocation, allocation_diag = build_institutional_allocation(
+        items,
+        gated.validation.canonical_ohlcv_map,
+        market_caps=market_caps,
+        signal_edges=signal_edges,
+    )
+    if allocation is None:
+        allocation = PortfolioConstructor().compute_weights(items)
+        allocation.notes.append(
+            "institutional allocator unavailable: insufficient aligned return history; "
+            "legacy constrained allocator used"
+        )
+    elif allocation_diag is not None:
+        allocation.notes.append(
+            "institutional diagnostics: "
+            f"method={allocation_diag.method}, observations={allocation_diag.observations}, "
+            f"views={allocation_diag.view_count}, prior={allocation_diag.prior_source}"
+        )
     risk_checks = _risk_analysis(market, allocation)
 
     # Institutional safety/alpha overlay is part of the production research
