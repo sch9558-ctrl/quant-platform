@@ -232,7 +232,7 @@ jobs:
       - name: Fail closed when deployment credentials are missing
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_ACCOUNT: "301c3fbffec59a5d5827040ff30eb62f"
         run: |
           MISSING=""
           if [ -z "$CF_TOKEN" ]; then MISSING="$MISSING CLOUDFLARE_API_TOKEN"; fi
@@ -268,5 +268,5 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          accountId: "301c3fbffec59a5d5827040ff30eb62f"
           command: pages deploy site --project-name=quant-platform --branch=main
