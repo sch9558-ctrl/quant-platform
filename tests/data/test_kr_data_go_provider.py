@@ -77,7 +77,7 @@ def test_bulk_range_uses_one_snapshot_per_session_and_returns_symbol_frames(tmp_
 def test_list_symbols_and_market_cap_reuse_daily_snapshot(tmp_path,monkeypatch):
     p=DataGoKrProvider(service_key="key",cache_dir=tmp_path,request_sleep_sec=0)
     df=pd.DataFrame({"date":[pd.Timestamp("2026-10-01")]*2,"ticker":["005930","247540"],"name":["삼성전자","에코프로비엠"],"exchange":["KOSPI","KOSDAQ"],"open":[1,2],"high":[2,3],"low":[.5,1.5],"close":[1.5,2.5],"volume":[10,20],"turnover":[15,50],"market_cap":[123456.,654321.],"change_pct":[1,2]})
-    monkeypatch.setattr(p,"fetch_daily_snapshot",lambda d:df)
+    monkeypatch.setattr(p,"_metadata_snapshot",lambda d:("2026-10-01",df))
     assert {(s.symbol,s.exchange) for s in p.list_symbols("2026-10-01")}=={("005930","KOSPI"),("247540","KOSDAQ")}
     assert p.get_market_cap(["005930","247540"],"2026-10-01").to_dict()=={"005930":123456.,"247540":654321.}
 
@@ -130,3 +130,22 @@ def test_contract_error_does_not_fallback_to_pykrx(tmp_path, monkeypatch):
     )
     with pytest.raises(RuntimeError, match="contract changed"):
         p.fetch_daily_snapshot("2026-10-02")
+
+
+def test_resolve_as_of_accepts_one_session_publication_lag(tmp_path, monkeypatch):
+    p=DataGoKrProvider(service_key="key",cache_dir=tmp_path,request_sleep_sec=0)
+    monkeypatch.setattr(p,"_request_daily_snapshot",lambda d: (_ for _ in ()).throw(RuntimeError("not published")))
+    df=pd.DataFrame({"date":[pd.Timestamp("2026-10-01")],"ticker":["005930"],"name":["삼성전자"],"exchange":["KOSPI"],"open":[1],"high":[2],"low":[.5],"close":[1.5],"volume":[10],"turnover":[15],"market_cap":[123.],"change_pct":[1.]})
+    monkeypatch.setattr(p,"fetch_latest_available_snapshot",lambda d:("2026-10-01",df))
+    monkeypatch.setattr(krmod,"trading_days",lambda *a,**k:pd.DatetimeIndex(["2026-10-01","2026-10-02"]))
+    assert p.resolve_as_of("2026-10-02",max_lag_sessions=1)=="2026-10-01"
+
+
+def test_resolve_as_of_rejects_excessive_publication_lag(tmp_path, monkeypatch):
+    p=DataGoKrProvider(service_key="key",cache_dir=tmp_path,request_sleep_sec=0)
+    monkeypatch.setattr(p,"_request_daily_snapshot",lambda d: (_ for _ in ()).throw(RuntimeError("not published")))
+    df=pd.DataFrame({"date":[pd.Timestamp("2026-09-30")],"ticker":["005930"],"name":["삼성전자"],"exchange":["KOSPI"],"open":[1],"high":[2],"low":[.5],"close":[1.5],"volume":[10],"turnover":[15],"market_cap":[123.],"change_pct":[1.]})
+    monkeypatch.setattr(p,"fetch_latest_available_snapshot",lambda d:("2026-09-30",df))
+    monkeypatch.setattr(krmod,"trading_days",lambda *a,**k:pd.DatetimeIndex(["2026-09-30","2026-10-01","2026-10-02"]))
+    with pytest.raises(RuntimeError,match="2 session"):
+        p.resolve_as_of("2026-10-02",max_lag_sessions=1)
