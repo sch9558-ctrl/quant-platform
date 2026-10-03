@@ -1,6 +1,8 @@
 name: Daily Research Pipeline & Private Dashboard
 
 on:
+  push:
+    branches: [master]
   schedule:
     - cron: "0 22 * * *"   # 07:00 KST
   workflow_dispatch:
