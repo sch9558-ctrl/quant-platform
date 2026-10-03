@@ -73,9 +73,13 @@ class UniverseEngine:
         if symbols_override is not None:
             symbols_info = symbols_override
         elif self.market == "us" and not self.cfg.get("future_expansion", {}).get("full_market_universe", False):
-            from quant.universe.us_constituents import build_index_based_symbols
-            symbols_info = build_index_based_symbols(self.provider, as_of)
-            index_based_us = True
+            from quant.data.us_provider import USDataProvider
+            if isinstance(self.provider, USDataProvider):
+                from quant.universe.us_constituents import build_index_based_symbols
+                symbols_info = build_index_based_symbols(self.provider, as_of)
+                index_based_us = True
+            else:
+                symbols_info = self.provider.list_symbols(as_of)
             try:
                 directory = {s.symbol: s for s in self.provider.list_symbols(as_of)}
                 symbols_info = [
