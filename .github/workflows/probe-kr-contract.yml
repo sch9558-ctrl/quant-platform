@@ -1,0 +1,131 @@
+name: Probe — what shape does data.go.kr actually return?
+
+# 진단 전용. 스케줄 없음, 저장소에 아무것도 쓰지 않는다. 수동 실행만.
+#
+# 왜 필요한가: provider 를 문서 기억에 의존해서 쓰면 "자신 있게 틀린" 코드가
+# 나온다. 이 프로젝트의 1순위가 데이터 정확성인데 그건 정확히 반대 방향이다.
+# 그래서 코드를 쓰기 전에 **실제 응답의 필드 이름**을 한 번 찍어 본다.
+#
+# 키 취급: DATA_GO_KR_SERVICE_KEY 는 env 로만 넘기고, URL 을 통째로 출력하는
+# 일이 없게 한다(--data-urlencode 로 붙인다). 포털이 주는 Decoding 키에는
+# '+', '/', '=' 가 들어 있어 직접 문자열로 이어붙이면 깨진다 -- curl 이
+# 인코딩하도록 맡기는 쪽이 맞다. 출력하는 값은 공개 시세 데이터뿐이다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bas_dt:
+        description: "조회 기준일 (YYYYMMDD). 공공데이터는 T+1 이라 어제보다 이전이 안전합니다."
+        required: false
+        default: "20261001"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Response contract probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+      BAS_DT: ${{ github.event.inputs.bas_dt || '20261001' }}
+    steps:
+      - name: Fail closed when the service key is missing
+        run: |
+          if [ -z "$SERVICE_KEY" ]; then
+            echo "::error::DATA_GO_KR_SERVICE_KEY is not set -- nothing to probe."
+            exit 1
+          fi
+          echo "service key present (value never printed)"
+
+      - name: Probe the two services and report their shape
+        run: |
+          set -u
+          echo "## data.go.kr 응답 구조 (기준일 $BAS_DT)" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+
+          probe() {
+            label="$1"; base="$2"; op="$3"; shift 3
+            out=/tmp/resp.json
+            code=$(curl -sS -G -o "$out" -w '%{http_code}' -m 40 \
+              --data-urlencode "serviceKey=$SERVICE_KEY" \
+              --data-urlencode "resultType=json" \
+              --data-urlencode "numOfRows=3" \
+              --data-urlencode "pageNo=1" \
+              --data-urlencode "basDt=$BAS_DT" \
+              "$@" \
+              "$base/$op" 2>/dev/null) || true
+
+            {
+              echo "### $label — \`$op\`"
+              echo
+              echo "- http_code: \`${code:-none}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            # Not JSON at all (an HTML error page, say) -- show the head and stop.
+            if ! jq -e . "$out" >/dev/null 2>&1; then
+              {
+                echo "- JSON 아님. 앞부분:"
+                echo
+                echo '```'
+                head -c 400 "$out"
+                echo
+                echo '```'
+                echo
+              } >> "$GITHUB_STEP_SUMMARY"
+              return
+            fi
+
+            {
+              echo "- 최상위 키: \`$(jq -r 'keys | join(", ")' "$out")\`"
+              echo "- resultCode / resultMsg: \`$(jq -r '[.response.header.resultCode, .response.header.resultMsg] | join(" / ")' "$out" 2>/dev/null)\`"
+              echo "- totalCount: \`$(jq -r '.response.body.totalCount // "?"' "$out" 2>/dev/null)\`"
+              echo
+              echo "**첫 번째 항목의 필드 이름** (이게 provider 가 맞춰야 할 계약):"
+              echo
+              echo '```'
+              jq -r '.response.body.items.item // .response.body.items | if type=="array" then .[0] else . end | keys_unsorted | .[]' "$out" 2>/dev/null | head -40
+              echo '```'
+              echo
+              echo "**첫 번째 항목 전체** (공개 시세값):"
+              echo
+              echo '```json'
+              jq -c '.response.body.items.item // .response.body.items | if type=="array" then .[0] else . end' "$out" 2>/dev/null | head -c 1200
+              echo
+              echo '```'
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          # 시세: 운영명이 _V2 인지 아닌지 문서와 포털 표기가 엇갈려서 둘 다 시도한다.
+          probe "주식시세정보" \
+            "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2" \
+            "getStockPriceInfo_V2"
+
+          probe "주식시세정보 (구 운영명)" \
+            "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2" \
+            "getStockPriceInfo"
+
+          # 상장종목: 포털이 알려준 운영명 그대로.
+          probe "KRX상장종목정보" \
+            "https://apis.data.go.kr/1160100/GetKrxListedInfoService_V2" \
+            "getItemInfo_V2"
+
+          # 하루치 전종목이 한 번의 요청으로 오는지 -- provider 의 축 선택이
+          # 여기에 달려 있다. 종목당 1요청이면 2,700 요청, 날짜당 1요청이면 1요청.
+          echo "### 날짜 축으로 전종목이 오는가" >> "$GITHUB_STEP_SUMMARY"
+          total=$(curl -sS -G -m 40 \
+            --data-urlencode "serviceKey=$SERVICE_KEY" \
+            --data-urlencode "resultType=json" \
+            --data-urlencode "numOfRows=1" \
+            --data-urlencode "basDt=$BAS_DT" \
+            "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2/getStockPriceInfo_V2" \
+            2>/dev/null | jq -r '.response.body.totalCount // "?"' 2>/dev/null)
+          {
+            echo
+            echo "기준일 \`$BAS_DT\` 의 totalCount: \`${total:-?}\`"
+            echo
+            echo "수천 단위면 날짜 하나로 전종목이 온다는 뜻이고, 그러면 기존 kr_provider 가"
+            echo "이미 쓰고 있는 '날짜별 전종목' 축을 그대로 쓸 수 있다."
+          } >> "$GITHUB_STEP_SUMMARY"
