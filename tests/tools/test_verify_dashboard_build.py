@@ -245,3 +245,20 @@ def test_repository_site_directory_passes_verification():
     """The real thing, as committed."""
     v = vdb.Verifier(REPO_ROOT / "site", require_publishable=False)
     assert v.run() == 0, f"committed site/ fails verification: {v.errors}"
+
+
+def test_vite_built_entry_point_is_accepted(tmp_path):
+    site=tmp_path/"site"; data=site/"data"; data.mkdir(parents=True)
+    (site/"index.html").write_text('<html><script type="module" src="./assets/index-abc.js"></script></html>' + "x"*1200)
+    (site/"robots.txt").write_text("User-agent: *\nDisallow: /\n")
+    payload={
+      "schema_version":2,"generated_at":"2026-10-03T00:00:00Z","as_of":"2026-10-02",
+      "data_source_mode":"real","publishability":{"publishable":True,"markets":{},"reasons":[]},
+      "overview":{"data_integrity":"FAIL","mandatory_validation_pass_rate":0,"pipeline_health":"FAIL","strategy_validation":"FAIL","investment_readiness":"DATA_INVALID"},
+      "markets":{},"disclaimer":"research only"
+    }
+    import json
+    (data/"dashboard.json").write_text(json.dumps(payload))
+    (data/"history.json").write_text("[]")
+    from tools.verify_dashboard_build import Verifier
+    assert Verifier(site,False).run()==0
