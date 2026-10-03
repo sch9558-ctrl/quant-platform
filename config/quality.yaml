@@ -46,6 +46,11 @@ freshness:
   # considered "should already be available" -- avoids a false FAIL in the
   # few hours between close and a provider's EOD data being published.
   grace_hours_after_close: 4
+  # Provider publication lag budget. Older bars are never relabelled.
+  # Korea data.go can publish EOD data one exchange session late.
+  provider_delay_max_lag_sessions:
+    korea: 1
+    us: 0
 
 timezone:
   korea_timezone: "Asia/Seoul"
