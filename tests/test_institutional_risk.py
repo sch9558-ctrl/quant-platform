@@ -44,5 +44,22 @@ def test_dynamic_position_exit_rules():
     stop=guard.atr_trailing_stop(120,4,multiple=2.5)
     assert stop==110
     assert guard.position_exit_reason(current_price=109,trailing_stop=110,expected_reward=10,expected_risk=3)=="TRAILING_STOP"
-    assert guard.position_exit_reason(current_price=115,trailing_stop=110,expected_reward=5,expected_risk=3)=="RISK_REWARD_BELOW_MINIMUM"
-    assert guard.position_exit_reason(current_price=115,trailing_stop=110,expected_reward=10,expected_risk=3) is None
+    assert guard.entry_risk_reward_allowed(expected_reward=5,expected_risk=3) is False
+    assert guard.entry_risk_reward_allowed(expected_reward=10,expected_risk=3) is True
+    # Remaining R/R may shrink near a target without forcing a winning trade out.
+    assert guard.position_exit_reason(current_price=115,trailing_stop=110,expected_reward=5,expected_risk=3) is None
+
+
+def test_dsr_uses_observed_trial_sharpe_dispersion():
+    import numpy as np
+    from quant.validation.cpcv import annualized_sharpe
+
+    rng=np.random.default_rng(23)
+    trials=rng.normal(0,0.01,(51,252))
+    sharpes=[annualized_sharpe(x) for x in trials]
+    best=int(np.argmax(sharpes))
+    fallback=deflated_sharpe_ratio(trials[best],n_trials=51)
+    observed=deflated_sharpe_ratio(trials[best],n_trials=51,trial_sharpes=sharpes)
+    assert 0 <= observed <= 1
+    assert observed < fallback
+    assert observed < 0.5
