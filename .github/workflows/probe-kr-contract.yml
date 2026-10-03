@@ -6,10 +6,16 @@ name: Probe — what shape does data.go.kr actually return?
 # 나온다. 이 프로젝트의 1순위가 데이터 정확성인데 그건 정확히 반대 방향이다.
 # 그래서 코드를 쓰기 전에 **실제 응답의 필드 이름**을 한 번 찍어 본다.
 #
-# 키 취급: DATA_GO_KR_SERVICE_KEY 는 env 로만 넘기고, URL 을 통째로 출력하는
-# 일이 없게 한다(--data-urlencode 로 붙인다). 포털이 주는 Decoding 키에는
-# '+', '/', '=' 가 들어 있어 직접 문자열로 이어붙이면 깨진다 -- curl 이
-# 인코딩하도록 맡기는 쪽이 맞다. 출력하는 값은 공개 시세 데이터뿐이다.
+# 1차 시도(2026-10-03)는 첫 요청이 응답 없이 끝나자 거기서 죽었다. 진단
+# 도구가 첫 문제에서 멈추면 아무것도 진단하지 못한다 -- 그래서 이제 어떤
+# 호출도 단계를 죽이지 않고, curl 의 실제 오류 문구와 연결 단계별 소요
+# 시간까지 같이 남긴다. "응답 없음"의 원인이 DNS 인지 TLS 인지 타임아웃인지
+# 구분되지 않으면 다음 수를 고를 수 없다.
+#
+# 키 취급: DATA_GO_KR_SERVICE_KEY 는 env 로만 넘기고 URL 을 통째로 출력하지
+# 않는다(--data-urlencode 로 붙인다). 포털의 Decoding 키에는 '+', '/', '='
+# 가 들어 있어 직접 이어붙이면 깨지므로 curl 이 인코딩하게 맡긴다.
+# 출력하는 값은 공개 시세 데이터뿐이다.
 
 on:
   workflow_dispatch:
@@ -39,93 +45,128 @@ jobs:
           fi
           echo "service key present (value never printed)"
 
-      - name: Probe the two services and report their shape
+      - name: Probe each service and report its shape
+        shell: bash
         run: |
+          # Deliberately NOT `set -e`: every probe below must run even when
+          # the one before it failed. That is the whole point of a probe.
+          set +e
           set -u
-          echo "## data.go.kr 응답 구조 (기준일 $BAS_DT)" >> "$GITHUB_STEP_SUMMARY"
-          echo >> "$GITHUB_STEP_SUMMARY"
+
+          S="$GITHUB_STEP_SUMMARY"
+          {
+            echo "## data.go.kr 응답 구조 (기준일 \`$BAS_DT\`)"
+            echo
+            echo "| # | 서비스 / 운영 | http | 연결 | 총 | 결과 |"
+            echo "|---|---|---|---|---|---|"
+          } >> "$S"
+
+          N=0
+          DETAIL=/tmp/detail.md
+          : > "$DETAIL"
 
           probe() {
-            label="$1"; base="$2"; op="$3"; shift 3
-            out=/tmp/resp.json
-            code=$(curl -sS -G -o "$out" -w '%{http_code}' -m 40 \
-              --data-urlencode "serviceKey=$SERVICE_KEY" \
-              --data-urlencode "resultType=json" \
-              --data-urlencode "numOfRows=3" \
-              --data-urlencode "pageNo=1" \
-              --data-urlencode "basDt=$BAS_DT" \
-              "$@" \
-              "$base/$op" 2>/dev/null) || true
+            N=$((N+1))
+            local label="$1" url="$2"
+            local out=/tmp/resp_$N.json err=/tmp/err_$N.txt
+            : > "$out"; : > "$err"
 
-            {
-              echo "### $label — \`$op\`"
-              echo
-              echo "- http_code: \`${code:-none}\`"
-            } >> "$GITHUB_STEP_SUMMARY"
+            local w
+            w=$(curl -sS -G -o "$out" \
+                  -w '%{http_code}|%{time_connect}|%{time_total}' \
+                  --connect-timeout 10 --max-time 30 --retry 1 \
+                  --data-urlencode "serviceKey=$SERVICE_KEY" \
+                  --data-urlencode "resultType=json" \
+                  --data-urlencode "numOfRows=3" \
+                  --data-urlencode "pageNo=1" \
+                  --data-urlencode "basDt=$BAS_DT" \
+                  "$url" 2>"$err")
+            local code="${w%%|*}" rest="${w#*|}"
+            local tconn="${rest%%|*}" ttot="${rest#*|}"
+            local errmsg
+            errmsg=$(tr -d '\n|' < "$err" | head -c 100)
 
-            # Not JSON at all (an HTML error page, say) -- show the head and stop.
-            if ! jq -e . "$out" >/dev/null 2>&1; then
-              {
-                echo "- JSON 아님. 앞부분:"
-                echo
-                echo '```'
-                head -c 400 "$out"
-                echo
-                echo '```'
-                echo
-              } >> "$GITHUB_STEP_SUMMARY"
-              return
+            local verdict
+            if jq -e . "$out" >/dev/null 2>&1; then
+              verdict="JSON 수신"
+            elif [ -s "$out" ]; then
+              verdict="본문 있으나 JSON 아님"
+            else
+              verdict="본문 없음 — ${errmsg:-원인 미상}"
             fi
 
+            echo "| $N | $label | ${code:-000} | ${tconn:-?}s | ${ttot:-?}s | $verdict |" >> "$S"
+
             {
-              echo "- 최상위 키: \`$(jq -r 'keys | join(", ")' "$out")\`"
-              echo "- resultCode / resultMsg: \`$(jq -r '[.response.header.resultCode, .response.header.resultMsg] | join(" / ")' "$out" 2>/dev/null)\`"
-              echo "- totalCount: \`$(jq -r '.response.body.totalCount // "?"' "$out" 2>/dev/null)\`"
               echo
-              echo "**첫 번째 항목의 필드 이름** (이게 provider 가 맞춰야 할 계약):"
+              echo "### $N. $label"
               echo
-              echo '```'
-              jq -r '.response.body.items.item // .response.body.items | if type=="array" then .[0] else . end | keys_unsorted | .[]' "$out" 2>/dev/null | head -40
-              echo '```'
-              echo
-              echo "**첫 번째 항목 전체** (공개 시세값):"
-              echo
-              echo '```json'
-              jq -c '.response.body.items.item // .response.body.items | if type=="array" then .[0] else . end' "$out" 2>/dev/null | head -c 1200
-              echo
-              echo '```'
-              echo
-            } >> "$GITHUB_STEP_SUMMARY"
+              if jq -e . "$out" >/dev/null 2>&1; then
+                echo "- 최상위 키: \`$(jq -r 'keys | join(", ")' "$out")\`"
+                echo "- resultCode / resultMsg: \`$(jq -r '[(.response.header.resultCode//"-"), (.response.header.resultMsg//"-")] | join(" / ")' "$out")\`"
+                echo "- totalCount: \`$(jq -r '.response.body.totalCount // "?"' "$out")\`"
+                echo
+                echo "필드 이름 (provider 가 맞춰야 할 계약):"
+                echo
+                echo '```'
+                jq -r '(.response.body.items.item // .response.body.items // empty) | (if type=="array" then .[0] else . end) | keys_unsorted | .[]' "$out" 2>/dev/null | head -40
+                echo '```'
+                echo
+                echo "첫 항목 (공개 시세값):"
+                echo
+                echo '```json'
+                jq -c '(.response.body.items.item // .response.body.items // empty) | (if type=="array" then .[0] else . end)' "$out" 2>/dev/null | head -c 1000
+                echo
+                echo '```'
+              else
+                echo "응답 앞부분:"
+                echo
+                echo '```'
+                head -c 400 "$out" 2>/dev/null
+                echo
+                echo '```'
+                echo
+                echo "curl stderr:"
+                echo
+                echo '```'
+                head -c 400 "$err" 2>/dev/null
+                echo
+                echo '```'
+              fi
+            } >> "$DETAIL"
           }
 
-          # 시세: 운영명이 _V2 인지 아닌지 문서와 포털 표기가 엇갈려서 둘 다 시도한다.
-          probe "주식시세정보" \
-            "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2" \
-            "getStockPriceInfo_V2"
+          B2=https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2
+          B1=https://apis.data.go.kr/1160100/service/GetStockSecuritiesInfoService
+          L2=https://apis.data.go.kr/1160100/GetKrxListedInfoService_V2
+          L1=https://apis.data.go.kr/1160100/service/GetKrxListedInfoService
 
-          probe "주식시세정보 (구 운영명)" \
-            "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2" \
-            "getStockPriceInfo"
+          # 포털이 알려준 _V2 경로와, 도달 가능한 것이 확인된 구 경로를 모두
+          # 시도한다. 어느 쪽이 답하는지가 provider 가 쓸 주소를 결정한다.
+          probe "시세 _V2 / getStockPriceInfo_V2" "$B2/getStockPriceInfo_V2"
+          probe "시세 _V2 / getStockPriceInfo"    "$B2/getStockPriceInfo"
+          probe "시세 구경로 / getStockPriceInfo"  "$B1/getStockPriceInfo"
+          probe "종목 _V2 / getItemInfo_V2"       "$L2/getItemInfo_V2"
+          probe "종목 구경로 / getItemInfo"        "$L1/getItemInfo"
 
-          # 상장종목: 포털이 알려준 운영명 그대로.
-          probe "KRX상장종목정보" \
-            "https://apis.data.go.kr/1160100/GetKrxListedInfoService_V2" \
-            "getItemInfo_V2"
-
-          # 하루치 전종목이 한 번의 요청으로 오는지 -- provider 의 축 선택이
-          # 여기에 달려 있다. 종목당 1요청이면 2,700 요청, 날짜당 1요청이면 1요청.
-          echo "### 날짜 축으로 전종목이 오는가" >> "$GITHUB_STEP_SUMMARY"
-          total=$(curl -sS -G -m 40 \
-            --data-urlencode "serviceKey=$SERVICE_KEY" \
-            --data-urlencode "resultType=json" \
-            --data-urlencode "numOfRows=1" \
-            --data-urlencode "basDt=$BAS_DT" \
-            "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2/getStockPriceInfo_V2" \
-            2>/dev/null | jq -r '.response.body.totalCount // "?"' 2>/dev/null)
+          # 호스트 자체가 살아 있는지 (키 없이, 경로만)
           {
             echo
-            echo "기준일 \`$BAS_DT\` 의 totalCount: \`${total:-?}\`"
+            echo "### 호스트 자체"
             echo
-            echo "수천 단위면 날짜 하나로 전종목이 온다는 뜻이고, 그러면 기존 kr_provider 가"
-            echo "이미 쓰고 있는 '날짜별 전종목' 축을 그대로 쓸 수 있다."
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo '```'
+            curl -sS -o /dev/null -w 'apis.data.go.kr  http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n' \
+              --connect-timeout 10 --max-time 20 "https://apis.data.go.kr/" 2>&1 | head -c 300
+            echo '```'
+          } >> "$DETAIL"
+
+          cat "$DETAIL" >> "$S"
+
+          {
+            echo
+            echo "**읽는 법**: 본문이 오면(JSON 이든 아니든) 그 주소는 살아 있다."
+            echo "\`SERVICE_KEY_IS_NOT_REGISTERED_ERROR\` 는 차단이 아니라 키 문제이고,"
+            echo "본문이 아예 없으면 그 경로는 이 러너에서 쓸 수 없다."
+          } >> "$S"
+
+          echo "probe finished; see the job summary"
