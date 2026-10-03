@@ -12,7 +12,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from quant.analytics.analyst_consensus import AnalystTracker
+from quant.analytics.analyst_consensus import AnalystTracker, HORIZONS
 from quant.collectors.report_collector import (
     CSVReportCollector,
     FinnhubAnalystCollector,
@@ -31,8 +31,9 @@ def _candidate_maps(dashboard: dict, max_symbols: int):
     for market in ("korea", "us"):
         section = dashboard.get("markets", {}).get(market) or {}
         candidates = section.get("candidates", [])[:max_symbols]
-        symbols[market] = [str(c["symbol"]) for c in candidates]
-        for c in candidates:
+        equity_candidates = [c for c in candidates if c.get("asset_type", "equity") == "equity"]
+        symbols[market] = [str(c["symbol"]) for c in equity_candidates]
+        for c in equity_candidates:
             key = f"{market}:{c['symbol']}"
             prices[key] = c.get("price")
             companies[key] = c.get("company")
@@ -205,6 +206,10 @@ def main():
                 else "목표가 표본 없음"
             ),
             "credibility": tracker.credibility(ev) if ev else None,
+            "horizon_metrics": {
+                horizon: tracker.credibility(ev, horizon=horizon)
+                for horizon in HORIZONS
+            } if ev else {},
             "top_credible_sources": credible_sources[:5],
             "events": [
                 e.to_dict()
@@ -221,6 +226,10 @@ def main():
             "us_symbols": len(symbols["us"]),
             "reports": len(reports),
             "evaluations": len(evaluations),
+            "symbols_with_reports": len(by_symbol),
+            "candidate_report_coverage_pct": round(
+                100 * len(by_symbol) / max(len(symbols["korea"]) + len(symbols["us"]), 1), 1
+            ),
             "mature_3m_evaluations": sum(
                 1
                 for e in evaluations
