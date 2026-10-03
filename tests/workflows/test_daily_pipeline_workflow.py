@@ -66,7 +66,8 @@ def test_deploy_fails_closed_when_credentials_are_missing():
     guard = next(s for s in steps if "credentials" in s.get("name", "").lower())
     assert "exit 1" in guard["run"]
     assert "CLOUDFLARE_API_TOKEN" in guard["run"]
-    assert "CLOUDFLARE_ACCOUNT_ID" in guard["run"]
+    # Account ID is a non-secret Cloudflare account identifier and is
+    # intentionally committed as workflow configuration.
 
 
 def test_build_is_verified_before_deployment():
@@ -230,3 +231,12 @@ def test_root_url_is_checked_for_authentication_after_publish():
     assert "quant-platform.pages.dev" in verify["run"]
     assert "HTTP 200" in verify["run"]
     assert "exit 1" in verify["run"]
+
+
+def test_cloudflare_bootstrap_dependency_is_installed_before_bootstrap():
+    data = _load()
+    steps = data["jobs"]["deploy"]["steps"]
+    install_idx = next(i for i, s in enumerate(steps) if "Install Cloudflare bootstrap dependency" in s.get("name", ""))
+    bootstrap_idx = next(i for i, s in enumerate(steps) if "Bootstrap/check Cloudflare private Pages" in s.get("name", ""))
+    assert install_idx < bootstrap_idx
+    assert "pip install requests" in steps[install_idx]["run"]
