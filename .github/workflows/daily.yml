@@ -3,6 +3,10 @@ name: Daily Research Pipeline & Private Dashboard
 on:
   schedule:
     - cron: "0 22 * * *"   # 07:00 KST
+  push:
+    branches: [master]
+    paths:
+      - "tools/daily_e2e.trigger"
   workflow_dispatch:
     inputs:
       markets:
