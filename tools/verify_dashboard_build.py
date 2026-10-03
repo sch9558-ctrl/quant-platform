@@ -97,10 +97,10 @@ class Verifier:
             self.error(f"진입 파일이 없습니다: {index}")
             return
         html = index.read_text(encoding="utf-8", errors="replace")
-        if len(html) < 1000:
-            self.error(f"index.html 이 비정상적으로 작습니다 ({len(html)} bytes).")
         direct_data_ref = "data/dashboard.json" in html
         vite_bundle = ("type=\"module\"" in html and "assets/" in html)
+        if len(html) < 1000 and not vite_bundle:
+            self.error(f"index.html 이 비정상적으로 작습니다 ({len(html)} bytes).")
         if not direct_data_ref and not vite_bundle:
             self.error("index.html 이 dashboard data 또는 Vite 번들 진입점을 참조하지 않습니다.")
 
