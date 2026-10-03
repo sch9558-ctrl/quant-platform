@@ -33,6 +33,7 @@ class WalkForwardResult:
     fold_results: list[FoldResult]
     aggregate_oos_equity: pd.Series
     aggregate_oos_metrics: PerformanceMetrics
+    parameter_trial_sharpes: tuple[float, ...] = ()
 
 
 class WalkForwardAnalyzer:
@@ -66,6 +67,7 @@ class WalkForwardAnalyzer:
 
         fold_results: list[FoldResult] = []
         oos_equity_segments: list[pd.Series] = []
+        parameter_trial_sharpes: list[float] = []
 
         for fold in folds:
             chosen_params: dict = {}
@@ -84,6 +86,9 @@ class WalkForwardAnalyzer:
                     return compute_metrics(res.equity_curve, res.daily_returns).sharpe
 
                 eval_results = stability.evaluate_param_grid(param_grid, eval_fn)
+                parameter_trial_sharpes.extend(
+                    float(r.score) for r in eval_results if pd.notna(r.score)
+                )
                 stab_result = stability.select_robust_params(eval_results)
                 chosen_params = stab_result.params if stab_result else {}
 
@@ -130,4 +135,5 @@ class WalkForwardAnalyzer:
         return WalkForwardResult(
             strategy_id=strategy_id, market=self.market, fold_results=fold_results,
             aggregate_oos_equity=aggregate_oos_equity, aggregate_oos_metrics=aggregate_metrics,
+            parameter_trial_sharpes=tuple(parameter_trial_sharpes),
         )
