@@ -21,6 +21,7 @@ pandas_market_calendars==5.4.0
 
 # Technical analysis / features
 ta==0.11.0
+PyWavelets>=1.6,<2
 
 # Visualization / Dashboard
 matplotlib==3.11.1
