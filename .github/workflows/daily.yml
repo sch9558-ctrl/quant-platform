@@ -4,10 +4,9 @@ name: Daily Research Pipeline & Dashboard
 # 복구 실행은 오늘자 대시보드 데이터가 이미 정상적으로 만들어져 있으면
 # 아무것도 하지 않는다.
 #
-# FAIL-CLOSED, BUT DASHBOARD ALWAYS DEPLOYS:
-# 리서치가 실패해도 대시보드 배포는 막지 않는다. 모든 파이프라인 단계는
-# continue-on-error 로 돌고, deploy 잡은 if: always() 로 실행된다.
-# 실패 자체는 마지막 단계에서 워크플로우를 빨갛게 만들어 드러낸다.
+# FAIL-CLOSED:
+# 리서치/검증 단계가 실패하면 대시보드를 새로 배포하지 않는다. 실패한
+# 데이터나 불완전한 산출물을 최신 정상 대시보드 위에 덮어쓰지 않는다.
 #
 # --real: 실제 시장 데이터(pykrx / yfinance)를 쓴다. 이 옵션이 없으면
 # 모든 스크립트가 합성(가짜) 데이터로 돌아가며, 그게 이 프로젝트가
@@ -193,7 +192,7 @@ jobs:
           echo "::error::gitleaks did not complete successfully -- refusing to auto-commit."
           exit 1
 
-      - name: Final job status (fail the run visibly if anything failed, without blocking dashboard deploy)
+      - name: Final job status (fail the run visibly if anything failed)
         id: final-status
         if: steps.check.outputs.skip != 'true'
         run: |
@@ -208,7 +207,7 @@ jobs:
           done
           echo "any_failure=$ANY_FAILURE" >> "$GITHUB_OUTPUT"
           if [ "$ANY_FAILURE" = "true" ]; then
-            echo "::error::One or more pipeline steps failed today. The dashboard was still generated/deployed and reflects this failure honestly."
+            echo "::error::One or more pipeline steps failed today. Deployment is blocked and the last known-good private dashboard remains in place."
             exit 1
           fi
 
@@ -218,7 +217,7 @@ jobs:
   deploy:
     name: Deploy dashboard to Cloudflare Pages (private, behind Access)
     needs: research
-    if: always() && needs.research.result != 'skipped'
+    if: needs.research.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -264,9 +263,31 @@ jobs:
       - name: Verify dashboard build before publishing
         run: python tools/verify_dashboard_build.py --site-dir site
 
+      - name: Bootstrap/check Cloudflare private Pages configuration
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "301c3fbffec59a5d5827040ff30eb62f"
+        run: python tools/cloudflare_pages.py bootstrap
+
       - name: Publish to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: "301c3fbffec59a5d5827040ff30eb62f"
-          command: pages deploy site --project-name=quant-platform --branch=main
+          command: pages deploy site --project-name=quant-platform --branch=master --commit-dirty=true
+
+      - name: Verify root URL is protected, not public
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "https://quant-platform.pages.dev/")
+          echo "Unauthenticated root HTTP status: $code"
+          case "$code" in
+            301|302|303|307|308|401|403) ;;
+            200)
+              echo "::error::Dashboard returned HTTP 200 without authentication."
+              exit 1
+              ;;
+            *)
+              echo "::error::Unexpected dashboard response: HTTP $code"
+              exit 1
+              ;;
+          esac
