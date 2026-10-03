@@ -1,3 +1,4 @@
+import pytest
 import pandas as pd
 from quant.risk.filing_filter import classify_filings
 from quant.risk.market_traps import risk_cleared
@@ -18,10 +19,10 @@ def test_market_traps_block_earnings_credit_and_gap():
 def test_paper_ledger_applies_slippage_and_tracks_summary():
     p=PaperTrader(initial_cash=1_000_000,slippage=0.001,fee_rate=0.0)
     buy=p.buy("005930",10,10000)
-    assert buy==10010
+    assert buy==pytest.approx(10010)
     p.mark("2026-10-01",{"005930":10500})
     sell=p.sell("005930",10,11000)
-    assert sell==10989
+    assert sell==pytest.approx(10989)
     p.mark("2026-10-02",{})
     s=p.summary()
     assert s["n_closed_trades"]==1
