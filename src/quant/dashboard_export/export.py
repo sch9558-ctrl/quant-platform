@@ -174,6 +174,8 @@ def _strategy_rows(mrr: MarketResearchResult | None) -> list[dict]:
             "aggregate_oos_calmar": _safe_float(agg.calmar) if agg is not None else None,
             "n_oos_trades": _safe_int(row.get("n_oos_trades")),
             "n_folds": _safe_int(row.get("n_folds")),
+            "deflated_sharpe_probability": _safe_float(row.get("deflated_sharpe_probability")),
+            "n_param_combos_tested": _safe_int(row.get("n_param_combos_tested")),
         })
     return sorted(rows, key=lambda r: (r["composite_score"] is None, -(r["composite_score"] or 0)))
 
@@ -229,6 +231,21 @@ def _safe_int(v) -> int | None:
         return int(v)
     except (TypeError, ValueError):
         return None
+
+
+def _portfolio_section(mrr: MarketResearchResult | None) -> dict:
+    if mrr is None or mrr.blocked or mrr.portfolio_allocation is None:
+        return {"available": False, "weights": {}, "cash_weight": 1.0, "notes": []}
+    a = mrr.portfolio_allocation
+    return {
+        "available": True,
+        "weights": {str(k): _safe_float(v) for k, v in a.weights.items()},
+        "cash_weight": _safe_float(a.cash_weight),
+        "by_market": {str(k): _safe_float(v) for k, v in a.by_market.items()},
+        "by_strategy": {str(k): _safe_float(v) for k, v in a.by_strategy.items()},
+        "by_sector": {str(k): _safe_float(v) for k, v in a.by_sector.items()},
+        "notes": list(a.notes),
+    }
 
 
 def _paper_trading_section(market: str, demo: bool, required_sessions: int = 250) -> dict:
@@ -339,6 +356,7 @@ def build_dashboard_data(
         m: (markets[m].risk_checks if m in markets and not markets[m].blocked else [])
         for m in ("korea", "us")
     }
+    portfolio = {m: _portfolio_section(markets.get(m)) for m in ("korea", "us")}
     paper_trading = {}
     for m in ("korea", "us"):
         try:
@@ -390,6 +408,7 @@ def build_dashboard_data(
         "backtests": backtests,
         "paper_trading": paper_trading,
         "risk": risk,
+        "portfolio": portfolio,
         "validation": _validation_section(status),
         "audit_log": _audit_log_section(),
         "provenance": provenance,
