@@ -44,8 +44,22 @@ def validate_market(
     use_secondary: bool = True,
     provider=None,
 ) -> MarketValidationResult:
-    as_of = as_of or default_as_of(market)
+    requested_as_of = as_of or default_as_of(market)
     provider = provider or get_provider(market, demo=demo)
+    as_of = requested_as_of
+    if not demo and hasattr(provider, "resolve_as_of"):
+        lag_cfg = config.quality_config().get("freshness", {}).get(
+            "provider_delay_max_lag_sessions", {}
+        )
+        allowed_lag = int(lag_cfg.get(market, 0) or 0)
+        as_of = provider.resolve_as_of(
+            requested_as_of, max_lag_sessions=allowed_lag
+        )
+        if as_of != requested_as_of:
+            logger.warning(
+                "Provider-effective session for %s: expected=%s actual=%s",
+                market, requested_as_of, as_of,
+            )
     secondary = get_secondary_provider(market, demo=demo, primary=provider) if use_secondary else None
 
     universe_engine = UniverseEngine(market, provider)
@@ -131,6 +145,8 @@ def run_gated_scan(
         market, demo=demo, as_of=as_of, lookback_days=lookback_days,
         use_secondary=use_secondary, provider=provider,
     )
+    # validate_market may resolve an honest provider-effective session.
+    as_of = str(validation.report.as_of)
     allowed, reason = may_proceed(validation.report)
     if not allowed:
         logger.error(reason)
