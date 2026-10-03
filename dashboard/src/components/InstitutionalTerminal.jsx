@@ -23,3 +23,4 @@ export default function InstitutionalTerminal({candidates=[],market,fxRate=null,
     <tbody>{rows.length?rows.map(c=>{const p=c.trade_plan||{};return <tr key={c.symbol}><td><b>{c.company||c.symbol}</b><br/><span className="muted">{c.symbol}</span></td><td>{p.action_ko||'관망'}</td><td>{formatPrice(p.entry_high,market,fxRate,convertUsd)}</td><td>{formatPrice(p.target_1,market,fxRate,convertUsd)}</td><td>{formatPrice(p.stop_loss,market,fxRate,convertUsd)}</td><td><b>{c.quantity.toLocaleString()}주</b></td><td>{(c.allocation*100).toFixed(1)}%</td></tr>}):<tr><td colSpan="7" className="muted">실행 가능한 후보가 없습니다.</td></tr>}</tbody></table></div>
     <p className="source-note">실제 주문을 전송하지 않습니다. 데이터 품질·공시·유동성·리스크 게이트를 모두 통과한 뒤 별도 승인 절차에서만 집행해야 합니다.</p>
   </section>
+}
