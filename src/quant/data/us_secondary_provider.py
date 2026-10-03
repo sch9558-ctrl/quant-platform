@@ -47,18 +47,18 @@ _STOOQ_URL = "https://stooq.com/q/d/l/"
 
 #: Per-request timeout. Deliberately short: this source is optional, and a
 #: slow answer costs the pipeline more than a missing one.
-_TIMEOUT_SECONDS = 8.0
+_TIMEOUT_SECONDS = 4.0
 
 #: Consecutive failures after which the source is considered unavailable
 #: for the rest of this bulk call. Stooq answers healthy symbols quickly,
 #: so a run this long means the endpoint is refusing us, not that these
 #: particular tickers are unusual.
-_MAX_CONSECUTIVE_FAILURES = 12
+_MAX_CONSECUTIVE_FAILURES = 3
 
 #: Total wall clock a bulk call may spend. The circuit breaker above
 #: handles an outright block; this bounds the slower pathology where
 #: roughly half the requests time out and the run never quite trips it.
-_BULK_TIME_BUDGET_SECONDS = 420.0
+_BULK_TIME_BUDGET_SECONDS = 60.0
 
 
 def to_stooq_symbol(symbol: str) -> str:
