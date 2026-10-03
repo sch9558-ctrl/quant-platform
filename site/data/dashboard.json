@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-10-02T02:07:54.703651+00:00",
-  "as_of": "2026-10-01",
+  "generated_at": "2026-10-03T01:24:50.542238+00:00",
+  "as_of": "2026-10-02",
   "data_source_mode": "real",
   "publishability": {
     "data_source_mode": "real",
@@ -9,15 +9,15 @@
     "markets": {
       "korea": {
         "market": "korea",
-        "expected_session": "2026-10-01",
-        "actual_session": "2026-10-01",
+        "expected_session": "2026-10-02",
+        "actual_session": "2026-10-02",
         "gap_sessions": 0,
         "status": "FRESH"
       },
       "us": {
         "market": "us",
-        "expected_session": "2026-10-01",
-        "actual_session": "2026-10-01",
+        "expected_session": "2026-10-02",
+        "actual_session": "2026-10-02",
         "gap_sessions": 0,
         "status": "FRESH"
       }
@@ -40,7 +40,59 @@
   },
   "data_quality": {
     "korea": null,
-    "us": null
+    "us": {
+      "market": "us",
+      "as_of": "2026-10-02",
+      "generated_at": "2026-10-03T01:22:05.093896+00:00",
+      "n_symbols_checked": 0,
+      "data_integrity_score": 0.0,
+      "mandatory_validation_pass_rate": 0.0,
+      "overall_status": "FAIL",
+      "outlier_counts": {},
+      "data_version": null,
+      "checksum": null,
+      "checks": {
+        "schema": {
+          "passed": false,
+          "mandatory": true,
+          "issue_count": 1
+        }
+      },
+      "checks_detail": [
+        {
+          "check": "schema",
+          "mandatory": true,
+          "passed": false,
+          "issue_count": 1,
+          "issues": [
+            {
+              "check": "schema",
+              "severity": "FATAL",
+              "message": "Record table is empty",
+              "market": "us",
+              "symbol": null,
+              "date": null
+            }
+          ],
+          "details": {
+            "required_columns": [
+              "symbol",
+              "market",
+              "date",
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume",
+              "currency",
+              "source",
+              "retrieved_at"
+            ],
+            "found_columns": []
+          }
+        }
+      ]
+    }
   },
   "markets": {
     "korea": {
@@ -57,7 +109,7 @@
       "label": "US (NYSE/NASDAQ/AMEX)",
       "status": "DATA VALIDATION FAILED",
       "blocked": true,
-      "block_reason": "us 시장 데이터를 가져오지 못해 이 시장의 분석을 중단했습니다 (데이터 소스 접근 실패: TypeError: cannot unpack non-iterable DataQualityReport object). 후보 종목·전략 평가·모의매매는 생성되지 않았습니다.",
+      "block_reason": "DATA VALIDATION FAILED for market=us as_of=2026-10-02: mandatory check(s) failed: ['schema']. No investment candidates will be generated from this data.",
       "candidates": [],
       "universe_size": 0
     }
@@ -112,13 +164,37 @@
     "pipeline_health": "FAIL",
     "markets": {
       "korea": null,
-      "us": null
+      "us": {
+        "market": "us",
+        "as_of": "2026-10-02",
+        "generated_at": "2026-10-03T01:22:05.093896+00:00",
+        "n_symbols_checked": 0,
+        "data_integrity_score": 0.0,
+        "mandatory_validation_pass_rate": 0.0,
+        "overall_status": "FAIL",
+        "outlier_counts": {},
+        "data_version": null,
+        "checksum": null,
+        "checks": {
+          "schema": {
+            "passed": false,
+            "mandatory": true,
+            "issue_count": 1
+          }
+        }
+      }
     }
   },
   "audit_log": [],
   "provenance": {
     "korea": null,
-    "us": null
+    "us": {
+      "source": "primary market data provider",
+      "data_version": null,
+      "checksum": null,
+      "validation_status": "FAIL",
+      "generated_at": "2026-10-03T01:22:05.093896+00:00"
+    }
   },
   "disclaimer": "Data Validation 100% means all mandatory data-quality checks passed. It does not mean that future investment returns can be predicted with 100% accuracy or that loss is impossible."
 }
