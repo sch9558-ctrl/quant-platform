@@ -154,8 +154,16 @@ class Verifier:
                 f"모순: publishable=true 인데 데이터 출처가 '{mode}' 입니다. "
                 "합성 데이터는 게시 가능 상태가 될 수 없습니다."
             )
-        if publishable and overview.get("data_integrity") == "FAIL":
-            self.error("모순: publishable=true 인데 데이터 무결성이 FAIL 입니다.")
+        # NOT a contradiction, and this check used to wrongly call it one:
+        # publishable=true with data_integrity=FAIL. The two answer different
+        # questions -- "is this real, current data?" and "did it pass the
+        # mandatory quality checks?" -- and real, current data that fails a
+        # check is the single most important thing this dashboard can say.
+        # Refusing to deploy it blocks exactly the page that would tell the
+        # reader their data is bad, which is the opposite of Fail-Closed:
+        # the research stops, the reporting does not. (Spec: "Research 실패
+        # != Dashboard 배포 실패".) On 2026-10-01 the first run that reached
+        # real data for both markets hit precisely this state.
         if not publishable and overview.get("data_integrity") == "PASS":
             self.error(
                 "모순: 게시 불가 상태(합성 또는 지연)인데 데이터 무결성이 PASS 로 표시됩니다. "
