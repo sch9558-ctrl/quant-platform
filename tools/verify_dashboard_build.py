@@ -99,8 +99,10 @@ class Verifier:
         html = index.read_text(encoding="utf-8", errors="replace")
         if len(html) < 1000:
             self.error(f"index.html 이 비정상적으로 작습니다 ({len(html)} bytes).")
-        if "data/dashboard.json" not in html:
-            self.error("index.html 이 data/dashboard.json 을 참조하지 않습니다.")
+        direct_data_ref = "data/dashboard.json" in html
+        vite_bundle = ("type=\"module\"" in html and "assets/" in html)
+        if not direct_data_ref and not vite_bundle:
+            self.error("index.html 이 dashboard data 또는 Vite 번들 진입점을 참조하지 않습니다.")
 
     def check_data_files(self) -> dict | None:
         data_dir = self.site / "data"
