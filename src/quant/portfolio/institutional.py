@@ -100,26 +100,46 @@ def _finalize(
         w = w.clip(upper=constraints.max_position_weight)
         notes.append("position weight cap applied")
 
-    # This allocator is called per market, so the market exposure cap is an
-    # aggregate risky-exposure cap for this result.
+    def _apply_group_cap(group_of: dict[str, str | None], cap: float, label: str) -> None:
+        nonlocal w
+        if cap <= 0:
+            return
+        groups = sorted({g for g in group_of.values() if g is not None})
+        for group in groups:
+            members = [s for s in w.index if group_of.get(s) == group]
+            total = float(w.loc[members].sum()) if members else 0.0
+            if total > cap:
+                w.loc[members] *= cap / total
+                notes.append(f"{label} weight cap applied")
+
+    _apply_group_cap({i.symbol: i.sector for i in items}, constraints.max_sector_weight, "sector")
+    _apply_group_cap({i.symbol: i.strategy_id for i in items}, constraints.max_strategy_weight, "strategy")
+    _apply_group_cap({i.symbol: i.market for i in items}, constraints.max_market_weight, "market")
+
     max_invested = min(
         constraints.max_gross_exposure,
         1.0 - constraints.min_cash_weight,
-        constraints.max_market_weight,
     )
     if w.sum() > max_invested and w.sum() > 0:
         w *= max_invested / w.sum()
         notes.append("scaled down to respect gross/cash/market exposure caps")
 
-    market = items[0].market if items else ""
-    strategy = items[0].strategy_id if items else ""
     invested = float(w.sum())
+    by_market: dict[str, float] = {}
+    by_strategy: dict[str, float] = {}
+    by_sector: dict[str, float] = {}
+    for item in items:
+        wi = float(w.get(item.symbol, 0.0))
+        by_market[item.market] = by_market.get(item.market, 0.0) + wi
+        by_strategy[item.strategy_id] = by_strategy.get(item.strategy_id, 0.0) + wi
+        if item.sector:
+            by_sector[item.sector] = by_sector.get(item.sector, 0.0) + wi
     return PortfolioAllocation(
         weights=w,
         cash_weight=float(max(0.0, 1.0 - invested)),
-        by_market={market: invested} if market else {},
-        by_strategy={strategy: invested} if strategy else {},
-        by_sector={},
+        by_market=by_market,
+        by_strategy=by_strategy,
+        by_sector=by_sector,
         notes=notes,
     )
 
