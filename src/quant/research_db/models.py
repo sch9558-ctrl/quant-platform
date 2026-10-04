@@ -1,6 +1,7 @@
 """Research DB record schema (spec sections 19 and 30: reproducibility)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import uuid
@@ -112,11 +113,9 @@ class PointInTimeObservation:
 
     published_at is the causality gate: historical queries may only see
     observations whose publication time was known by the requested as-of.
-    collected_at is provenance only and records when this platform fetched
-    the observation. effective_at may be in the future (for example a known
-    earnings date) and is therefore deliberately not used as the as-of gate.
+    A later publication for the same source/type/market/symbol is a revision
+    and therefore receives a different deterministic observation_id.
     """
-    observation_id: str
     observation_type: str
     source: str
     market: str
@@ -126,17 +125,27 @@ class PointInTimeObservation:
     effective_at: pd.Timestamp | None
     payload: dict
     provenance: dict = field(default_factory=dict)
+    observation_id: str | None = None
+
+    def canonical_id(self) -> str:
+        return observation_id_for(
+            observation_type=self.observation_type,
+            source=self.source,
+            market=self.market,
+            symbol=self.symbol,
+            published_at=self.published_at,
+        )
 
     def to_row(self) -> dict:
         return {
-            "observation_id": self.observation_id,
+            "observation_id": self.canonical_id(),
             "observation_type": self.observation_type,
             "source": self.source,
             "market": self.market,
             "symbol": self.symbol,
-            "published_at": self.published_at.isoformat(),
-            "collected_at": self.collected_at.isoformat(),
-            "effective_at": self.effective_at.isoformat() if self.effective_at is not None else None,
+            "published_at": pd.Timestamp(self.published_at).isoformat(),
+            "collected_at": pd.Timestamp(self.collected_at).isoformat(),
+            "effective_at": pd.Timestamp(self.effective_at).isoformat() if self.effective_at is not None else None,
             "payload_json": json.dumps(self.payload, default=str),
             "provenance_json": json.dumps(self.provenance, default=str),
         }
@@ -144,7 +153,6 @@ class PointInTimeObservation:
     @classmethod
     def from_row(cls, row: dict) -> "PointInTimeObservation":
         return cls(
-            observation_id=row["observation_id"],
             observation_type=row["observation_type"],
             source=row["source"],
             market=row["market"],
@@ -154,8 +162,30 @@ class PointInTimeObservation:
             effective_at=pd.Timestamp(row["effective_at"]) if row["effective_at"] else None,
             payload=json.loads(row["payload_json"]),
             provenance=json.loads(row["provenance_json"] or "{}"),
+            observation_id=row["observation_id"],
         )
 
 
+def observation_id_for(
+    *,
+    observation_type: str,
+    source: str,
+    market: str,
+    symbol: str | None,
+    published_at: str | pd.Timestamp,
+) -> str:
+    """Deterministic identity for one public release of a logical observation."""
+    published=pd.Timestamp(published_at).isoformat()
+    payload="|".join([
+        str(observation_type).strip().lower(),
+        str(source).strip().lower(),
+        str(market).strip().lower(),
+        "" if symbol is None else str(symbol).strip().upper(),
+        published,
+    ])
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
+
+
 def new_observation_id() -> str:
+    """Legacy random id helper; new PIT records use observation_id_for()."""
     return uuid.uuid4().hex[:20]
