@@ -16,7 +16,7 @@ import pandas as pd
 from quant import config
 from quant.ranking.overfitting import assess_overfitting
 from quant.validation.walk_forward import WalkForwardResult
-from quant.validation.cpcv import deflated_sharpe_ratio
+from quant.validation.cpcv import PurgedCombinatorialCV, annualized_sharpe, deflated_sharpe_ratio
 
 
 @dataclass
@@ -38,6 +38,7 @@ class StrategyFeatures:
     avg_turnover: float
     n_param_combos_tested: int = 1
     deflated_sharpe_probability: float | None = None
+    cpcv_positive_sharpe_ratio: float | None = None
 
 
 @dataclass
@@ -68,6 +69,7 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
             n_oos_trades=0, n_folds=0, avg_turnover=0.0,
             n_param_combos_tested=max(1, n_param_combos_tested),
             deflated_sharpe_probability=None,
+            cpcv_positive_sharpe_ratio=None,
         )
 
     def _avg(getter):
@@ -79,6 +81,7 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
     trial_sharpes = list(getattr(wf, "parameter_trial_sharpes", ()) or ())
     inferred_trials = max(1, len(trial_sharpes), int(n_param_combos_tested or 1))
     dsr_probability = None
+    cpcv_positive_ratio = None
     if wf.aggregate_oos_equity is not None and len(wf.aggregate_oos_equity) >= 4:
         oos_returns = wf.aggregate_oos_equity.pct_change().dropna()
         if len(oos_returns) >= 3:
@@ -87,6 +90,18 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
                 n_trials=inferred_trials,
                 trial_sharpes=trial_sharpes or None,
             )
+        if len(oos_returns) >= 60:
+            splitter = PurgedCombinatorialCV(
+                n_groups=6, n_test_groups=2, purge_sessions=2, embargo_sessions=3
+            )
+            test_sharpes = []
+            values = oos_returns.reset_index(drop=True)
+            for _, test_idx in splitter.split(values):
+                test_sharpes.append(annualized_sharpe(values.iloc[test_idx]))
+            if test_sharpes:
+                cpcv_positive_ratio = float(
+                    sum(s > 0 for s in test_sharpes) / len(test_sharpes)
+                )
 
     return StrategyFeatures(
         strategy_id=wf.strategy_id, market=wf.market,
@@ -105,6 +120,7 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
         avg_turnover=_avg(lambda f: f.oos_metrics.avg_turnover),
         n_param_combos_tested=inferred_trials,
         deflated_sharpe_probability=dsr_probability,
+        cpcv_positive_sharpe_ratio=cpcv_positive_ratio,
     )
 
 
@@ -181,16 +197,22 @@ def rank_strategies(features: list[StrategyFeatures]) -> pd.DataFrame:
         "composite_score": composite,
         "n_oos_trades": df["n_oos_trades"], "n_folds": df["n_folds"],
         "deflated_sharpe_probability": df["deflated_sharpe_probability"],
+        "cpcv_positive_sharpe_ratio": df["cpcv_positive_sharpe_ratio"],
         "n_param_combos_tested": df["n_param_combos_tested"],
     })
     dsr_threshold = float(min_req.get("min_deflated_sharpe_probability", 0.5))
     dsr_ok = df["deflated_sharpe_probability"].isna() | (
         df["deflated_sharpe_probability"] >= dsr_threshold
     )
+    cpcv_threshold = float(min_req.get("min_cpcv_positive_sharpe_ratio", 0.5))
+    cpcv_ok = df["cpcv_positive_sharpe_ratio"].isna() | (
+        df["cpcv_positive_sharpe_ratio"] >= cpcv_threshold
+    )
     out["meets_minimum_requirements"] = (
         (df["n_oos_trades"] >= min_req["min_trades"])
         & (df["n_folds"] >= min_req["min_oos_periods"])
         & dsr_ok
+        & cpcv_ok
     )
     out["overfitting_warnings"] = out.index.map(lambda sid: warnings_by_strategy.get(sid, []))
     out = out.sort_values("composite_score", ascending=False)
