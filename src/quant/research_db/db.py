@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from quant import config
-from quant.research_db.models import ExperimentRecord
+from quant.research_db.models import ExperimentRecord, PointInTimeObservation
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS experiments (
@@ -34,6 +34,23 @@ CREATE TABLE IF NOT EXISTS experiments (
 CREATE INDEX IF NOT EXISTS idx_experiments_market ON experiments(market);
 CREATE INDEX IF NOT EXISTS idx_experiments_strategy ON experiments(strategy_id);
 CREATE INDEX IF NOT EXISTS idx_experiments_created_at ON experiments(created_at);
+
+CREATE TABLE IF NOT EXISTS point_in_time_observations (
+    observation_id TEXT PRIMARY KEY,
+    observation_type TEXT NOT NULL,
+    source TEXT NOT NULL,
+    market TEXT NOT NULL,
+    symbol TEXT,
+    published_at TEXT NOT NULL,
+    collected_at TEXT NOT NULL,
+    effective_at TEXT,
+    payload_json TEXT NOT NULL,
+    provenance_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pit_type ON point_in_time_observations(observation_type);
+CREATE INDEX IF NOT EXISTS idx_pit_source ON point_in_time_observations(source);
+CREATE INDEX IF NOT EXISTS idx_pit_market_symbol ON point_in_time_observations(market, symbol);
+CREATE INDEX IF NOT EXISTS idx_pit_published ON point_in_time_observations(published_at);
 """
 
 
@@ -109,6 +126,95 @@ class ResearchDB:
     def delete_experiment(self, experiment_id: str) -> None:
         with self._connect() as conn:
             conn.execute("DELETE FROM experiments WHERE experiment_id = ?", (experiment_id,))
+
+    def save_observation(self, record: PointInTimeObservation) -> str:
+        """Append one point-in-time observation without overwriting revisions."""
+        row = record.to_row()
+        cols = list(row.keys())
+        placeholders = ", ".join(["?"] * len(cols))
+        sql = (
+            f"INSERT INTO point_in_time_observations ({', '.join(cols)}) "
+            f"VALUES ({placeholders})"
+        )
+        with self._connect() as conn:
+            conn.execute(sql, [row[c] for c in cols])
+        return record.observation_id
+
+    def latest_observation_as_of(
+        self,
+        *,
+        observation_type: str,
+        market: str,
+        as_of: str | pd.Timestamp,
+        source: str | None = None,
+        symbol: str | None = None,
+    ) -> PointInTimeObservation | None:
+        """Return only information published no later than the requested as-of."""
+        clauses = [
+            "observation_type = ?",
+            "market = ?",
+            "published_at <= ?",
+        ]
+        params: list[object] = [
+            observation_type,
+            market,
+            pd.Timestamp(as_of).isoformat(),
+        ]
+        if source is not None:
+            clauses.append("source = ?")
+            params.append(source)
+        if symbol is None:
+            clauses.append("symbol IS NULL")
+        else:
+            clauses.append("symbol = ?")
+            params.append(symbol)
+        sql = (
+            "SELECT * FROM point_in_time_observations WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY published_at DESC, collected_at DESC LIMIT 1"
+        )
+        with self._connect() as conn:
+            row = conn.execute(sql, params).fetchone()
+        return PointInTimeObservation.from_row(dict(row)) if row else None
+
+    def query_observations_as_of(
+        self,
+        *,
+        observation_type: str,
+        market: str,
+        as_of: str | pd.Timestamp,
+        source: str | None = None,
+        symbol: str | None = None,
+        limit: int = 1000,
+    ) -> pd.DataFrame:
+        """Historical-safe query: future publication timestamps are excluded."""
+        clauses = [
+            "observation_type = ?",
+            "market = ?",
+            "published_at <= ?",
+        ]
+        params: list[object] = [
+            observation_type,
+            market,
+            pd.Timestamp(as_of).isoformat(),
+        ]
+        if source is not None:
+            clauses.append("source = ?")
+            params.append(source)
+        if symbol is not None:
+            clauses.append("symbol = ?")
+            params.append(symbol)
+        sql = (
+            "SELECT observation_id, observation_type, source, market, symbol, "
+            "published_at, collected_at, effective_at, payload_json, provenance_json "
+            "FROM point_in_time_observations WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY published_at DESC, collected_at DESC LIMIT ?"
+        )
+        params.append(int(limit))
+        with self._connect() as conn:
+            return pd.read_sql_query(sql, conn, params=params)
+
 
     def count(self) -> int:
         with self._connect() as conn:
