@@ -104,3 +104,58 @@ def dataset_version_tag(market: str, symbols: list[str], start: str, end: str) -
     import hashlib
     payload = f"{market}|{sorted(symbols)}|{start}|{end}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+@dataclass
+class PointInTimeObservation:
+    """One externally observed fact with an explicit publication timestamp.
+
+    published_at is the causality gate: historical queries may only see
+    observations whose publication time was known by the requested as-of.
+    collected_at is provenance only and records when this platform fetched
+    the observation. effective_at may be in the future (for example a known
+    earnings date) and is therefore deliberately not used as the as-of gate.
+    """
+    observation_id: str
+    observation_type: str
+    source: str
+    market: str
+    symbol: str | None
+    published_at: pd.Timestamp
+    collected_at: pd.Timestamp
+    effective_at: pd.Timestamp | None
+    payload: dict
+    provenance: dict = field(default_factory=dict)
+
+    def to_row(self) -> dict:
+        return {
+            "observation_id": self.observation_id,
+            "observation_type": self.observation_type,
+            "source": self.source,
+            "market": self.market,
+            "symbol": self.symbol,
+            "published_at": self.published_at.isoformat(),
+            "collected_at": self.collected_at.isoformat(),
+            "effective_at": self.effective_at.isoformat() if self.effective_at is not None else None,
+            "payload_json": json.dumps(self.payload, default=str),
+            "provenance_json": json.dumps(self.provenance, default=str),
+        }
+
+    @classmethod
+    def from_row(cls, row: dict) -> "PointInTimeObservation":
+        return cls(
+            observation_id=row["observation_id"],
+            observation_type=row["observation_type"],
+            source=row["source"],
+            market=row["market"],
+            symbol=row["symbol"],
+            published_at=pd.Timestamp(row["published_at"]),
+            collected_at=pd.Timestamp(row["collected_at"]),
+            effective_at=pd.Timestamp(row["effective_at"]) if row["effective_at"] else None,
+            payload=json.loads(row["payload_json"]),
+            provenance=json.loads(row["provenance_json"] or "{}"),
+        )
+
+
+def new_observation_id() -> str:
+    return uuid.uuid4().hex[:20]
