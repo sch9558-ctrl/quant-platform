@@ -16,7 +16,7 @@ strategy_score_weights:
 minimum_requirements:
   min_trades: 30
   min_oos_periods: 2
-  min_deflated_sharpe_probability: 0.50  # DSR probability gate when enough OOS history exists
+  min_deflated_sharpe_probability: 0.70  # calibrated: <=10% zero-edge false approvals in fixed 51-trial simulation
   min_cpcv_positive_sharpe_ratio: 0.50  # share of purged CPCV test splits with positive Sharpe
   min_is_oos_ratio_trades: 0.2       # OOS must have at least this fraction of IS trade count
 
