@@ -264,6 +264,28 @@ upstream, a timezone edge case), it will be in `data/kr_provider.py` or
 `data/us_provider.py` — the rest of the pipeline is provider-agnostic and
 already validated against the same `MarketDataProvider` interface.
 
+
+### Live-data credentials used by CI
+
+GitHub Actions keeps credentials in repository secrets; values must never be
+committed or printed. The daily/network workflows currently recognize:
+
+- `DATA_GO_KR_SERVICE_KEY` — Korean market primary snapshot contract.
+- `DART_API_KEY` — OpenDART filing checks.
+- `SEC_USER_AGENT` — descriptive SEC EDGAR user agent.
+- `STOOQ_API_KEY` — Stooq historical CSV key. Stooq's download contract
+  requires an API key in 2026.
+- `KIS_APP_KEY` / `KIS_APP_SECRET` — Korea Investment & Securities
+  read-only daily credit-balance endpoint used by the market-trap gate.
+- `FINNHUB_API_KEY` — optional analyst/report metadata enrichment.
+
+The scheduled live-provider contract workflow requires the credentials for
+the contracts it tests and fails if they are absent. The research pipeline
+does not substitute fabricated values: unavailable filing, event, credit or
+other required risk evidence leaves the candidate in a fail-closed review
+state rather than marking it safe.
+
+
 ## Reproducibility
 
 Every strategy evaluation persisted to the Research DB
