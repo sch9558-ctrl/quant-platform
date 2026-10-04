@@ -39,6 +39,7 @@ class StrategyFeatures:
     n_param_combos_tested: int = 1
     deflated_sharpe_probability: float | None = None
     cpcv_positive_sharpe_ratio: float | None = None
+    n_oos_return_observations: int = 0
 
 
 @dataclass
@@ -70,6 +71,7 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
             n_param_combos_tested=max(1, n_param_combos_tested),
             deflated_sharpe_probability=None,
             cpcv_positive_sharpe_ratio=None,
+            n_oos_return_observations=0,
         )
 
     def _avg(getter):
@@ -82,8 +84,10 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
     inferred_trials = max(1, len(trial_sharpes), int(n_param_combos_tested or 1))
     dsr_probability = None
     cpcv_positive_ratio = None
-    if wf.aggregate_oos_equity is not None and len(wf.aggregate_oos_equity) >= 4:
+    n_oos_return_observations = 0
+    if wf.aggregate_oos_equity is not None and len(wf.aggregate_oos_equity) >= 2:
         oos_returns = wf.aggregate_oos_equity.pct_change().dropna()
+        n_oos_return_observations = int(len(oos_returns))
         if len(oos_returns) >= 3:
             dsr_probability = deflated_sharpe_ratio(
                 oos_returns,
@@ -125,6 +129,7 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
         n_param_combos_tested=inferred_trials,
         deflated_sharpe_probability=dsr_probability,
         cpcv_positive_sharpe_ratio=cpcv_positive_ratio,
+        n_oos_return_observations=n_oos_return_observations,
     )
 
 
@@ -205,19 +210,76 @@ def rank_strategies(features: list[StrategyFeatures]) -> pd.DataFrame:
         "n_param_combos_tested": df["n_param_combos_tested"],
     })
     dsr_threshold = float(min_req.get("min_deflated_sharpe_probability", 0.5))
-    dsr_ok = df["deflated_sharpe_probability"].isna() | (
-        df["deflated_sharpe_probability"] >= dsr_threshold
-    )
     cpcv_threshold = float(min_req.get("min_cpcv_positive_sharpe_ratio", 0.5))
-    cpcv_ok = df["cpcv_positive_sharpe_ratio"].isna() | (
-        df["cpcv_positive_sharpe_ratio"] >= cpcv_threshold
-    )
-    out["meets_minimum_requirements"] = (
-        (df["n_oos_trades"] >= min_req["min_trades"])
-        & (df["n_folds"] >= min_req["min_oos_periods"])
-        & dsr_ok
-        & cpcv_ok
-    )
+    min_trades = int(min_req["min_trades"])
+    min_folds = int(min_req["min_oos_periods"])
+
+    approval_states = []
+    approval_reasons = []
+    for strategy_id, row in df.iterrows():
+        reasons: list[str] = []
+        rejected = False
+        insufficient = False
+
+        n_trades = int(row["n_oos_trades"])
+        n_folds = int(row["n_folds"])
+        n_returns = int(row.get("n_oos_return_observations", 0) or 0)
+        dsr = row["deflated_sharpe_probability"]
+        cpcv = row["cpcv_positive_sharpe_ratio"]
+
+        if n_trades < min_trades:
+            insufficient = True
+            reasons.append(
+                f"OOS 거래 수 부족: {n_trades} < 최소 {min_trades}"
+            )
+        if n_folds < min_folds:
+            insufficient = True
+            reasons.append(
+                f"OOS fold 수 부족: {n_folds} < 최소 {min_folds}"
+            )
+
+        if pd.isna(dsr):
+            insufficient = True
+            reasons.append(
+                "DSR 산출 불가: "
+                f"OOS 수익률 관측치 {n_returns}개 / 거래 {n_trades}건 / fold {n_folds}개"
+            )
+        elif float(dsr) < dsr_threshold:
+            rejected = True
+            reasons.append(
+                f"DSR 임계 미달: 실측 {float(dsr):.4f} < 기준 {dsr_threshold:.4f}"
+            )
+
+        if pd.isna(cpcv):
+            insufficient = True
+            reasons.append(
+                "CPCV 산출 불가: "
+                f"OOS 수익률 관측치 {n_returns}개 / 필요 최소 60개"
+            )
+        elif float(cpcv) < cpcv_threshold:
+            rejected = True
+            reasons.append(
+                "CPCV 양(+) Sharpe 비율 임계 미달: "
+                f"실측 {float(cpcv):.4f} < 기준 {cpcv_threshold:.4f}"
+            )
+
+        if rejected:
+            state = "REJECTED"
+        elif insufficient:
+            state = "INSUFFICIENT_EVIDENCE"
+        else:
+            state = "APPROVED"
+            reasons.append(
+                "필수 OOS 표본과 DSR/CPCV 검증 임계를 모두 통과"
+            )
+
+        approval_states.append(state)
+        approval_reasons.append(reasons)
+
+    out["approval_state"] = approval_states
+    out["approval_reasons"] = approval_reasons
+    out["meets_minimum_requirements"] = out["approval_state"].eq("APPROVED")
+    out["n_oos_return_observations"] = df["n_oos_return_observations"]
     out["overfitting_warnings"] = out.index.map(lambda sid: warnings_by_strategy.get(sid, []))
     out = out.sort_values("composite_score", ascending=False)
     return out
