@@ -20,7 +20,7 @@ def test_assess_overfitting_low_risk_when_consistent_and_well_sampled():
 
 
 def test_deflated_sharpe_ratio_decreases_with_more_trials():
-    returns=pd.Series([0.012,-0.004,0.009,-0.003,0.011,-0.002]*60)
+    returns=pd.Series([0.002,-0.001,0.001,-0.002,0.001,0.0]*60)
     trial_sharpes=[0.4,1.2,0.8,0.1]
     dsr_few=deflated_sharpe_ratio(
         returns,n_trials=4,trial_sharpes=trial_sharpes
