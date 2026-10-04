@@ -17,6 +17,9 @@ jobs:
     timeout-minutes: 45
     env:
       DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+      STOOQ_API_KEY: ${{ secrets.STOOQ_API_KEY }}
+      KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+      KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,5 +31,8 @@ jobs:
       - name: Require live-provider credentials
         run: |
           test -n "$DATA_GO_KR_SERVICE_KEY"
+          test -n "$STOOQ_API_KEY"
+          test -n "$KIS_APP_KEY"
+          test -n "$KIS_APP_SECRET"
       - name: Run live external-provider contract tests
         run: python -m pytest tests/data/test_network_provider_contracts.py -q -W ignore -m network
