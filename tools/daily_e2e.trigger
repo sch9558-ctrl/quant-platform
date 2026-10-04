@@ -6,3 +6,4 @@ Latest integrated validation: 5af97ec
 Macro/CPCV/BL-HRP integrated validation: fec0f5f
 Safety integration validation: 63b5196
 Final safety round validation: bf15b1b
+DSR PIT provider-orphan round validation: a4b1df1
