@@ -289,6 +289,22 @@ def run_market_research(
         )
         for c in scan.top_candidates
     }
+    missing_caps = [
+        symbol for symbol, value in market_caps.items()
+        if value is None or float(value) <= 0
+    ]
+    if missing_caps:
+        try:
+            fetched_caps = provider.get_market_cap(missing_caps, as_of)
+            for symbol in missing_caps:
+                value = fetched_caps.get(symbol) if fetched_caps is not None else None
+                if value is not None and pd.notna(value) and float(value) > 0:
+                    market_caps[symbol] = float(value)
+        except Exception as exc:
+            logger.warning(
+                "Selected-candidate market-cap enrichment skipped for %s: %s",
+                market, exc,
+            )
     signal_edges = {
         c.symbol: (c.historical_signal_edge or {})
         for c in scan.top_candidates
