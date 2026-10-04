@@ -24,6 +24,12 @@ function InstitutionalDiagnostics({data,market}){
  const reasons=top?.approval_reasons||[]
  return <><section className="market-summary"><div><span>포트폴리오 엔진</span><b>{methodKo}</b></div><div><span>현금 비중</span><b>{p.cash_weight==null?'—':(Number(p.cash_weight)*100).toFixed(1)+'%'}</b></div><div><span>상위 전략 DSR</span><b>{dsr==null?'평가대기':(Number(dsr)*100).toFixed(1)+'%'}</b></div><div><span>CPCV 양(+) Sharpe</span><b>{cpcv==null?'평가대기':(Number(cpcv)*100).toFixed(1)+'%'}</b></div><div><span>전략 승인</span><b>{stateKo}</b></div></section>{reasons.length>0&&<section className="panel"><div className="section-title"><div><span className="eyebrow">STRATEGY VALIDATION</span><h2>전략 승인 근거</h2></div></div><ul className="reasons">{reasons.map((r,i)=><li key={i}>{r}</li>)}</ul></section>}</>
 }
+function PortfolioRiskSection({data,market}){
+ const r=data?.portfolio_risk?.[market]||{}
+ const stateKo=({NORMAL:'정상',SOFT_STOP:'소프트스톱',HARD_KILL_SWITCH:'하드 킬스위치',INSUFFICIENT_EVIDENCE:'증거 부족(보류)',DATA_VALIDATION_FAILED:'데이터 검증 실패'})[r.state]||r.state||'—'
+ const pct=v=>v==null?'—':(Number(v)*100).toFixed(2)+'%'
+ return <section className="panel"><div className="section-title"><div><span className="eyebrow">PORTFOLIO RISK GUARD</span><h2>포트폴리오 리스크</h2></div><p>운용 NAV와 검증 가격수익률이 없으면 임의값으로 통과시키지 않습니다.</p></div><div className="market-summary"><div><span>95% VaR(모수)</span><b>{pct(r.var95_parametric)}</b></div><div><span>95% VaR(역사적)</span><b>{pct(r.var95_historical)}</b></div><div><span>최대낙폭</span><b>{pct(r.max_drawdown)}</b></div><div><span>상태</span><b>{stateKo}</b></div></div>{(r.reasons||[]).length>0&&<ul className="reasons">{r.reasons.map((x,i)=><li key={i}>{x}</li>)}</ul>}</section>
+}
 function SourceStatus({consensus}){
  const rows=consensus?.source_status||[]
  return <section className="panel source-panel"><div className="section-title"><div><span className="eyebrow">SOURCE COVERAGE</span><h2>리포트 수집 상태</h2></div><p>‘모든 보고서’ 커버리지를 가장해 표시하지 않고 실제 수집 소스와 건수를 공개합니다.</p></div><div className="source-grid">{rows.length?rows.map((r,i)=><div className={'source-card '+(r.ok?'ok':'bad')} key={i}><span>{SOURCE_NAME[r.source]||r.source}</span><b>{r.ok?'연결됨':'수집 실패'}</b><strong>{r.records||0}건</strong>{r.error&&<small>{r.error}</small>}</div>):<div className="muted">이번 실행의 소스 상태 정보가 없습니다.</div>}</div><p className="source-note">개별 애널리스트 이름·과거 전수 리포트는 무료 공개 소스만으로 완전하지 않을 수 있습니다. 보유/라이선스 CSV를 추가하면 동일 검증 엔진으로 합산합니다.</p></section>
@@ -50,6 +56,7 @@ export default function App(){
    {section?.blocked ? <section className="blocked"><h2>⛔ {MARKET[market]} 데이터 검증 실패</h2><p>{section.block_reason}</p><p>검증되지 않은 전일 후보를 오늘 후보처럼 재사용하지 않습니다.</p></section> :
    <><section className="market-summary"><div><span>시장 국면</span><b>{section?.regime?.summary||'—'}</b></div><div><span>분석 유니버스</span><b>{section?.universe_size||0}종목</b></div><div><span>오늘 후보</span><b>{cards.length}종목</b></div><div><span>데이터 상태</span><b>{koStatus(data?.data_quality?.[market]?.overall_status)}</b></div></section><section className="cards">{cards.length?cards.map(c=><ActionableTradeCard key={c.symbol} candidate={c} market={market} consensus={cmap[market+':'+c.symbol]} fxRate={fxRate} convertUsd={convertUsd}/>):<div className="empty">조건을 통과한 후보가 없습니다.</div>}</section></>}
    <InstitutionalDiagnostics data={data} market={market}/>
+   <PortfolioRiskSection data={data} market={market}/>
    <InstitutionalTerminal signals={actionable?.signals||[]} market={market} fxRate={fxRate} convertUsd={convertUsd}/>
    <AnalystTable consensus={consensus}/>
    <SourceStatus consensus={consensus}/>
