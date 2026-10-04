@@ -48,6 +48,7 @@ from quant.portfolio.constructor import PortfolioAllocation, PortfolioConstructo
 from quant.portfolio.institutional import build_institutional_allocation
 from quant.analytics.trade_plan import build_trade_plan
 from quant.pipeline.institutional_overlay import evaluate_candidate
+from quant.macro.cross_asset import fetch_cross_asset_snapshot
 from quant.quality.models import DataQualityReport
 from quant.quality.pipeline_gate import run_gated_scan
 from quant.ranking.scorer import extract_features, rank_strategies
@@ -227,6 +228,7 @@ def run_market_research(
     provider = get_provider(market, demo=demo)
     db = db or ResearchDB()
     filing_service = None if demo else FilingRiskService()
+    macro_snapshot = None if demo else fetch_cross_asset_snapshot(as_of)
 
     # step 1 (Fail-Closed gate) + steps 2-5: Data Quality Engine -> universe
     # -> features -> regime -> screening, via the same DailyScanner used by
@@ -334,11 +336,41 @@ def run_market_research(
             if filing_result is not None and filing_result.available
             else None
         )
+        market_frame = gated.validation.canonical_ohlcv_map.get(candidate.symbol)
+        open_price = previous_close = None
+        market_data_available = False
+        if market_frame is not None and len(market_frame) >= 2:
+            try:
+                latest = market_frame.loc[:pd.Timestamp(as_of)].tail(2)
+                if len(latest) >= 2:
+                    open_price = float(latest["open"].iloc[-1])
+                    previous_close = float(latest["close"].iloc[-2])
+                    market_data_available = open_price > 0 and previous_close > 0
+            except Exception:
+                market_data_available = False
+
+        macro_available = (
+            macro_snapshot is not None and macro_snapshot.complete_for(market)
+        )
         overlay = evaluate_candidate(
             candidate_payload,
             filings=filing_rows,
             as_of=as_of,
+            open_price=open_price,
+            previous_close=previous_close,
+            usdkrw_1d_pct=(macro_snapshot.usdkrw_1d_pct if macro_snapshot else None),
+            sox_1d_pct=(macro_snapshot.sox_1d_pct if macro_snapshot else None),
+            vix=(macro_snapshot.vix if macro_snapshot else None),
+            us10y_change_bp=(macro_snapshot.us10y_change_bp if macro_snapshot else None),
+            macro_data_available=macro_available,
+            market_data_available=market_data_available,
         ).to_dict()
+        overlay["macro_snapshot"] = macro_snapshot.to_dict() if macro_snapshot is not None else None
+        overlay["market_trap_inputs"] = {
+            "open_price": open_price,
+            "previous_close": previous_close,
+            "available": market_data_available,
+        }
         overlay["filing_source"] = (
             filing_result.source if filing_result is not None else "demo_unavailable"
         )
