@@ -37,3 +37,14 @@ def test_dsr_probability_is_a_real_strategy_approval_gate():
 def test_missing_dsr_keeps_backward_compatible_trade_fold_gate():
     ranked=rank_strategies([_features("legacy",None)])
     assert bool(ranked.loc["legacy","meets_minimum_requirements"]) is True
+
+
+def test_cpcv_positive_sharpe_ratio_is_a_real_strategy_gate():
+    robust=_features("cpcv_robust",.80)
+    fragile=_features("cpcv_fragile",.80)
+    robust.cpcv_positive_sharpe_ratio=.80
+    fragile.cpcv_positive_sharpe_ratio=.40
+    ranked=rank_strategies([robust,fragile])
+    assert bool(ranked.loc["cpcv_robust","meets_minimum_requirements"]) is True
+    assert bool(ranked.loc["cpcv_fragile","meets_minimum_requirements"]) is False
+    assert ranked.loc["cpcv_robust","cpcv_positive_sharpe_ratio"]==.80
