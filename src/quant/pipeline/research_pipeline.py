@@ -58,6 +58,7 @@ from quant.utils.calendar import default_as_of
 from quant.research_db.models import ExperimentRecord, current_code_version, dataset_version_tag
 from quant.risk.manager import PortfolioState, RiskManager
 from quant.risk.filing_filter import FilingRiskService
+from quant.risk.market_traps import MarketTrapDataService
 from quant.risk_guard import RiskGuard
 from quant.scanner.scanner import ScanResult
 from quant.strategy import registry
@@ -342,6 +343,7 @@ def run_market_research(
     provider = get_provider(market, demo=demo)
     db = db or ResearchDB()
     filing_service = None if demo else FilingRiskService()
+    market_trap_service = None if demo else MarketTrapDataService()
 
     # step 1 (Fail-Closed gate) + steps 2-5: Data Quality Engine -> universe
     # -> features -> regime -> screening, via the same DailyScanner used by
@@ -475,6 +477,11 @@ def run_market_research(
             if filing_result is not None and filing_result.available
             else None
         )
+        event_result = (
+            market_trap_service.fetch(market, candidate.symbol, as_of=as_of)
+            if market_trap_service is not None else None
+        )
+        event_available = bool(event_result is not None and event_result.available)
         market_frame = gated.validation.canonical_ohlcv_map.get(candidate.symbol)
         open_price = previous_close = None
         market_data_available = False
@@ -495,6 +502,8 @@ def run_market_research(
             candidate_payload,
             filings=filing_rows,
             as_of=as_of,
+            earnings_date=(event_result.earnings_date if event_result else None),
+            credit_balance_pct=(event_result.credit_balance_pct if event_result else None),
             open_price=open_price,
             previous_close=previous_close,
             usdkrw_1d_pct=(macro_snapshot.usdkrw_1d_pct if macro_snapshot else None),
@@ -503,12 +512,18 @@ def run_market_research(
             us10y_change_bp=(macro_snapshot.us10y_change_bp if macro_snapshot else None),
             macro_data_available=macro_available,
             market_data_available=market_data_available,
+            event_data_available=event_available,
         ).to_dict()
         overlay["macro_snapshot"] = macro_snapshot.to_dict() if macro_snapshot is not None else None
         overlay["market_trap_inputs"] = {
             "open_price": open_price,
             "previous_close": previous_close,
-            "available": market_data_available,
+            "earnings_date": (event_result.earnings_date if event_result else None),
+            "credit_balance_pct": (event_result.credit_balance_pct if event_result else None),
+            "event_source": (event_result.source if event_result else "demo_unavailable"),
+            "event_error": (event_result.error if event_result else "demo mode"),
+            "market_price_available": market_data_available,
+            "event_data_available": event_available,
         }
         guard = RiskGuard()
         entry_mid = (
