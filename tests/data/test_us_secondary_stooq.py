@@ -63,16 +63,17 @@ def test_the_request_actually_carries_the_suffixed_symbol(monkeypatch):
     helper -- the helper was never the thing that talked to Stooq."""
     sent = {}
 
-    def fake_get(url, params=None, timeout=None):
+    def fake_get(url, params=None, timeout=None, **kwargs):
         sent.update(params or {})
         sent["url"] = url
         sent["timeout"] = timeout
         return _Resp(CSV)
 
     monkeypatch.setattr(mod.requests, "get", fake_get)
-    USSecondaryProvider().get_ohlcv("AAL", "2026-09-01", "2026-09-29")
+    USSecondaryProvider(api_key="fixture-key").get_ohlcv("AAL", "2026-09-01", "2026-09-29")
 
     assert sent["s"] == "aal.us", "a bare ticker is a 404 on every US symbol"
+    assert sent["apikey"] == "fixture-key", "2026 Stooq CSV contract requires an API key"
     assert sent["d1"] == "20260901" and sent["d2"] == "20260929"
     assert sent["timeout"] is not None, "an optional source must never hang unbounded"
 
@@ -93,7 +94,7 @@ def test_bulk_stops_after_a_run_of_consecutive_failures(monkeypatch):
     to ask 400 times is what cost the run."""
     calls = []
 
-    def fake_get(url, params=None, timeout=None):
+    def fake_get(url, params=None, timeout=None, **kwargs):
         calls.append(params["s"])
         raise RuntimeError("Connection refused")
 
@@ -111,7 +112,7 @@ def test_bulk_stops_after_a_run_of_consecutive_failures(monkeypatch):
 def test_an_isolated_failure_does_not_trip_the_breaker(monkeypatch):
     """A delisted or unusual ticker is normal and must not abandon the
     source -- otherwise the breaker would make cross-validation useless."""
-    def fake_get(url, params=None, timeout=None):
+    def fake_get(url, params=None, timeout=None, **kwargs):
         if params["s"].startswith("bad"):
             raise RuntimeError("404")
         return _Resp(CSV)
@@ -131,7 +132,7 @@ def test_bulk_respects_its_wall_clock_budget(monkeypatch):
     clock = {"t": 0.0}
     monkeypatch.setattr(mod.time, "monotonic", lambda: clock["t"])
 
-    def fake_get(url, params=None, timeout=None):
+    def fake_get(url, params=None, timeout=None, **kwargs):
         clock["t"] += 30.0          # every request is slow
         return _Resp(CSV)           # ...but succeeds, so no breaker
 
@@ -159,4 +160,17 @@ def test_a_single_failed_symbol_returns_an_empty_frame_not_none(monkeypatch):
                         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("404")))
     df = USSecondaryProvider().get_ohlcv("AAL", "2026-09-01", "2026-09-29")
     assert isinstance(df, pd.DataFrame) and df.empty
+    assert list(df.columns) == ["open", "high", "low", "close", "volume", "adj_close"]
+
+
+def test_stooq_contract_error_body_fails_closed(monkeypatch):
+    monkeypatch.setattr(
+        mod.requests,
+        "get",
+        lambda *a, **k: _Resp("Get your apikey: https://stooq.com/q/d/?s=aapl.us&get_apikey"),
+    )
+    df = USSecondaryProvider(api_key="").get_ohlcv(
+        "AAPL", "2026-09-01", "2026-09-29"
+    )
+    assert df.empty
     assert list(df.columns) == ["open", "high", "low", "close", "volume", "adj_close"]
