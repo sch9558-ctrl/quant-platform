@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from quant.analytics.metrics import PerformanceMetrics
@@ -72,3 +73,17 @@ def test_extract_features_handles_no_folds():
 
 def test_rank_strategies_empty_input():
     assert rank_strategies([]).empty
+
+
+def test_extract_features_computes_cpcv_from_long_oos_equity():
+    wf = _make_wf_result("robust_cpcv", "korea", [
+        (_metrics(sharpe=1.0), _metrics(sharpe=.9, num_trades=80), True),
+        (_metrics(sharpe=1.1), _metrics(sharpe=1.0, num_trades=90), True),
+    ])
+    pattern=np.array([.002,.001,-.0005,.0015],dtype=float)
+    returns=np.tile(pattern,40)
+    equity=pd.Series(np.cumprod(1.0+returns),index=pd.bdate_range("2026-01-01",periods=len(returns)))
+    wf.aggregate_oos_equity=equity
+    feats=extract_features(wf)
+    assert feats.cpcv_positive_sharpe_ratio is not None
+    assert feats.cpcv_positive_sharpe_ratio >= .80
