@@ -59,7 +59,9 @@ class FilingRiskFilter:
         ))
 
     def assess(self, filings, *, as_of=None) -> FilingRiskAssessment:
-        as_of_ts = pd.Timestamp(as_of or date.today()).normalize()
+        if as_of is None:
+            raise ValueError("as_of is required for filing risk assessment")
+        as_of_ts = pd.Timestamp(as_of).normalize()
         cutoff = as_of_ts - pd.Timedelta(days=self.lookback_days)
         categories = set()
         hits = []
@@ -144,6 +146,8 @@ class SecEdgarClient:
         return mapping
 
     def fetch_recent(self, symbol: str, *, as_of=None, days: int = 14) -> FilingFetchResult:
+        if as_of is None:
+            return FilingFetchResult(False, tuple(), "sec_edgar", "as_of is required")
         if not self.configured:
             return FilingFetchResult(False, tuple(), "sec_edgar", "SEC_USER_AGENT not configured")
         try:
@@ -158,7 +162,7 @@ class SecEdgarClient:
             response.raise_for_status()
             recent = ((response.json().get("filings") or {}).get("recent") or {})
             dates = recent.get("filingDate") or []
-            end = pd.Timestamp(as_of or date.today()).normalize()
+            end = pd.Timestamp(as_of).normalize()
             cutoff = end - pd.Timedelta(days=int(days))
             out = []
             for i, raw_date in enumerate(dates):
@@ -227,13 +231,15 @@ class OpenDartClient:
         return mapping
 
     def fetch_recent(self, symbol: str, *, as_of=None, days: int = 14) -> FilingFetchResult:
+        if as_of is None:
+            return FilingFetchResult(False, tuple(), "opendart", "as_of is required")
         if not self.configured:
             return FilingFetchResult(False, tuple(), "opendart", "DART_API_KEY not configured")
         try:
             corp_code = self._load_corp_map().get(str(symbol).zfill(6))
             if not corp_code:
                 return FilingFetchResult(False, tuple(), "opendart", "stock corp_code not found")
-            end = pd.Timestamp(as_of or date.today()).normalize()
+            end = pd.Timestamp(as_of).normalize()
             begin = end - pd.Timedelta(days=int(days))
             response = self.session.get(
                 self.LIST_URL,
