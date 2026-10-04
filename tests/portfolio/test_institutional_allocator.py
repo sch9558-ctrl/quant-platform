@@ -35,7 +35,8 @@ def test_institutional_allocator_uses_bl_with_real_market_caps_and_views():
     assert diag.view_count==len(items)
     assert allocation.weights.max()<=.10+1e-9
     assert allocation.by_market["korea"]<=.70+1e-9
-    assert allocation.cash_weight>=.30-1e-9
+    assert allocation.by_strategy["scanner"]<=.40+1e-9
+    assert allocation.cash_weight>=.60-1e-9
     assert any("black_litterman" in note for note in allocation.notes)
 
 
@@ -49,6 +50,7 @@ def test_institutional_allocator_falls_back_to_hrp_without_market_caps():
     assert diag.method=="hrp"
     assert diag.prior_source=="missing_market_cap"
     assert allocation.weights.max()<=.10+1e-9
+    assert allocation.by_strategy["scanner"]<=.40+1e-9
     assert any("institutional allocator: hrp" in note for note in allocation.notes)
 
 
