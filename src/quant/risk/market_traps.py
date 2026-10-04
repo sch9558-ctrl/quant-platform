@@ -1,6 +1,8 @@
 """Market-specific event and leverage traps for KRX/US entries."""
 from __future__ import annotations
 from dataclasses import asdict, dataclass
+import json
+import os
 import pandas as pd
 
 @dataclass(frozen=True)
@@ -40,12 +42,50 @@ class MarketTrapDataResult:
 class MarketTrapDataService:
     """Fetch external event/leverage inputs required by MarketTrapDetector."""
 
-    NAVER_ITEM_URL = "https://finance.naver.com/item/main.naver"
+    KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"
+    KIS_TOKEN_URL = KIS_BASE_URL + "/oauth2/tokenP"
+    KIS_CREDIT_URL = KIS_BASE_URL + "/uapi/domestic-stock/v1/quotations/daily-credit-balance"
 
-    def __init__(self, *, session=None, timeout: int = 15):
+    def __init__(
+        self,
+        *,
+        session=None,
+        timeout: int = 15,
+        kis_app_key: str | None = None,
+        kis_app_secret: str | None = None,
+    ):
         import requests
         self.session = session or requests.Session()
         self.timeout = int(timeout)
+        self.kis_app_key = (kis_app_key or os.getenv("KIS_APP_KEY", "")).strip()
+        self.kis_app_secret = (kis_app_secret or os.getenv("KIS_APP_SECRET", "")).strip()
+        self._kis_access_token: str | None = None
+
+    @property
+    def kis_configured(self) -> bool:
+        return bool(self.kis_app_key and self.kis_app_secret)
+
+    def _kis_token(self) -> str:
+        if self._kis_access_token:
+            return self._kis_access_token
+        if not self.kis_configured:
+            raise RuntimeError("KIS credentials not configured")
+        response = self.session.post(
+            self.KIS_TOKEN_URL,
+            headers={"content-type": "application/json"},
+            data=json.dumps({
+                "grant_type": "client_credentials",
+                "appkey": self.kis_app_key,
+                "appsecret": self.kis_app_secret,
+            }),
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        token = str((response.json() or {}).get("access_token") or "").strip()
+        if not token:
+            raise RuntimeError("KIS token response missing access_token")
+        self._kis_access_token = token
+        return token
 
     def fetch_us_earnings(self, symbol: str, *, as_of) -> MarketTrapDataResult:
         try:
@@ -92,35 +132,67 @@ class MarketTrapDataService:
             )
 
     def fetch_kr_credit_ratio(self, symbol: str, *, as_of=None) -> MarketTrapDataResult:
-        import re
+        """Fetch per-symbol credit-balance ratio from KIS Open API.
+
+        This is a read-only quotations endpoint. Missing credentials or any
+        response-contract problem returns unavailable; callers fail closed.
+        """
+        if not self.kis_configured:
+            return MarketTrapDataResult(
+                False,
+                "KIS Open API daily credit balance",
+                error="KIS_APP_KEY/KIS_APP_SECRET not configured",
+            )
         try:
+            token = self._kis_token()
+            date_str = pd.Timestamp(as_of or pd.Timestamp.today()).strftime("%Y%m%d")
             response = self.session.get(
-                self.NAVER_ITEM_URL,
-                params={"code": str(symbol).zfill(6)},
-                headers={"User-Agent": "Mozilla/5.0 quant-platform research"},
+                self.KIS_CREDIT_URL,
+                headers={
+                    "content-type": "application/json; charset=utf-8",
+                    "authorization": f"Bearer {token}",
+                    "appkey": self.kis_app_key,
+                    "appsecret": self.kis_app_secret,
+                    "tr_id": "FHPST04760000",
+                },
+                params={
+                    "FID_COND_MRKT_DIV_CODE": "J",
+                    "FID_COND_SCR_DIV_CODE": "20476",
+                    "FID_INPUT_ISCD": str(symbol).zfill(6),
+                    "FID_INPUT_DATE_1": date_str,
+                },
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            if response.encoding is None or response.encoding.lower() == "iso-8859-1":
-                response.encoding = response.apparent_encoding or "euc-kr"
-            text = response.text
-            from bs4 import BeautifulSoup
-            plain = BeautifulSoup(text, "html.parser").get_text(" ", strip=True)
-            match = re.search(r"신용비율\s*([0-9]+(?:\.[0-9]+)?)\s*%", plain)
-            if match is None:
+            payload = response.json() or {}
+            if str(payload.get("rt_cd", "")) != "0":
+                raise RuntimeError("KIS credit-balance API returned non-success")
+            rows = payload.get("output") or []
+            if not rows:
                 return MarketTrapDataResult(
-                    False, "Naver Finance credit ratio",
-                    error="credit ratio not found",
+                    False,
+                    "KIS Open API daily credit balance",
+                    error="credit-balance output empty",
                 )
-            ratio = float(match.group(1))
+            raw = rows[0].get("whol_loan_rmnd_rate")
+            if raw in (None, ""):
+                return MarketTrapDataResult(
+                    False,
+                    "KIS Open API daily credit balance",
+                    error="whol_loan_rmnd_rate missing",
+                )
+            ratio = float(str(raw).replace(",", ""))
+            if not 0.0 <= ratio <= 100.0:
+                raise ValueError("credit ratio outside 0..100")
             return MarketTrapDataResult(
                 True,
-                "Naver Finance credit ratio",
+                "KIS Open API daily credit balance",
                 credit_balance_pct=ratio,
             )
         except Exception as exc:
             return MarketTrapDataResult(
-                False, "Naver Finance credit ratio",
+                False,
+                "KIS Open API daily credit balance",
                 error=type(exc).__name__,
             )
 
