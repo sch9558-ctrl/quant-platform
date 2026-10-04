@@ -304,6 +304,11 @@ def _portfolio_risk_analysis(
     }
 
 
+def _apply_portfolio_risk_to_scan(scan: ScanResult, state: dict) -> None:
+    if bool((state or {}).get("liquidate_all")):
+        scan.top_candidates = []
+
+
 def _atr20_trailing_reference(frame: pd.DataFrame | None) -> float | None:
     if frame is None or frame.empty or len(frame) < 21:
         return None
@@ -444,8 +449,7 @@ def run_market_research(
         allocation,
         gated.validation.canonical_ohlcv_map,
     )
-    if portfolio_risk_state.get("liquidate_all"):
-        scan.top_candidates = []
+    _apply_portfolio_risk_to_scan(scan, portfolio_risk_state)
 
     # Institutional safety/alpha overlay is part of the production research
     # result, not an orphan library. External filing/event feeds are still
