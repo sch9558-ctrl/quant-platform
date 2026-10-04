@@ -252,6 +252,15 @@ def _portfolio_section(mrr: MarketResearchResult | None) -> dict:
     }
 
 
+def _portfolio_risk_section(mrr: MarketResearchResult | None) -> dict:
+    if mrr is None:
+        return {"state": "NO_DATA", "reasons": ["시장 연구 결과 없음"]}
+    state = dict(mrr.portfolio_risk_state or {})
+    if not state:
+        return {"state": "INSUFFICIENT_EVIDENCE", "reasons": ["포트폴리오 리스크 평가 결과 없음"]}
+    return state
+
+
 def _paper_trading_section(market: str, demo: bool, required_sessions: int = 250) -> dict:
     """Read-only snapshot of paper-broker state -- never submits an order.
     Session count is `len(equity_history)`, the number of real wall-clock
@@ -361,6 +370,7 @@ def build_dashboard_data(
         for m in ("korea", "us")
     }
     portfolio = {m: _portfolio_section(markets.get(m)) for m in ("korea", "us")}
+    portfolio_risk = {m: _portfolio_risk_section(markets.get(m)) for m in ("korea", "us")}
     paper_trading = {}
     for m in ("korea", "us"):
         try:
@@ -413,6 +423,7 @@ def build_dashboard_data(
         "paper_trading": paper_trading,
         "risk": risk,
         "portfolio": portfolio,
+        "portfolio_risk": portfolio_risk,
         "validation": _validation_section(status),
         "audit_log": _audit_log_section(),
         "provenance": provenance,
