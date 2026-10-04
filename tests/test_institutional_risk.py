@@ -67,3 +67,30 @@ def test_dsr_uses_observed_trial_sharpe_dispersion():
     assert 0 <= observed <= 1
     assert wide_dsr < observed < narrow_dsr
     assert observed < 0.5
+
+
+def test_multitrial_dsr_requires_trial_dispersion():
+    import numpy as np
+    rng=np.random.default_rng(7)
+    returns=rng.normal(0,0.01,504)
+    assert deflated_sharpe_ratio(returns,n_trials=51)==0.0
+
+
+def test_zero_edge_grid_search_dsr_median_is_below_half():
+    import numpy as np
+    from quant.validation.cpcv import annualized_sharpe
+
+    dsrs=[]
+    for seed in range(50):
+        rng=np.random.default_rng(seed)
+        trials=rng.normal(0,0.01,(51,504))
+        sharpes=[annualized_sharpe(x) for x in trials]
+        best=int(np.argmax(sharpes))
+        dsrs.append(
+            deflated_sharpe_ratio(
+                trials[best],
+                n_trials=51,
+                trial_sharpes=sharpes,
+            )
+        )
+    assert float(np.median(dsrs)) < 0.5
