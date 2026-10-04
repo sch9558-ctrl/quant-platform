@@ -52,6 +52,8 @@ def test_korean_credit_ratio_is_parsed_from_kis_contract():
     assert session.gets[0][1]["params"]["FID_INPUT_ISCD"] == "005930"
     assert session.gets[0][1]["params"]["FID_INPUT_DATE_1"] == "20261004"
     assert session.gets[0][1]["headers"]["tr_id"] == "FHPST04760000"
+    assert session.gets[0][1]["headers"]["custtype"] == "P"
+    assert session.gets[0][1]["headers"]["tr_cont"] == ""
 
 
 def test_korean_credit_ratio_missing_credentials_fails_closed():
