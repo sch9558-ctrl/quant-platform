@@ -96,14 +96,30 @@ class RiskGuard:
         *,
         current_price: float,
         trailing_stop: float,
+        entry_price: float | None = None,
+        sessions_held: int | None = None,
+        time_stop_sessions: int = 15,
+        time_stop_low: float = -0.015,
+        time_stop_high: float = 0.020,
         expected_reward: float | None = None,
         expected_risk: float | None = None,
     ) -> str | None:
-        """Exit only on a real exit condition.
+        """Single authoritative position-exit decision.
 
         Remaining reward/risk naturally falls as a winning trade approaches
         its target, so it must not be reused as a liquidation trigger.
+        Time-stop logic is centralized here as well so ExitEngine cannot
+        become a second, conflicting exit authority.
         """
         if current_price <= trailing_stop:
             return "TRAILING_STOP"
+        if (
+            entry_price is not None
+            and entry_price > 0
+            and sessions_held is not None
+            and int(sessions_held) >= int(time_stop_sessions)
+        ):
+            ret = float(current_price / entry_price - 1.0)
+            if float(time_stop_low) <= ret <= float(time_stop_high):
+                return "TIME_EXPIRED_EXIT"
         return None
