@@ -58,13 +58,38 @@ RESOLVERS = [
 #: forbidden because the same file can contain both legitimate timestamps and
 #: illegitimate session selection.
 ALLOWED_CLOCK_CALLS = {
+    ("src/quant/analytics/performance_tracker.py", "pd.Timestamp.now"): (
+        "prediction generated_at is the actual record-creation timestamp"
+    ),
     ("src/quant/broker/paper_base.py", "pd.Timestamp.now"): (
-        "paper fill timestamps record the actual execution event, not which "
-        "market session is analysed"
+        "paper fill timestamps record the actual execution event, not which market session is analysed"
+    ),
+    ("src/quant/collectors/report_collector.py", "pd.Timestamp.now"): (
+        "Yahoo aggregate consensus has no source publication timestamp; the collection instant is the earliest provable availability"
+    ),
+    ("src/quant/dashboard_export/export.py", "pd.Timestamp.now"): (
+        "dashboard generated_at records artifact creation time"
+    ),
+    ("src/quant/data/fx.py", "pd.Timestamp.now"): (
+        "FX retrieved_at records when the quote was collected"
+    ),
+    ("src/quant/pipeline/daily_pipeline.py", "pd.Timestamp.now"): (
+        "actionable-signal generated_at records artifact creation time"
+    ),
+    ("src/quant/pipeline/research_pipeline.py", "pd.Timestamp.now"): (
+        "experiment created_at records when the experiment was persisted"
+    ),
+    ("src/quant/quality/adapters.py", "pd.Timestamp.now"): (
+        "retrieved_at is provenance for the actual data-ingestion instant"
+    ),
+    ("src/quant/quality/engine.py", "pd.Timestamp.now"): (
+        "quality report generated_at and audit timestamps record validation events"
+    ),
+    ("src/quant/universe/us_constituents.py", "time.time"): (
+        "wall-clock seconds are used only for cache TTL age, never to select a market session"
     ),
     ("src/quant/utils/calendar.py", "pd.Timestamp.now"): (
-        "calendar.py is the authoritative market-timezone resolver used by "
-        "latest_closed_session/default_as_of"
+        "calendar.py is the authoritative market-timezone resolver used by latest_closed_session/default_as_of"
     ),
 }
 
