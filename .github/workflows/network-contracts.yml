@@ -28,11 +28,5 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Require live-provider credentials
-        run: |
-          test -n "$DATA_GO_KR_SERVICE_KEY"
-          test -n "$STOOQ_API_KEY"
-          test -n "$KIS_APP_KEY"
-          test -n "$KIS_APP_SECRET"
       - name: Run live external-provider contract tests
         run: python -m pytest tests/data/test_network_provider_contracts.py -q -W ignore -m network
