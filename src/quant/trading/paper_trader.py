@@ -1,87 +1,163 @@
-"""Deterministic paper-trading ledger with slippage and fee accounting."""
+"""Compatibility facade over the authoritative paper-broker ledger.
+
+The previous implementation maintained a second cash/position/fill ledger with
+its own cost assumptions. That could disagree with KoreaPaperBroker/
+USPaperBroker, whose state is used by production RiskGuard. This facade keeps
+legacy research call sites working while delegating all account state and
+orders to the production paper broker.
+"""
 from __future__ import annotations
-from dataclasses import asdict, dataclass
+
 from pathlib import Path
-import json, math
+import json
+import math
+import tempfile
+
 import pandas as pd
 
-@dataclass
-class PaperPosition:
-    symbol: str
-    quantity: int
-    avg_cost: float
+from quant.broker.base import Fill, OrderRejection
+from quant.broker.kr_paper import KoreaPaperBroker
+from quant.broker.us_paper import USPaperBroker
 
-@dataclass(frozen=True)
-class PaperFill:
-    timestamp: str
-    symbol: str
-    side: str
-    quantity: int
-    reference_price: float
-    fill_price: float
-    fees: float
-    tax: float
-    cash_after: float
 
 class PaperTrader:
-    def __init__(self, initial_cash: float, *, currency="KRW", buy_slippage=.001, sell_slippage=.001, commission_rate=.00015, sell_tax_rate=0.0):
-        if initial_cash <= 0: raise ValueError("initial_cash must be positive")
-        self.initial_cash=float(initial_cash); self.cash=float(initial_cash); self.currency=currency
-        self.buy_slippage=float(buy_slippage); self.sell_slippage=float(sell_slippage)
-        self.commission_rate=float(commission_rate); self.sell_tax_rate=float(sell_tax_rate)
-        self.positions={}; self.fills=[]; self.realized_pnl=0.0; self.closed_trade_pnls=[]; self.equity_history=[]
+    def __init__(
+        self,
+        initial_cash: float,
+        *,
+        currency="KRW",
+        buy_slippage=None,
+        sell_slippage=None,
+        commission_rate=None,
+        sell_tax_rate=None,
+        state_path: str | Path | None = None,
+    ):
+        if initial_cash <= 0:
+            raise ValueError("initial_cash must be positive")
+        overrides = {
+            "buy_slippage": buy_slippage,
+            "sell_slippage": sell_slippage,
+            "commission_rate": commission_rate,
+            "sell_tax_rate": sell_tax_rate,
+        }
+        supplied = [name for name, value in overrides.items() if value is not None]
+        if supplied:
+            raise ValueError(
+                "PaperTrader cost overrides are retired; the shared CostModel "
+                f"is authoritative ({', '.join(supplied)} supplied)"
+            )
+        self.initial_cash=float(initial_cash)
+        self.currency=str(currency).upper()
+        self.market="korea" if self.currency=="KRW" else "us"
+        self._tmpdir = None
+        if state_path is None:
+            self._tmpdir = tempfile.TemporaryDirectory(prefix="quant-paper-compat-")
+            state_path = Path(self._tmpdir.name) / f"paper_{self.market}.json"
+        else:
+            state_path = Path(state_path)
+        broker_cls = KoreaPaperBroker if self.market=="korea" else USPaperBroker
+        self._broker = broker_cls(
+            initial_capital=self.initial_cash,
+            state_path=state_path,
+        )
 
-    def _stamp(self, timestamp=None):
-        return pd.Timestamp(timestamp or pd.Timestamp.now(tz="UTC")).isoformat()
+    @property
+    def cash(self) -> float:
+        return float(self._broker.get_cash())
+
+    @property
+    def positions(self):
+        return self._broker.get_positions()
+
+    @property
+    def fills(self):
+        return self._broker.get_fill_history()
+
+    @property
+    def equity_history(self):
+        curve=self._broker.get_equity_curve()
+        return list(zip(curve.index, curve.values))
 
     def buy(self, symbol, quantity, price, *, timestamp=None):
-        if quantity <= 0 or price <= 0: raise ValueError("quantity and price must be positive")
-        fill_price=float(price)*(1+self.buy_slippage); notional=fill_price*int(quantity); fees=notional*self.commission_rate
-        if notional+fees > self.cash+1e-9: raise ValueError("insufficient paper cash")
-        old=self.positions.get(symbol)
-        if old:
-            nq=old.quantity+int(quantity); avg=(old.avg_cost*old.quantity+fill_price*int(quantity))/nq
-            self.positions[symbol]=PaperPosition(symbol,nq,float(avg))
-        else: self.positions[symbol]=PaperPosition(symbol,int(quantity),fill_price)
-        self.cash-=notional+fees
-        fill=PaperFill(self._stamp(timestamp),symbol,"BUY",int(quantity),float(price),fill_price,fees,0.0,self.cash)
-        self.fills.append(fill); return fill
+        fill=self._broker.submit_order(
+            str(symbol),"buy",float(quantity),float(price),reason="paper_compat_buy"
+        )
+        if isinstance(fill,OrderRejection):
+            raise ValueError("; ".join(fill.reasons) or "paper order rejected")
+        return fill
 
     def sell(self, symbol, quantity, price, *, timestamp=None):
-        pos=self.positions.get(symbol)
-        if pos is None or quantity<=0 or quantity>pos.quantity or price<=0: raise ValueError("invalid sell quantity/price")
-        fill_price=float(price)*(1-self.sell_slippage); notional=fill_price*int(quantity)
-        fees=notional*self.commission_rate; tax=notional*self.sell_tax_rate; proceeds=notional-fees-tax
-        pnl=(fill_price-pos.avg_cost)*int(quantity)-fees-tax
-        self.realized_pnl+=pnl; self.closed_trade_pnls.append(float(pnl))
-        remaining=pos.quantity-int(quantity)
-        if remaining: self.positions[symbol]=PaperPosition(symbol,remaining,pos.avg_cost)
-        else: del self.positions[symbol]
-        self.cash+=proceeds
-        fill=PaperFill(self._stamp(timestamp),symbol,"SELL",int(quantity),float(price),fill_price,fees,tax,self.cash)
-        self.fills.append(fill); return fill
+        fill=self._broker.submit_order(
+            str(symbol),"sell",float(quantity),float(price),reason="paper_compat_sell"
+        )
+        if isinstance(fill,OrderRejection):
+            raise ValueError("; ".join(fill.reasons) or "paper order rejected")
+        return fill
 
     def equity(self, marks=None):
-        marks=marks or {}; value=self.cash
-        for symbol,pos in self.positions.items(): value += pos.quantity*float(marks.get(symbol,pos.avg_cost))
-        return float(value)
+        return float(self._broker.get_account_value(marks or {}))
 
     def mark(self, marks, *, timestamp=None):
-        eq=self.equity(marks); self.equity_history.append((self._stamp(timestamp),eq)); return eq
+        as_of=pd.Timestamp(timestamp) if timestamp is not None else None
+        return float(self._broker.record_daily_equity(marks or {},as_of=as_of))
+
+    def _closed_trade_pnls(self) -> list[float]:
+        positions={}
+        pnls=[]
+        for fill in self._broker.get_fill_history():
+            qty=float(fill.quantity)
+            if fill.side=="buy":
+                old_qty,old_cost=positions.get(fill.symbol,(0.0,0.0))
+                new_qty=old_qty+qty
+                avg=(old_qty*old_cost+qty*float(fill.price))/new_qty if new_qty else 0.0
+                positions[fill.symbol]=(new_qty,avg)
+            elif fill.side=="sell":
+                old_qty,old_cost=positions.get(fill.symbol,(0.0,0.0))
+                realized=(float(fill.price)-old_cost)*qty-float(fill.commission)-float(fill.tax_or_fee)
+                pnls.append(realized)
+                remaining=max(0.0,old_qty-qty)
+                if remaining:
+                    positions[fill.symbol]=(remaining,old_cost)
+                else:
+                    positions.pop(fill.symbol,None)
+        return pnls
 
     def summary(self, marks=None):
-        eq=self.equity(marks); gains=sum(x for x in self.closed_trade_pnls if x>0); losses=abs(sum(x for x in self.closed_trade_pnls if x<0))
-        wins=sum(x>0 for x in self.closed_trade_pnls); win_rate=wins/len(self.closed_trade_pnls) if self.closed_trade_pnls else None
-        pf=gains/losses if losses>0 else (math.inf if gains>0 else None)
-        if self.equity_history:
-            s=pd.Series([v for _,v in self.equity_history],dtype=float); mdd=float((s/s.cummax()-1).min())
-        else: mdd=0.0
-        return {"currency":self.currency,"initial_cash":self.initial_cash,"cash":self.cash,"equity":eq,
-                "total_return_pct":(eq/self.initial_cash-1)*100,"realized_pnl":self.realized_pnl,
-                "closed_trades":len(self.closed_trade_pnls),"win_rate":win_rate,"profit_factor":pf,
-                "max_drawdown":mdd,"positions":{s:asdict(p) for s,p in self.positions.items()}}
+        eq=self.equity(marks)
+        pnls=self._closed_trade_pnls()
+        gains=sum(x for x in pnls if x>0)
+        losses=abs(sum(x for x in pnls if x<0))
+        win_rate=(sum(x>0 for x in pnls)/len(pnls)) if pnls else None
+        profit_factor=gains/losses if losses>0 else (math.inf if gains>0 else None)
+        curve=self._broker.get_equity_curve()
+        mdd=float((curve/curve.cummax()-1).min()) if len(curve) else 0.0
+        return {
+            "currency":self.currency,
+            "initial_cash":self.initial_cash,
+            "cash":self.cash,
+            "equity":eq,
+            "total_return_pct":(eq/self.initial_cash-1)*100,
+            "realized_pnl":sum(pnls),
+            "closed_trades":len(pnls),
+            "win_rate":win_rate,
+            "profit_factor":profit_factor,
+            "max_drawdown":mdd,
+            "positions":{
+                symbol:{
+                    "symbol":position.symbol,
+                    "quantity":position.quantity,
+                    "avg_cost":position.avg_cost,
+                }
+                for symbol,position in self._broker.get_positions().items()
+            },
+            "ledger_authority":type(self._broker).__name__,
+        }
 
     def write_summary(self, path, marks=None):
-        path=Path(path); path.parent.mkdir(parents=True,exist_ok=True)
-        path.write_text(json.dumps(self.summary(marks),ensure_ascii=False,indent=2,default=str),encoding="utf-8")
+        path=Path(path)
+        path.parent.mkdir(parents=True,exist_ok=True)
+        path.write_text(
+            json.dumps(self.summary(marks),ensure_ascii=False,indent=2,default=str),
+            encoding="utf-8",
+        )
         return path
