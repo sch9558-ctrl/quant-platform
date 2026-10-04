@@ -12,6 +12,7 @@ on it for research.
 """
 from __future__ import annotations
 
+import logging
 import time
 
 import pandas as pd
@@ -265,7 +266,17 @@ class KRDataProvider(MarketDataProvider):
 
         ticker = INDEX_TICKERS.get(index_symbol.upper(), index_symbol)
         fromdate, todate = self._fmt(start), self._fmt(end)
-        df = stock.get_index_ohlcv_by_date(fromdate, todate, ticker)
+        # pykrx 1.2.8 has an upstream logging wrapper that calls
+        # logging.info(args, kwargs). With application INFO logging enabled,
+        # that malformed logging call can itself raise TypeError before the
+        # data request executes. Suppress INFO only for this synchronous
+        # upstream call, then restore the process logging-disable threshold.
+        previous_disable = logging.root.manager.disable
+        try:
+            logging.disable(logging.INFO)
+            df = stock.get_index_ohlcv_by_date(fromdate, todate, ticker)
+        finally:
+            logging.disable(previous_disable)
         if df is None or df.empty:
             return pd.DataFrame(columns=["open", "high", "low", "close", "volume", "adj_close"])
         df = df.rename(columns=_KR_COL_MAP)
