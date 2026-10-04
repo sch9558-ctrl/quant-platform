@@ -115,3 +115,15 @@ def test_us_earnings_without_future_date_fails_closed(monkeypatch):
     assert result.available is False
     assert result.earnings_date is None
     assert result.error == "no future earnings date available"
+
+
+def test_korean_credit_ratio_requires_explicit_as_of():
+    service = MarketTrapDataService(
+        session=_Session(),
+        kis_app_key="fixture-app-key",
+        kis_app_secret="fixture-app-secret",
+    )
+    result = service.fetch_kr_credit_ratio("005930", as_of=None)
+    assert result.available is False
+    assert result.credit_balance_pct is None
+    assert "as_of is required" in result.error
