@@ -121,8 +121,10 @@ def fetch_cross_asset_snapshot(as_of: str, *, downloader: Callable | None = None
         sox = _pct_change_1d(series["^SOX"])
         vix = float(series["^VIX"].iloc[-1]) if len(series["^VIX"]) else None
         tnx = series["^TNX"]
+        # Yahoo ^TNX is quoted in yield percentage points (for example 5.28
+        # means a 5.28% yield). A 0.01 percentage-point move equals 1bp.
         us10y_bp = (
-            (float(tnx.iloc[-1]) - float(tnx.iloc[-2])) * 10.0
+            (float(tnx.iloc[-1]) - float(tnx.iloc[-2])) * 100.0
             if len(tnx) >= 2 else None
         )
         korea_complete = usdkrw is not None and sox is not None
