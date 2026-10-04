@@ -58,10 +58,13 @@ from quant.utils.calendar import default_as_of
 from quant.research_db.models import ExperimentRecord, current_code_version, dataset_version_tag
 from quant.risk.manager import PortfolioState, RiskManager
 from quant.risk.filing_filter import FilingRiskService
+from quant.risk_guard import RiskGuard
 from quant.scanner.scanner import ScanResult
 from quant.strategy import registry
 from quant.utils.logging import get_logger
 from quant.validation.walk_forward import WalkForwardAnalyzer, WalkForwardResult
+from quant.broker.kr_paper import KoreaPaperBroker
+from quant.broker.us_paper import USPaperBroker
 
 logger = get_logger(__name__)
 
@@ -85,6 +88,7 @@ class MarketResearchResult:
     updated_strategy_ids: list[str]
     portfolio_allocation: PortfolioAllocation | None
     risk_checks: list[dict]
+    portfolio_risk_state: dict = field(default_factory=dict)
     institutional_overlays: dict[str, dict] = field(default_factory=dict)
     quality_report: DataQualityReport | None = None
     blocked: bool = False
@@ -217,6 +221,111 @@ def _risk_analysis(
     return checks
 
 
+
+def _aligned_candidate_returns(
+    allocation: PortfolioAllocation,
+    ohlcv_map: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
+    series = []
+    for symbol, weight in allocation.weights.items():
+        if float(weight) <= 0:
+            continue
+        frame = ohlcv_map.get(symbol)
+        if frame is None or frame.empty or "close" not in frame:
+            continue
+        ret = pd.to_numeric(frame["close"], errors="coerce").pct_change().dropna()
+        if not ret.empty:
+            series.append(ret.rename(symbol))
+    if not series:
+        return pd.DataFrame()
+    return pd.concat(series, axis=1, join="inner").replace([float("inf"), float("-inf")], pd.NA).dropna()
+
+
+def _paper_nav(market: str) -> pd.Series:
+    broker = KoreaPaperBroker() if market == "korea" else USPaperBroker()
+    return broker.get_equity_curve()
+
+
+def _portfolio_risk_analysis(
+    market: str,
+    allocation: PortfolioAllocation,
+    ohlcv_map: dict[str, pd.DataFrame],
+    *,
+    nav: pd.Series | None = None,
+    min_return_observations: int = 60,
+) -> dict:
+    guard = RiskGuard()
+    returns = _aligned_candidate_returns(allocation, ohlcv_map)
+    n_returns = int(len(returns))
+
+    if n_returns >= min_return_observations:
+        pvar, hvar = guard.value_at_risk(returns, weights=allocation.weights)
+    else:
+        pvar = hvar = None
+
+    if nav is None:
+        nav = _paper_nav(market)
+    nav = pd.Series(nav, dtype=float).dropna() if nav is not None else pd.Series(dtype=float)
+
+    reasons: list[str] = []
+    if n_returns < min_return_observations:
+        reasons.append(
+            f"포트폴리오 수익률 관측치 부족: {n_returns} < 최소 {min_return_observations}"
+        )
+    if len(nav) < 2:
+        reasons.append(
+            f"운용 NAV 관측치 부족: {len(nav)} < 최소 2; 임의 NAV로 대체하지 않음"
+        )
+
+    if reasons:
+        return {
+            "state": "INSUFFICIENT_EVIDENCE",
+            "var95_parametric": pvar,
+            "var95_historical": hvar,
+            "max_drawdown": None,
+            "allow_new_entries": False,
+            "liquidate_all": False,
+            "return_observations": n_returns,
+            "nav_observations": int(len(nav)),
+            "reasons": reasons,
+        }
+
+    status = guard.evaluate(returns, nav, weights=allocation.weights)
+    return {
+        "state": status.action,
+        "var95_parametric": status.var95_parametric,
+        "var95_historical": status.var95_historical,
+        "max_drawdown": status.max_drawdown,
+        "allow_new_entries": status.allow_new_entries,
+        "liquidate_all": status.liquidate_all,
+        "return_observations": n_returns,
+        "nav_observations": int(len(nav)),
+        "reasons": [status.action],
+    }
+
+
+def _atr20_trailing_reference(frame: pd.DataFrame | None) -> float | None:
+    if frame is None or frame.empty or len(frame) < 21:
+        return None
+    required = {"high", "low", "close"}
+    if not required.issubset(frame.columns):
+        return None
+    high = pd.to_numeric(frame["high"], errors="coerce")
+    low = pd.to_numeric(frame["low"], errors="coerce")
+    close = pd.to_numeric(frame["close"], errors="coerce")
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low - prev_close).abs(),
+    ], axis=1).max(axis=1).dropna()
+    if len(tr) < 20:
+        return None
+    atr20 = float(tr.tail(20).mean())
+    highest_high = float(high.tail(20).max())
+    return RiskGuard.atr_trailing_stop(highest_high, atr20, multiple=2.5)
+
+
 def run_market_research(
     market: str, demo: bool = True, as_of: str | None = None, top_n: int = 20,
     use_param_search: bool = False, lookback_years: int = DEFAULT_BACKTEST_LOOKBACK_YEARS,
@@ -248,7 +357,9 @@ def run_market_research(
         return MarketResearchResult(
             market=market, scan=None, walk_forward_results={}, ranking_df=pd.DataFrame(),
             experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
-            portfolio_allocation=None, risk_checks=[], institutional_overlays={},
+            portfolio_allocation=None, risk_checks=[],
+            portfolio_risk_state={"state": "DATA_VALIDATION_FAILED", "reasons": [gated.block_reason]},
+            institutional_overlays={},
             quality_report=gated.validation.report, blocked=True, block_reason=gated.block_reason,
             as_of=as_of,
         )
@@ -328,6 +439,13 @@ def run_market_research(
             f"views={allocation_diag.view_count}, prior={allocation_diag.prior_source}"
         )
     risk_checks = _risk_analysis(market, allocation)
+    portfolio_risk_state = _portfolio_risk_analysis(
+        market,
+        allocation,
+        gated.validation.canonical_ohlcv_map,
+    )
+    if portfolio_risk_state.get("liquidate_all"):
+        scan.top_candidates = []
 
     # Institutional safety/alpha overlay is part of the production research
     # result, not an orphan library. External filing/event feeds are still
@@ -335,13 +453,14 @@ def run_market_research(
     # with FILING_DATA_UNAVAILABLE rather than claiming risk clearance.
     institutional_overlays: dict[str, dict] = {}
     for candidate in scan.top_candidates:
+        trade_plan = build_trade_plan(candidate)
         candidate_payload = {
             "market": market,
             "symbol": candidate.symbol,
             "price": candidate.price,
             "volatility": candidate.volatility,
             "composite_score": candidate.composite_score,
-            "trade_plan": build_trade_plan(candidate),
+            "trade_plan": trade_plan,
         }
         filing_result = (
             filing_service.fetch(market, candidate.symbol, as_of=as_of)
@@ -387,6 +506,30 @@ def run_market_research(
             "previous_close": previous_close,
             "available": market_data_available,
         }
+        guard = RiskGuard()
+        entry_mid = (
+            float(trade_plan["entry_low"]) + float(trade_plan["entry_high"])
+        ) / 2.0
+        expected_reward = float(trade_plan["target_2"]) - entry_mid
+        expected_risk = entry_mid - float(trade_plan["stop_loss"])
+        rr_allowed = guard.entry_risk_reward_allowed(expected_reward, expected_risk)
+        trailing_reference = _atr20_trailing_reference(market_frame)
+        overlay["entry_risk_reward_allowed"] = rr_allowed
+        overlay["atr_trailing_stop"] = trailing_reference
+        if not rr_allowed:
+            overlay["approved"] = False
+            overlay["action"] = "REVIEW"
+            overlay["risk_cleared"] = False
+            overlay["reasons"] = list(overlay.get("reasons") or []) + [
+                "ENTRY_RISK_REWARD_BELOW_MINIMUM"
+            ]
+        if not portfolio_risk_state.get("allow_new_entries", False):
+            overlay["approved"] = False
+            overlay["action"] = "REVIEW"
+            overlay["risk_cleared"] = False
+            overlay["reasons"] = list(overlay.get("reasons") or []) + [
+                f"PORTFOLIO_RISK_{portfolio_risk_state.get('state', 'UNKNOWN')}"
+            ]
         overlay["filing_source"] = (
             filing_result.source if filing_result is not None else "demo_unavailable"
         )
@@ -402,7 +545,9 @@ def run_market_research(
     return MarketResearchResult(
         market=market, scan=scan, walk_forward_results=wf_results, ranking_df=ranking_df,
         experiment_ids=experiment_ids, new_strategy_ids=new_ids, updated_strategy_ids=updated_ids,
-        portfolio_allocation=allocation, risk_checks=risk_checks, institutional_overlays=institutional_overlays,
+        portfolio_allocation=allocation, risk_checks=risk_checks,
+        portfolio_risk_state=portfolio_risk_state,
+        institutional_overlays=institutional_overlays,
         quality_report=gated.validation.report, blocked=False, block_reason=None,
         as_of=as_of,
     )
