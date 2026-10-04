@@ -10,6 +10,7 @@ must fail a test rather than be discovered in production at 07:00 KST.
 """
 from __future__ import annotations
 
+import logging
 import sys
 import types
 
@@ -37,6 +38,8 @@ class FakePykrxStock:
         self.fail_dates = fail_dates or set()
         self.by_ticker_calls: list[str] = []   # one entry per (date) request
         self.by_date_calls: list[str] = []     # one entry per (symbol) request
+        self.index_calls: list[tuple[str, str, str]] = []
+        self.index_logging_disable_levels: list[int] = []
 
     # by_ticker(date) -> every symbol for one session
     def get_market_ohlcv_by_ticker(self, date: str, market: str = "KOSPI"):
@@ -60,6 +63,16 @@ class FakePykrxStock:
 
     def get_etf_ohlcv_by_date(self, fromdate: str, todate: str, ticker: str):
         return pd.DataFrame()
+
+    def get_index_ohlcv_by_date(self, fromdate: str, todate: str, ticker: str):
+        self.index_calls.append((fromdate, todate, ticker))
+        self.index_logging_disable_levels.append(logging.root.manager.disable)
+        idx = pd.to_datetime(["2026-09-28", "2026-09-29"])
+        return pd.DataFrame(
+            {"시가": [100, 101], "고가": [102, 103], "저가": [99, 100],
+             "종가": [101, 102], "거래량": [1000, 1100]},
+            index=idx,
+        )
 
     @staticmethod
     def _frame(tickers: list[str], date: str) -> pd.DataFrame:
@@ -196,3 +209,16 @@ def test_duplicate_symbols_are_requested_once(fake_pykrx):
     provider.get_ohlcv_bulk(["005930", "005930", "005930"], START, END)
 
     assert stock.by_date_calls == ["005930"]
+
+
+def test_index_fetch_suppresses_only_broken_pykrx_info_logging(fake_pykrx):
+    stock = fake_pykrx(FakePykrxStock(["005930"]))
+    provider = KRDataProvider(request_sleep_sec=0)
+    before = logging.root.manager.disable
+
+    out = provider.get_index_ohlcv("KOSPI", "2026-09-28", "2026-09-29")
+
+    assert not out.empty
+    assert stock.index_calls == [("20260928", "20260929", "1001")]
+    assert stock.index_logging_disable_levels[0] >= logging.INFO
+    assert logging.root.manager.disable == before, "global logging threshold must be restored"
