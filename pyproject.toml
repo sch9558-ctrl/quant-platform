@@ -19,3 +19,6 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::FutureWarning",
 ]
+markers = [
+    "network: live external-provider contract tests; run daily in the dedicated network workflow",
+]
