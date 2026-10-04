@@ -137,6 +137,12 @@ class MarketTrapDataService:
         This is a read-only quotations endpoint. Missing credentials or any
         response-contract problem returns unavailable; callers fail closed.
         """
+        if as_of is None:
+            return MarketTrapDataResult(
+                False,
+                "KIS Open API daily credit balance",
+                error="as_of is required; clock-derived session dates are forbidden",
+            )
         if not self.kis_configured:
             return MarketTrapDataResult(
                 False,
@@ -145,7 +151,7 @@ class MarketTrapDataService:
             )
         try:
             token = self._kis_token()
-            date_str = pd.Timestamp(as_of or pd.Timestamp.today()).strftime("%Y%m%d")
+            date_str = pd.Timestamp(as_of).strftime("%Y%m%d")
             response = self.session.get(
                 self.KIS_CREDIT_URL,
                 headers={
