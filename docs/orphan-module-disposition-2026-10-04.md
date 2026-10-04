@@ -45,3 +45,76 @@ without a dedicated migration/deprecation change would violate the current
 "do not delete or weaken tests" constraint. Duplicate authorities
 (`exit_engine`, `paper_trader`) are explicitly held for later consolidation
 rather than silently removed.
+
+
+
+## Shared prerequisites and unlock order
+
+The hold list is not a flat backlog. The remaining orphan/research modules
+cluster around three shared prerequisites:
+
+| Priority | Shared prerequisite | Difficulty | Modules unlocked | Count | Status |
+|---|---|---:|---|---:|---|
+| **1** | **Point-in-time external observation archive** with publication timestamps, provenance, revision preservation and as-of queries | 4/5 | attribution, consensus_acceleration, index_rebalancing, institutional_flow, supply_chain, report_sentiment, customs_tracker, residual_alpha | **8** | **Started** in the existing ResearchDB |
+| **2** | **Persistent position/execution state**: entry session, highest-high-since-entry, tax lots/cost basis, marked NAV, manual-review/order lifecycle | 3/5 | exit_engine production time-stop, tax_optimizer, volatility_targeting, broker_gateway, telegram_alert | **5** | Partial: paper broker NAV exists; duplicate PaperTrader authority removed |
+| **3** | **Research-to-production promotion protocol** using existing Walk-Forward -> DSR/CPCV gates and an explicit strategy registration contract | 3/5 | pairs_trading, wavelet_filter, agent_committee | **3** | Not started |
+
+Priority 1 ranks first despite the higher implementation difficulty because one
+causality-safe store unlocks eight modules and eliminates the largest repeated
+source of look-ahead risk: reconstructing historical decisions from current
+snapshots.
+
+### Priority 1 implementation plan — point-in-time observations
+
+**Storage location:** extend the existing SQLite ResearchDB; do not create a
+parallel database or a new module.
+
+**Schema (implemented):**
+- observation_id
+- observation_type
+- source
+- market
+- symbol (nullable)
+- published_at — the historical visibility gate
+- collected_at — ingestion/provenance timestamp
+- effective_at — optional event/effective timestamp; may legitimately be in the future
+- payload_json
+- provenance_json
+
+**Fail-Closed rule:** historical consumers must query through
+`latest_observation_as_of` / `query_observations_as_of`. An observation with
+`published_at > as_of` is invisible even if it exists in the local database.
+Missing observations remain missing; callers must not substitute a current
+snapshot.
+
+**Initial source sequence:**
+1. Existing analyst/report ingestion -> timestamped report/consensus observations.
+2. Official index announcements/membership snapshots.
+3. Validated KRX investor-flow observations.
+4. Official customs/K-Stat releases with release timestamp.
+5. Versioned factor returns for residual-alpha research.
+
+Every external source requires both deterministic fixture tests and a scheduled
+live contract test before its observations can influence production decisions.
+
+## Duplicate-authority consolidation
+
+### exit_engine
+
+**Decision: B — compatibility adapter, independent authority removed.**
+
+RiskGuard now owns both trailing-stop and time-stop decisions. ExitEngine
+delegates to RiskGuard and only preserves the legacy research-facing response
+shape. Production time-stop activation still waits for prerequisite 2 because
+the production broker must persist entry session and highest-high-since-entry.
+
+### paper_trader
+
+**Decision: B — compatibility facade, independent ledger removed.**
+
+PaperTrader no longer owns cash, positions, fills or NAV. It delegates to
+KoreaPaperBroker/USPaperBroker, the same ledger family used by production
+RiskGuard. Independent commission/slippage/tax overrides are rejected because
+the shared CostModel is authoritative. This removes the duplicate-account
+reason for deferral; remaining production promotion depends only on the manual
+review/order lifecycle under prerequisite 2.
