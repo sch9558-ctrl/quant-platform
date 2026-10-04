@@ -10,7 +10,7 @@ def _download(*args, **kwargs):
         ("KRW=X","Close"):[1400.0,1414.0],
         ("^SOX","Close"):[5000.0,4850.0],
         ("^VIX","Close"):[24.0,27.0],
-        ("^TNX","Close"):[40.0,41.6],
+        ("^TNX","Close"):[4.00,4.16],
     }
     return pd.DataFrame(data,index=idx)
 
