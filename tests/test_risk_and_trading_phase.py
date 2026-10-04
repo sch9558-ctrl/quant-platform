@@ -14,12 +14,37 @@ def test_filing_filter_blocks_recent_dilution_and_audit_warning():
     assert not a.risk_cleared and "equity_dilution" in a.matched_categories and "audit_warning" in a.matched_categories
     assert "convertible_financing" not in a.matched_categories
 
-def test_paper_trader_slippage_fees_and_summary(tmp_path):
-    t=PaperTrader(1_000_000,currency="KRW",buy_slippage=.001,sell_slippage=.001,commission_rate=.0002,sell_tax_rate=.0018)
-    assert t.buy("005930",10,70_000,timestamp="2026-10-01").fill_price==pytest.approx(70_070)
-    t.mark({"005930":72_000},timestamp="2026-10-02"); assert t.sell("005930",10,75_000,timestamp="2026-10-05").fill_price==pytest.approx(74_925)
-    s=t.summary(); assert s["closed_trades"]==1 and s["realized_pnl"]>0
-    p=t.write_summary(tmp_path/"paper_trading_summary.json"); assert json.loads(p.read_text())["closed_trades"]==1
+def test_paper_trader_delegates_to_authoritative_paper_broker(tmp_path):
+    from quant.broker.base import Fill
+    from quant.broker.kr_paper import KoreaPaperBroker
+
+    t=PaperTrader(
+        10_000_000,
+        currency="KRW",
+        state_path=tmp_path/"paper_korea.json",
+    )
+    assert isinstance(t._broker,KoreaPaperBroker)
+    buy=t.buy("005930",10,70_000,timestamp="2026-10-01")
+    assert isinstance(buy,Fill)
+    assert buy.price==pytest.approx(70_000)
+    assert t.positions["005930"].quantity==pytest.approx(10)
+    t.mark({"005930":72_000},timestamp="2026-10-02")
+    sell=t.sell("005930",10,75_000,timestamp="2026-10-05")
+    assert isinstance(sell,Fill)
+    s=t.summary({"005930":75_000})
+    assert s["closed_trades"]==1
+    assert s["realized_pnl"]>0
+    assert s["ledger_authority"]=="KoreaPaperBroker"
+    assert t.positions=={}
+    p=t.write_summary(tmp_path/"paper_trading_summary.json")
+    payload=json.loads(p.read_text())
+    assert payload["ledger_authority"]=="KoreaPaperBroker"
+    assert payload["closed_trades"]==1
+
+
+def test_paper_trader_rejects_independent_cost_overrides():
+    with pytest.raises(ValueError,match="shared CostModel is authoritative"):
+        PaperTrader(10_000_000,currency="KRW",commission_rate=.0002)
 
 def test_telegram_safe_when_unconfigured():
     assert not TelegramAlert(token="",chat_id="").send_text("hello").sent
@@ -34,7 +59,18 @@ def test_flow_and_decorrelation():
     assert "A" in out.kept and "B" in out.dropped
 
 def test_exit_engine_and_market_traps():
+    from quant.risk_guard import RiskGuard
+
     e=ExitEngine(); s1=e.update_trailing_stop(110,2); s2=e.update_trailing_stop(112,3,previous_stop=s1); assert s2>=s1
+    assert RiskGuard.position_exit_reason(
+        current_price=101,
+        trailing_stop=97,
+        entry_price=100,
+        sessions_held=15,
+        time_stop_sessions=15,
+        time_stop_low=-.015,
+        time_stop_high=.020,
+    )=="TIME_EXPIRED_EXIT"
     assert e.evaluate(current_price=101,entry_price=100,highest_high_since_entry=105,atr14=3,sessions_held=15).action=="TIME_EXPIRED_EXIT"
     assert e.evaluate(current_price=108,entry_price=100,highest_high_since_entry=120,atr14=4,sessions_held=8).action=="TAKE_PROFIT"
     a=MarketTrapDetector().assess(as_of="2026-10-04",earnings_date="2026-10-06",credit_balance_pct=5.2,open_price=96,previous_close=100)
