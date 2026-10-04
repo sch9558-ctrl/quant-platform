@@ -94,14 +94,18 @@ def extract_features(wf: WalkForwardResult, n_param_combos_tested: int = 1) -> S
             splitter = PurgedCombinatorialCV(
                 n_groups=6, n_test_groups=2, purge_sessions=2, embargo_sessions=3
             )
-            test_sharpes = []
+            split_passes = []
             values = oos_returns.reset_index(drop=True)
-            for _, test_idx in splitter.split(values):
-                test_sharpes.append(annualized_sharpe(values.iloc[test_idx]))
-            if test_sharpes:
-                cpcv_positive_ratio = float(
-                    sum(s > 0 for s in test_sharpes) / len(test_sharpes)
-                )
+            for train_idx, test_idx in splitter.split(values):
+                train_sharpe = annualized_sharpe(values.iloc[train_idx])
+                test_sharpe = annualized_sharpe(values.iloc[test_idx])
+                # Both the purged/embargoed training sample and the held-out
+                # test combination must retain a positive risk-adjusted edge.
+                # This makes purge/embargo affect the diagnostic rather than
+                # merely generating decorative train indices.
+                split_passes.append(train_sharpe > 0 and test_sharpe > 0)
+            if split_passes:
+                cpcv_positive_ratio = float(sum(split_passes) / len(split_passes))
 
     return StrategyFeatures(
         strategy_id=wf.strategy_id, market=wf.market,
