@@ -87,7 +87,7 @@ class DataGoKrProvider(KRDataProvider):
             "basDt": clean_date,
         }
         failures: list[str] = []
-        for url in DATA_GO_KR_URLS:
+        for attempt, url in enumerate(DATA_GO_KR_URLS, start=1):
             try:
                 response = requests.get(url, params=params, timeout=self.timeout)
                 response.raise_for_status()
@@ -147,7 +147,20 @@ class DataGoKrProvider(KRDataProvider):
                     .reset_index(drop=True)
                 )
             except Exception as exc:
-                failures.append(f"{url}: {type(exc).__name__}: {exc}")
+                # requests exceptions can embed the full prepared URL,
+                # including serviceKey, in their string representation.
+                # Never place that value in logs/errors.
+                if isinstance(exc, requests.RequestException):
+                    detail = type(exc).__name__
+                else:
+                    detail = f"{type(exc).__name__}: {exc}"
+                failures.append(f"{url}: {detail}")
+                logger.warning(
+                    "data.go.kr request failed endpoint=%s timeout=%ss "
+                    "attempt=%d/%d error=%s",
+                    url, self.timeout, attempt, len(DATA_GO_KR_URLS),
+                    type(exc).__name__,
+                )
             finally:
                 self._sleep()
         raise RuntimeError(
