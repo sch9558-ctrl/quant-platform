@@ -61,20 +61,22 @@ def _validated_data_go_key() -> str:
     return key
 
 
-def _assert_krx_http_contract() -> None:
+def _krx_http_contract() -> tuple[int, str]:
     url = "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd"
     response = requests.get(url, timeout=15)
-    content_type = str(response.headers.get("Content-Type", "")).lower()
-    if response.status_code == 403:
-        pytest.fail(
-            f"KRX blocked this runner IP: HTTP 403, Content-Type={content_type or 'missing'}; "
-            "do not treat the resulting pykrx parse error as a schema bug."
-        )
-    if "html" in content_type:
-        pytest.fail(
-            f"KRX returned HTML instead of a data response: HTTP {response.status_code}, "
-            f"Content-Type={content_type}; pykrx cannot safely parse this runner response."
-        )
+    return response.status_code, str(response.headers.get("Content-Type", "")).lower()
+
+
+def _fdr_kospi_alternative_available(start: str, end: str) -> bool:
+    try:
+        import FinanceDataReader as fdr
+        frame = fdr.DataReader("KS11", start, end)
+        if frame is None or frame.empty:
+            return False
+        close = pd.to_numeric(frame.get("Close"), errors="coerce").dropna()
+        return bool(len(close) and close.gt(0).all())
+    except Exception:
+        return False
 
 
 def test_live_data_go_kr_daily_snapshot_contract(tmp_path):
@@ -95,7 +97,15 @@ def test_live_data_go_kr_daily_snapshot_contract(tmp_path):
 
 def test_live_pykrx_kospi_index_contract():
     start, end = _session_window("korea")
-    _assert_krx_http_contract()
+    status, content_type = _krx_http_contract()
+    if status == 403 or "html" in content_type:
+        alternative = _fdr_kospi_alternative_available(start, end)
+        pytest.fail(
+            f"KRX blocked this runner response: HTTP {status}, "
+            f"Content-Type={content_type or 'missing'}; "
+            f"FinanceDataReader KS11 alternative_available={alternative}. "
+            "Do not treat the resulting pykrx parse error as a schema bug or hide the block."
+        )
     df=KRDataProvider(request_sleep_sec=0).get_index_ohlcv("KOSPI",start,end)
     assert not df.empty
     assert {"open","high","low","close","volume","adj_close"}.issubset(df.columns)
