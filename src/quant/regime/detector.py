@@ -93,7 +93,7 @@ class RegimeDetector:
     ) -> RegimeResult:
         cfg = self.cfg
         close = index_ohlcv["close"].dropna()
-        as_of = close.index[-1] if len(close) else pd.Timestamp.today()
+        as_of = close.index[-1] if len(close) else pd.NaT
 
         fast_w = cfg["trend"]["fast_ma"]
         slow_w = cfg["trend"]["slow_ma"]
