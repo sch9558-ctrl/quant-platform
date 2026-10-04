@@ -52,18 +52,46 @@ RESOLVERS = [
     "src/quant/data/kr_provider.py",
 ]
 
-#: Places where "now" legitimately means now, and has nothing to do with
-#: which trading session to analyse.
-ALLOWED_TODAY_CALLERS = {
-    # the regime detector's fallback when a price frame is empty
-    "src/quant/regime/detector.py",
-    # the paper broker stamping an equity row the caller did not date
-    "src/quant/broker/paper_base.py",
-    # the synthetic generator choosing where its fake history ends
-    "src/quant/data/synthetic_provider.py",
-    # the module that documents the bug in its own docstring
-    "src/quant/utils/calendar.py",
+#: Exact wall-clock calls that are legitimate because they stamp a real event
+#: or implement the one authoritative market-session resolver. Every allowlist
+#: entry must carry a non-empty reason; a whole-file exemption is deliberately
+#: forbidden because the same file can contain both legitimate timestamps and
+#: illegitimate session selection.
+ALLOWED_CLOCK_CALLS = {
+    ("src/quant/broker/paper_base.py", "pd.Timestamp.now"): (
+        "paper fill timestamps record the actual execution event, not which "
+        "market session is analysed"
+    ),
+    ("src/quant/utils/calendar.py", "pd.Timestamp.now"): (
+        "calendar.py is the authoritative market-timezone resolver used by "
+        "latest_closed_session/default_as_of"
+    ),
 }
+
+
+def _clock_call_signature(node: ast.Call) -> str | None:
+    func = ast.unparse(node.func)
+    if func in {
+        "datetime.now", "datetime.today", "date.today",
+        "pd.Timestamp.now", "pd.Timestamp.today", "time.time",
+    }:
+        return func
+    if func in {"pd.Timestamp", "Timestamp"} and node.args:
+        first = node.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str) and first.value.lower() == "today":
+            return 'pd.Timestamp("today")'
+    return None
+
+
+def _find_clock_calls(source: str) -> list[tuple[int, str]]:
+    tree = ast.parse(source)
+    out = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            sig = _clock_call_signature(node)
+            if sig is not None:
+                out.append((node.lineno, sig))
+    return out
 
 
 def _sources(paths):
@@ -154,16 +182,40 @@ def test_multi_market_clis_do_not_share_one_date_between_markets():
 
 
 def test_the_allowed_clock_callers_are_the_only_ones_left():
-    """A guard on the guard: if a new module starts reading the clock to
-    pick a session, this fails rather than letting it pass unnoticed."""
+    """Any direct wall-clock read in src must be an exact, justified exception."""
+    assert ALLOWED_CLOCK_CALLS
+    assert all(
+        isinstance(reason, str) and reason.strip()
+        for reason in ALLOWED_CLOCK_CALLS.values()
+    ), "every allowed clock call must include a non-empty reason"
+
     found = set()
     for path in (ROOT / "src").rglob("*.py"):
         rel = path.relative_to(ROOT).as_posix()
-        if "pd.Timestamp.today()" in path.read_text(encoding="utf-8"):
-            found.add(rel)
-    unexpected = found - ALLOWED_TODAY_CALLERS
+        source = path.read_text(encoding="utf-8")
+        for _, signature in _find_clock_calls(source):
+            found.add((rel, signature))
+
+    unexpected = found - set(ALLOWED_CLOCK_CALLS)
     assert not unexpected, (
-        f"new clock-derived dates: {sorted(unexpected)}. If one of these is "
-        "genuinely 'now' rather than 'which session', add it to "
-        "ALLOWED_TODAY_CALLERS with a reason."
+        f"new clock-derived calls: {sorted(unexpected)}. Session selection "
+        "must use default_as_of(market)/latest_closed_session(market); only "
+        "true event timestamps or resolver internals may be allowlisted, "
+        "and every exception requires a reason."
     )
+
+
+@pytest.mark.parametrize(
+    "snippet, expected",
+    [
+        ("datetime.now()", "datetime.now"),
+        ("datetime.today()", "datetime.today"),
+        ("date.today()", "date.today"),
+        ("pd.Timestamp.now()", "pd.Timestamp.now"),
+        ('pd.Timestamp("today")', 'pd.Timestamp("today")'),
+        ("time.time()", "time.time"),
+    ],
+)
+def test_clock_guard_recognizes_all_forbidden_patterns(snippet, expected):
+    calls = _find_clock_calls(f"x = {snippet}\n")
+    assert calls == [(1, expected)]
