@@ -165,7 +165,9 @@ def _strategy_rows(mrr: MarketResearchResult | None) -> list[dict]:
             "strategy_id": strategy_id,
             "market": row.get("market"),
             "composite_score": _safe_float(row.get("composite_score")),
-            "meets_minimum_requirements": bool(row.get("meets_minimum_requirements", True)),
+            "meets_minimum_requirements": bool(row.get("meets_minimum_requirements", False)),
+            "approval_state": row.get("approval_state"),
+            "approval_reasons": list(row.get("approval_reasons") or []),
             "overfitting_warnings": list(row.get("overfitting_warnings") or []),
             "aggregate_oos_sharpe": _safe_float(agg.sharpe) if agg is not None else None,
             "aggregate_oos_sortino": _safe_float(agg.sortino) if agg is not None else None,
@@ -177,6 +179,7 @@ def _strategy_rows(mrr: MarketResearchResult | None) -> list[dict]:
             "deflated_sharpe_probability": _safe_float(row.get("deflated_sharpe_probability")),
             "cpcv_positive_sharpe_ratio": _safe_float(row.get("cpcv_positive_sharpe_ratio")),
             "n_param_combos_tested": _safe_int(row.get("n_param_combos_tested")),
+            "n_oos_return_observations": _safe_int(row.get("n_oos_return_observations")),
         })
     return sorted(rows, key=lambda r: (r["composite_score"] is None, -(r["composite_score"] or 0)))
 
