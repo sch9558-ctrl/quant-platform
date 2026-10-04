@@ -11,6 +11,11 @@ import pandas as pd
 from quant import config
 from quant.research_db.models import ExperimentRecord, PointInTimeObservation
 
+
+class DuplicateObservationError(ValueError):
+    """The same logical observation at the same publication instant already exists."""
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS experiments (
     experiment_id TEXT PRIMARY KEY,
@@ -128,7 +133,13 @@ class ResearchDB:
             conn.execute("DELETE FROM experiments WHERE experiment_id = ?", (experiment_id,))
 
     def save_observation(self, record: PointInTimeObservation) -> str:
-        """Append one point-in-time observation without overwriting revisions."""
+        """Append one public release without overwriting earlier revisions.
+
+        Identity is derived from (type, source, market, symbol, published_at),
+        so callers do not invent ids. A later published_at is a normal
+        revision and inserts another row. Re-inserting the exact same public
+        release raises a domain error rather than leaking sqlite details.
+        """
         row = record.to_row()
         cols = list(row.keys())
         placeholders = ", ".join(["?"] * len(cols))
@@ -136,9 +147,17 @@ class ResearchDB:
             f"INSERT INTO point_in_time_observations ({', '.join(cols)}) "
             f"VALUES ({placeholders})"
         )
-        with self._connect() as conn:
-            conn.execute(sql, [row[c] for c in cols])
-        return record.observation_id
+        try:
+            with self._connect() as conn:
+                conn.execute(sql, [row[c] for c in cols])
+        except sqlite3.IntegrityError as exc:
+            raise DuplicateObservationError(
+                "same logical observation at the same published_at already exists: "
+                f"type={record.observation_type!r}, source={record.source!r}, "
+                f"market={record.market!r}, symbol={record.symbol!r}, "
+                f"published_at={pd.Timestamp(record.published_at).isoformat()}"
+            ) from exc
+        return str(row["observation_id"])
 
     def latest_observation_as_of(
         self,
