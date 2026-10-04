@@ -21,6 +21,7 @@ from quant import config
 from quant.backtest.costs import CostModel
 from quant.broker.base import BrokerInterface, Fill, OrderRejection, Position
 from quant.risk.manager import PortfolioState, RiskManager
+from quant.utils.calendar import default_as_of
 
 
 class PaperBrokerBase(BrokerInterface):
@@ -198,7 +199,7 @@ class PaperBrokerBase(BrokerInterface):
         return list(self.fills)
 
     def record_daily_equity(self, prices: dict[str, float], as_of: pd.Timestamp | None = None) -> float:
-        as_of = as_of or pd.Timestamp.today().normalize()
+        as_of = pd.Timestamp(as_of) if as_of is not None else pd.Timestamp(default_as_of(self.market))
         equity = self.get_account_value(prices)
         prev_equity = self.equity_history[-1][1] if self.equity_history else self.initial_capital
         self.equity_history.append((as_of, equity))
