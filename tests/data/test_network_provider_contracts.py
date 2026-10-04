@@ -54,7 +54,9 @@ def test_live_yfinance_sp500_index_contract():
 
 
 def test_live_stooq_us_secondary_contract():
-    df=USSecondaryProvider().get_ohlcv("AAPL",START,END)
+    key=os.getenv("STOOQ_API_KEY","").strip()
+    assert key, "STOOQ_API_KEY is required for the scheduled network contract job"
+    df=USSecondaryProvider(api_key=key).get_ohlcv("AAPL",START,END)
     assert not df.empty, "Stooq returned no AAPL rows; cross-source provider contract is broken"
     assert list(df.columns)==["open","high","low","close","volume","adj_close"]
     assert float(df["close"].iloc[-1]) > 0
@@ -67,8 +69,11 @@ def test_live_yahoo_earnings_calendar_contract():
     assert pd.Timestamp(result.earnings_date) >= today
 
 
-def test_live_naver_credit_ratio_contract():
-    result=MarketTrapDataService().fetch_kr_credit_ratio("005930",as_of=pd.Timestamp.today())
+def test_live_kis_credit_ratio_contract():
+    service=MarketTrapDataService()
+    assert service.kis_configured, "KIS_APP_KEY/KIS_APP_SECRET are required for the scheduled network contract job"
+    result=service.fetch_kr_credit_ratio("005930",as_of=pd.Timestamp.today())
     assert result.available is True, result.error
+    assert result.source=="KIS Open API daily credit balance"
     assert result.credit_balance_pct is not None
     assert 0.0 <= float(result.credit_balance_pct) <= 100.0
