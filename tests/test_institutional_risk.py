@@ -98,50 +98,108 @@ def test_zero_edge_grid_search_dsr_median_is_below_half():
     assert float(np.median(dsrs)) < 0.5
 
 
-def _selected_grid_search_dsrs(*, mean_return: float, seed_start: int, repetitions: int = 80):
+def _selected_grid_search_dsrs(
+    *,
+    annual_sharpe: float,
+    seed_start: int,
+    repetitions: int | None = None,
+):
+    import math
     import numpy as np
     from quant.validation.cpcv import annualized_sharpe
+
+    calibration=config.ranking_config()["dsr_calibration"]
+    repetitions=int(repetitions or calibration["repetitions"])
+    daily_vol=float(calibration["daily_volatility"])
+    periods=252
+    mean_return=float(annual_sharpe)*daily_vol/math.sqrt(periods)
+    n_trials=int(calibration["n_trials"])
+    n_obs=int(calibration["observations_per_trial"])
 
     out=[]
     for seed in range(seed_start, seed_start + repetitions):
         rng=np.random.default_rng(seed)
-        trials=rng.normal(mean_return,0.01,(51,504))
+        trials=rng.normal(mean_return,daily_vol,(n_trials,n_obs))
         sharpes=[annualized_sharpe(x) for x in trials]
         best=int(np.argmax(sharpes))
         out.append(
             deflated_sharpe_ratio(
                 trials[best],
-                n_trials=51,
+                n_trials=n_trials,
                 trial_sharpes=sharpes,
             )
         )
     return out
 
 
-def test_dsr_false_approval_rate_is_below_ten_percent():
+def _wilson_interval(successes: int, n: int, confidence: float) -> tuple[float,float]:
+    import math
+    from scipy.stats import norm
+
+    alpha=1.0-float(confidence)
+    z=float(norm.ppf(1.0-alpha/2.0))
+    p=successes/n
+    denom=1.0+z*z/n
+    center=(p+z*z/(2.0*n))/denom
+    half=z*math.sqrt(p*(1.0-p)/n+z*z/(4.0*n*n))/denom
+    return center-half,center+half
+
+
+@pytest.mark.parametrize("seed_start",[1000,50000,90000])
+def test_dsr_zero_edge_false_approval_wilson_upper_bound(seed_start):
     import numpy as np
 
+    calibration=config.ranking_config()["dsr_calibration"]
     threshold=float(config.ranking_config()["minimum_requirements"]["min_deflated_sharpe_probability"])
-    assert threshold==0.70
-    dsrs=_selected_grid_search_dsrs(mean_return=0.0,seed_start=1000,repetitions=80)
-    false_approval_rate=float(np.mean(np.asarray(dsrs)>=threshold))
-    assert false_approval_rate <= 0.10, (
-        f"zero-edge false approval rate {false_approval_rate:.1%} exceeds 10% "
-        f"at DSR threshold {threshold:.2f}"
+    assert threshold==0.75
+    dsrs=np.asarray(
+        _selected_grid_search_dsrs(
+            annual_sharpe=0.0,
+            seed_start=seed_start,
+        )
     )
-    assert float(np.median(dsrs)) < 0.5
+    successes=int(np.sum(dsrs>=threshold))
+    _,upper=_wilson_interval(
+        successes,
+        len(dsrs),
+        float(calibration["confidence_level"]),
+    )
+    assert upper <= float(calibration["max_zero_edge_false_approval_rate"]), (
+        f"zero-edge false approval Wilson upper bound {upper:.2%} exceeds "
+        f"{float(calibration['max_zero_edge_false_approval_rate']):.2%} "
+        f"at threshold {threshold:.2f}, seed_start={seed_start}"
+    )
 
 
-def test_dsr_keeps_high_power_for_a_predeclared_positive_edge():
+@pytest.mark.parametrize("seed_start",[1000,50000,90000])
+def test_dsr_min_detectable_edge_wilson_lower_bound(seed_start):
     import numpy as np
 
-    # Predeclared alternative: daily mean +5bp, daily sigma 1%,
-    # annualized population Sharpe ~= 0.79, with the same 51-trial selection.
+    calibration=config.ranking_config()["dsr_calibration"]
     threshold=float(config.ranking_config()["minimum_requirements"]["min_deflated_sharpe_probability"])
-    assert threshold==0.70
-    dsrs=_selected_grid_search_dsrs(mean_return=0.0005,seed_start=2000,repetitions=80)
-    approval_rate=float(np.mean(np.asarray(dsrs)>=threshold))
-    assert approval_rate >= 0.90, (
-        f"positive-edge approval rate {approval_rate:.1%} is below 90% "
-        f"at DSR threshold {threshold:.2f}"
+    edge=float(calibration["min_detectable_annual_sharpe"])
+    dsrs=np.asarray(
+        _selected_grid_search_dsrs(
+            annual_sharpe=edge,
+            seed_start=seed_start,
+        )
     )
+    successes=int(np.sum(dsrs>=threshold))
+    lower,_=_wilson_interval(
+        successes,
+        len(dsrs),
+        float(calibration["confidence_level"]),
+    )
+    assert lower >= float(calibration["min_detection_power"]), (
+        f"detectable-edge power Wilson lower bound {lower:.2%} is below "
+        f"{float(calibration['min_detection_power']):.2%} for annual Sharpe "
+        f"{edge:.2f}, threshold {threshold:.2f}, seed_start={seed_start}"
+    )
+
+
+def test_dsr_calibration_contract_is_explicit():
+    calibration=config.ranking_config()["dsr_calibration"]
+    assert calibration["repetitions"] >= 1000
+    assert calibration["min_detectable_annual_sharpe"] == 0.70
+    assert calibration["max_zero_edge_false_approval_rate"] == 0.08
+    assert calibration["confidence_level"] == 0.95
