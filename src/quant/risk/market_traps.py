@@ -56,14 +56,23 @@ class MarketTrapDataService:
                     False, "Yahoo Finance earnings calendar",
                     error="no earnings dates returned",
                 )
-            idx = pd.DatetimeIndex(pd.to_datetime(frame.index, errors="coerce", utc=True))
-            idx = idx[~idx.isna()]
-            if len(idx) == 0:
+            normalized_dates = []
+            for raw in frame.index:
+                try:
+                    ts = pd.Timestamp(raw)
+                    if ts.tzinfo is None:
+                        ts = ts.tz_localize("America/New_York")
+                    else:
+                        ts = ts.tz_convert("America/New_York")
+                    normalized_dates.append(ts.tz_localize(None).normalize())
+                except Exception:
+                    continue
+            if not normalized_dates:
                 return MarketTrapDataResult(
                     False, "Yahoo Finance earnings calendar",
                     error="earnings dates were not parseable",
                 )
-            dates = idx.tz_convert("America/New_York").tz_localize(None).normalize()
+            dates = pd.DatetimeIndex(normalized_dates)
             cutoff = pd.Timestamp(as_of).normalize()
             future = dates[dates >= cutoff]
             if len(future) == 0:
