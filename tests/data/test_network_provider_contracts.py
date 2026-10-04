@@ -15,6 +15,7 @@ from quant.data.kr_data_go_provider import DataGoKrProvider
 from quant.data.kr_provider import KRDataProvider
 from quant.data.us_provider import USDataProvider
 from quant.data.us_secondary_provider import USSecondaryProvider
+from quant.risk.market_traps import MarketTrapDataService
 
 pytestmark = pytest.mark.network
 
@@ -57,3 +58,17 @@ def test_live_stooq_us_secondary_contract():
     assert not df.empty, "Stooq returned no AAPL rows; cross-source provider contract is broken"
     assert list(df.columns)==["open","high","low","close","volume","adj_close"]
     assert float(df["close"].iloc[-1]) > 0
+
+
+def test_live_yahoo_earnings_calendar_contract():
+    today=pd.Timestamp.today().normalize()
+    result=MarketTrapDataService().fetch_us_earnings("AAPL",as_of=today)
+    assert result.available is True, result.error
+    assert pd.Timestamp(result.earnings_date) >= today
+
+
+def test_live_naver_credit_ratio_contract():
+    result=MarketTrapDataService().fetch_kr_credit_ratio("005930",as_of=pd.Timestamp.today())
+    assert result.available is True, result.error
+    assert result.credit_balance_pct is not None
+    assert 0.0 <= float(result.credit_balance_pct) <= 100.0
