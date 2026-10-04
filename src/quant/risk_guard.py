@@ -66,9 +66,10 @@ class RiskGuard:
 
     def drawdown_action(self, nav) -> tuple[str, bool, bool]:
         dd = self.max_drawdown(nav)
-        if dd <= self.hard_drawdown:
+        eps = 1e-12
+        if dd <= self.hard_drawdown + eps:
             return "HARD_KILL_SWITCH", False, True
-        if dd <= self.soft_drawdown:
+        if dd <= self.soft_drawdown + eps:
             return "SOFT_STOP", False, False
         return "NORMAL", True, False
 
