@@ -1,5 +1,7 @@
 import pandas as pd
 
+from quant import config
+
 from quant.risk_guard import RiskGuard
 from quant.validation.cpcv import PurgedCombinatorialCV, calmar_ratio, deflated_sharpe_ratio, max_drawdown_recovery, profit_factor
 
@@ -119,7 +121,8 @@ def _selected_grid_search_dsrs(*, mean_return: float, seed_start: int, repetitio
 def test_dsr_false_approval_rate_is_below_ten_percent():
     import numpy as np
 
-    threshold=0.70
+    threshold=float(config.ranking_config()["minimum_requirements"]["min_deflated_sharpe_probability"])
+    assert threshold==0.70
     dsrs=_selected_grid_search_dsrs(mean_return=0.0,seed_start=1000,repetitions=80)
     false_approval_rate=float(np.mean(np.asarray(dsrs)>=threshold))
     assert false_approval_rate <= 0.10, (
@@ -134,7 +137,8 @@ def test_dsr_keeps_high_power_for_a_predeclared_positive_edge():
 
     # Predeclared alternative: daily mean +5bp, daily sigma 1%,
     # annualized population Sharpe ~= 0.79, with the same 51-trial selection.
-    threshold=0.70
+    threshold=float(config.ranking_config()["minimum_requirements"]["min_deflated_sharpe_probability"])
+    assert threshold==0.70
     dsrs=_selected_grid_search_dsrs(mean_return=0.0005,seed_start=2000,repetitions=80)
     approval_rate=float(np.mean(np.asarray(dsrs)>=threshold))
     assert approval_rate >= 0.90, (
