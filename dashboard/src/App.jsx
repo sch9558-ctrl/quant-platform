@@ -19,7 +19,10 @@ function InstitutionalDiagnostics({data,market}){
  const methodKo=method.includes('black_litterman')?'Black-Litterman':method.includes('hrp')?'HRP':method.includes('legacy')?'기존 제약형':'확인 필요'
  const dsr=top?.deflated_sharpe_probability
  const cpcv=top?.cpcv_positive_sharpe_ratio
- return <section className="market-summary"><div><span>포트폴리오 엔진</span><b>{methodKo}</b></div><div><span>현금 비중</span><b>{p.cash_weight==null?'—':(Number(p.cash_weight)*100).toFixed(1)+'%'}</b></div><div><span>상위 전략 DSR</span><b>{dsr==null?'평가대기':(Number(dsr)*100).toFixed(1)+'%'}</b></div><div><span>CPCV 양(+) Sharpe</span><b>{cpcv==null?'평가대기':(Number(cpcv)*100).toFixed(1)+'%'}</b></div><div><span>전략 승인</span><b>{top?.meets_minimum_requirements===true?'통과':top?.meets_minimum_requirements===false?'보류':'—'}</b></div></section>
+ const state=top?.approval_state
+ const stateKo=state==='APPROVED'?'승인':state==='REJECTED'?'기각':state==='INSUFFICIENT_EVIDENCE'?'증거 부족(보류)':'—'
+ const reasons=top?.approval_reasons||[]
+ return <><section className="market-summary"><div><span>포트폴리오 엔진</span><b>{methodKo}</b></div><div><span>현금 비중</span><b>{p.cash_weight==null?'—':(Number(p.cash_weight)*100).toFixed(1)+'%'}</b></div><div><span>상위 전략 DSR</span><b>{dsr==null?'평가대기':(Number(dsr)*100).toFixed(1)+'%'}</b></div><div><span>CPCV 양(+) Sharpe</span><b>{cpcv==null?'평가대기':(Number(cpcv)*100).toFixed(1)+'%'}</b></div><div><span>전략 승인</span><b>{stateKo}</b></div></section>{reasons.length>0&&<section className="panel"><div className="section-title"><div><span className="eyebrow">STRATEGY VALIDATION</span><h2>전략 승인 근거</h2></div></div><ul className="reasons">{reasons.map((r,i)=><li key={i}>{r}</li>)}</ul></section>}</>
 }
 function SourceStatus({consensus}){
  const rows=consensus?.source_status||[]
