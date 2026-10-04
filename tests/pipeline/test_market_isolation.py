@@ -104,3 +104,16 @@ def test_every_market_failing_still_returns_a_result(monkeypatch):
     result = run_full_pipeline(demo=True, markets=("korea", "us"))
     assert set(result.markets) == {"korea", "us"}
     assert all(m.blocked for m in result.markets.values())
+
+
+def test_korea_total_outage_still_produces_honest_dashboard_state(one_market_down):
+    from quant.dashboard_export.export import _market_section
+
+    result = run_full_pipeline(demo=True, markets=("korea", "us"))
+    kr_section = _market_section("korea", result.markets["korea"])
+
+    assert result.markets["us"].blocked is False
+    assert kr_section["blocked"] is True
+    assert kr_section["status"] == "DATA VALIDATION FAILED"
+    assert kr_section["candidates"] == []
+    assert kr_section["block_reason"]
