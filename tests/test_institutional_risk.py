@@ -19,7 +19,7 @@ def test_validation_statistics_are_well_formed():
     r=pd.Series([0.01,-0.005,0.012,-0.004,0.008]*30)
     dsr=deflated_sharpe_ratio(r,n_trials=20)
     dd=max_drawdown_recovery(r)
-    assert 0 <= dsr <= 1
+    assert dsr == 0.0, "multi-trial DSR without cross-trial dispersion must fail closed"
     assert dd.max_drawdown <= 0
     assert profit_factor(r)>1
     assert calmar_ratio(r)>0
