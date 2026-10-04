@@ -2,7 +2,13 @@ import pandas as pd
 import pytest
 
 from quant.research_db.db import ResearchDB
-from quant.research_db.models import ExperimentRecord, dataset_version_tag, new_experiment_id
+from quant.research_db.models import (
+    ExperimentRecord,
+    PointInTimeObservation,
+    dataset_version_tag,
+    new_experiment_id,
+    new_observation_id,
+)
 
 
 def _record(**overrides) -> ExperimentRecord:
@@ -90,3 +96,88 @@ def test_dataset_version_tag_is_deterministic():
 
     tag3 = dataset_version_tag("korea", ["A", "B", "C"], "2015-01-01", "2023-12-31")
     assert tag3 != tag1
+
+
+def _observation(**overrides) -> PointInTimeObservation:
+    base = dict(
+        observation_id=new_observation_id(),
+        observation_type="analyst_consensus",
+        source="fixture",
+        market="us",
+        symbol="AAPL",
+        published_at=pd.Timestamp("2026-01-10T09:00:00Z"),
+        collected_at=pd.Timestamp("2026-01-10T09:05:00Z"),
+        effective_at=pd.Timestamp("2026-03-31T00:00:00Z"),
+        payload={"target": 250.0},
+        provenance={"source_id": "fixture-1"},
+    )
+    base.update(overrides)
+    return PointInTimeObservation(**base)
+
+
+def test_point_in_time_observation_roundtrip(db):
+    record = _observation()
+    obs_id = db.save_observation(record)
+    frame = db.query_observations_as_of(
+        observation_type="analyst_consensus",
+        market="us",
+        symbol="AAPL",
+        as_of="2026-01-10T10:00:00Z",
+    )
+    assert len(frame) == 1
+    assert frame.loc[0, "observation_id"] == obs_id
+    latest = db.latest_observation_as_of(
+        observation_type="analyst_consensus",
+        market="us",
+        symbol="AAPL",
+        as_of="2026-01-10T10:00:00Z",
+    )
+    assert latest is not None
+    assert latest.payload == {"target": 250.0}
+    assert latest.provenance == {"source_id": "fixture-1"}
+
+
+def test_point_in_time_query_excludes_future_publications(db):
+    db.save_observation(_observation(
+        published_at=pd.Timestamp("2026-01-10T09:00:00Z"),
+        payload={"target": 240.0},
+    ))
+    db.save_observation(_observation(
+        published_at=pd.Timestamp("2026-01-11T09:00:00Z"),
+        collected_at=pd.Timestamp("2026-01-11T09:05:00Z"),
+        payload={"target": 280.0},
+    ))
+    latest = db.latest_observation_as_of(
+        observation_type="analyst_consensus",
+        market="us",
+        symbol="AAPL",
+        as_of="2026-01-10T23:59:59Z",
+    )
+    assert latest is not None
+    assert latest.payload["target"] == 240.0
+
+
+def test_point_in_time_store_preserves_revisions_instead_of_overwriting(db):
+    first = _observation(payload={"target": 240.0})
+    second = _observation(
+        published_at=pd.Timestamp("2026-01-10T09:00:00Z"),
+        collected_at=pd.Timestamp("2026-01-10T11:00:00Z"),
+        payload={"target": 245.0},
+    )
+    db.save_observation(first)
+    db.save_observation(second)
+    frame = db.query_observations_as_of(
+        observation_type="analyst_consensus",
+        market="us",
+        symbol="AAPL",
+        as_of="2026-01-10T23:59:59Z",
+    )
+    assert len(frame) == 2
+    latest = db.latest_observation_as_of(
+        observation_type="analyst_consensus",
+        market="us",
+        symbol="AAPL",
+        as_of="2026-01-10T23:59:59Z",
+    )
+    assert latest is not None
+    assert latest.payload["target"] == 245.0
