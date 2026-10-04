@@ -78,10 +78,11 @@ def deflated_sharpe_ratio(
 ) -> float:
     """Approximate Deflated Sharpe Ratio probability in [0, 1].
 
-    If multiple strategies or parameter sets were tried, pass their annualized
-    Sharpe ratios via trial_sharpes. The expected maximum Sharpe benchmark then
-    uses the observed cross-trial dispersion. Without that history the function
-    falls back to a moment-adjusted sampling-error approximation.
+    If multiple strategies or parameter sets were tried, their annualized
+    Sharpe ratios must be supplied via trial_sharpes so the expected-maximum
+    benchmark can use the observed cross-trial dispersion. For n_trials > 1,
+    missing/degenerate trial dispersion fails closed at 0.0 rather than
+    fabricating multiple-testing evidence from the selected winner alone.
     """
     r = pd.Series(returns, dtype=float).replace([np.inf, -np.inf], np.nan).dropna()
     n = len(r)
@@ -99,17 +100,25 @@ def deflated_sharpe_ratio(
     )
     sr_std = math.sqrt(sampling_var)
 
-    if trial_sharpes is not None:
+    trials = max(int(n_trials), 1)
+    if trials > 1:
+        if trial_sharpes is None:
+            # Selection-bias DSR needs the cross-trial Sharpe dispersion.
+            # Inventing it from the selected winner's own sampling error is
+            # fail-open: the missing multiple-testing evidence is exactly
+            # what the DSR is supposed to penalize.
+            return 0.0
         trial = np.asarray(list(trial_sharpes), dtype=float)
         trial = trial[np.isfinite(trial)]
-        if len(trial) >= 2:
-            observed = trial / math.sqrt(periods_per_year)
-            observed_std = float(np.std(observed, ddof=1))
-            if observed_std > 0:
-                sr_std = observed_std
-            n_trials = max(int(n_trials), len(observed))
+        if len(trial) < 2:
+            return 0.0
+        observed = trial / math.sqrt(periods_per_year)
+        observed_std = float(np.std(observed, ddof=1))
+        if observed_std <= 0:
+            return 0.0
+        sr_std = observed_std
+        trials = max(trials, len(observed))
 
-    trials = max(int(n_trials), 1)
     if trials == 1:
         benchmark = 0.0
     else:
