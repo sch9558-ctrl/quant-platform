@@ -175,6 +175,7 @@ def _strategy_rows(mrr: MarketResearchResult | None) -> list[dict]:
             "n_oos_trades": _safe_int(row.get("n_oos_trades")),
             "n_folds": _safe_int(row.get("n_folds")),
             "deflated_sharpe_probability": _safe_float(row.get("deflated_sharpe_probability")),
+            "cpcv_positive_sharpe_ratio": _safe_float(row.get("cpcv_positive_sharpe_ratio")),
             "n_param_combos_tested": _safe_int(row.get("n_param_combos_tested")),
         })
     return sorted(rows, key=lambda r: (r["composite_score"] is None, -(r["composite_score"] or 0)))
