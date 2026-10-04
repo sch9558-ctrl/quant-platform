@@ -4,3 +4,4 @@ Purpose: run Research -> Data Quality -> Dashboard Build -> Private Deploy on cu
 Retry after consensus schema v2 alignment: 33f6d30
 Latest integrated validation: 5af97ec
 Macro/CPCV/BL-HRP integrated validation: fec0f5f
+Safety integration validation: 63b5196
