@@ -33,6 +33,7 @@ knows how to report honestly as SKIPPED.
 """
 from __future__ import annotations
 
+import os
 import time
 from io import StringIO
 
@@ -89,6 +90,9 @@ class USSecondaryProvider:
 
     market = "us"
 
+    def __init__(self, api_key: str | None = None):
+        self.api_key = (api_key or os.getenv("STOOQ_API_KEY", "")).strip()
+
     @staticmethod
     def _empty() -> pd.DataFrame:
         return pd.DataFrame(columns=["open", "high", "low", "close", "volume", "adj_close"])
@@ -96,11 +100,18 @@ class USSecondaryProvider:
     def get_ohlcv(self, symbol: str, start: str, end: str) -> pd.DataFrame:
         empty = self._empty()
         try:
+            params = {
+                "s": to_stooq_symbol(symbol),
+                "d1": pd.Timestamp(start).strftime("%Y%m%d"),
+                "d2": pd.Timestamp(end).strftime("%Y%m%d"),
+                "i": "d",
+            }
+            if self.api_key:
+                params["apikey"] = self.api_key
             resp = requests.get(
                 _STOOQ_URL,
-                params={"s": to_stooq_symbol(symbol),
-                        "d1": pd.Timestamp(start).strftime("%Y%m%d"),
-                        "d2": pd.Timestamp(end).strftime("%Y%m%d"), "i": "d"},
+                params=params,
+                headers={"User-Agent": "Mozilla/5.0 quant-platform research"},
                 timeout=_TIMEOUT_SECONDS,
             )
             resp.raise_for_status()
@@ -109,7 +120,19 @@ class USSecondaryProvider:
             return empty
 
         text = resp.text.strip()
-        if not text or text.startswith("No data") or "," not in text.splitlines()[0]:
+        lower = text.lower()
+        if (
+            not text
+            or text.startswith("No data")
+            or "get your apikey" in lower
+            or "exceeded the daily hits limit" in lower
+            or "," not in text.splitlines()[0]
+        ):
+            logger.warning(
+                "USSecondaryProvider: Stooq returned a non-CSV contract response for %s%s",
+                symbol,
+                " (STOOQ_API_KEY is not configured)" if not self.api_key else "",
+            )
             return empty
 
         try:
