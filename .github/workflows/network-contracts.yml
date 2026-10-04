@@ -1,0 +1,28 @@
+name: Daily Network Provider Contracts
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 22 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  live-provider-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Require live-provider credentials
+        run: |
+          test -n "$DATA_GO_KR_SERVICE_KEY"
+      - name: Run live external-provider contract tests
+        run: python -m pytest tests/data/test_network_provider_contracts.py -q -W ignore -m network
