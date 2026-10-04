@@ -14,6 +14,8 @@ from typing import Iterable
 
 import pandas as pd
 import requests
+
+from quant.utils.calendar import default_as_of
 from bs4 import BeautifulSoup
 
 
@@ -311,7 +313,7 @@ class FinnhubAnalystCollector:
     def collect(self, symbols, start=None, end=None):
         if not self.token:
             return []
-        end = end or str(date.today())
+        end = end or default_as_of("us")
         start = start or str((pd.Timestamp(end) - pd.DateOffset(years=2)).date())
         out = []
         for symbol in symbols:
