@@ -160,6 +160,8 @@ class MarketTrapDataService:
                     "appkey": self.kis_app_key,
                     "appsecret": self.kis_app_secret,
                     "tr_id": "FHPST04760000",
+                    "custtype": "P",
+                    "tr_cont": "",
                 },
                 params={
                     "FID_COND_MRKT_DIV_CODE": "J",
