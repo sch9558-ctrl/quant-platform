@@ -94,3 +94,50 @@ def test_zero_edge_grid_search_dsr_median_is_below_half():
             )
         )
     assert float(np.median(dsrs)) < 0.5
+
+
+def _selected_grid_search_dsrs(*, mean_return: float, seed_start: int, repetitions: int = 80):
+    import numpy as np
+    from quant.validation.cpcv import annualized_sharpe
+
+    out=[]
+    for seed in range(seed_start, seed_start + repetitions):
+        rng=np.random.default_rng(seed)
+        trials=rng.normal(mean_return,0.01,(51,504))
+        sharpes=[annualized_sharpe(x) for x in trials]
+        best=int(np.argmax(sharpes))
+        out.append(
+            deflated_sharpe_ratio(
+                trials[best],
+                n_trials=51,
+                trial_sharpes=sharpes,
+            )
+        )
+    return out
+
+
+def test_dsr_false_approval_rate_is_below_ten_percent():
+    import numpy as np
+
+    threshold=0.70
+    dsrs=_selected_grid_search_dsrs(mean_return=0.0,seed_start=1000,repetitions=80)
+    false_approval_rate=float(np.mean(np.asarray(dsrs)>=threshold))
+    assert false_approval_rate <= 0.10, (
+        f"zero-edge false approval rate {false_approval_rate:.1%} exceeds 10% "
+        f"at DSR threshold {threshold:.2f}"
+    )
+    assert float(np.median(dsrs)) < 0.5
+
+
+def test_dsr_keeps_high_power_for_a_predeclared_positive_edge():
+    import numpy as np
+
+    # Predeclared alternative: daily mean +5bp, daily sigma 1%,
+    # annualized population Sharpe ~= 0.79, with the same 51-trial selection.
+    threshold=0.70
+    dsrs=_selected_grid_search_dsrs(mean_return=0.0005,seed_start=2000,repetitions=80)
+    approval_rate=float(np.mean(np.asarray(dsrs)>=threshold))
+    assert approval_rate >= 0.90, (
+        f"positive-edge approval rate {approval_rate:.1%} is below 90% "
+        f"at DSR threshold {threshold:.2f}"
+    )
