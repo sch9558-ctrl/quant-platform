@@ -6,7 +6,7 @@ on:
     paths:
       - "tools/network_contracts.trigger"
   schedule:
-    - cron: "15 22 * * *"
+    - cron: "15 15 * * *"  # 00:15 KST; separated from 07:00 KST daily research
 
 permissions:
   contents: read
