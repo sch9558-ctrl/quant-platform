@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from quant.data.base import MarketDataProvider, SymbolInfo
+from quant.utils.calendar import default_as_of
 
 _SECTORS = [
     "Technology", "Financials", "Industrials", "Healthcare", "Consumer",
@@ -44,7 +45,7 @@ class SyntheticDataProvider(MarketDataProvider):
         self.market = market
         self._rng = np.random.default_rng(seed)
         self._start = pd.Timestamp(start)
-        self._end = pd.Timestamp(end) if end else pd.Timestamp.today().normalize()
+        self._end = pd.Timestamp(end) if end else pd.Timestamp(default_as_of(market))
         self._dates = pd.bdate_range(self._start, self._end)
         self._n_symbols = n_symbols
         self._n_etfs = n_etfs
