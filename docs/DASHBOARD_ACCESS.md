@@ -5,9 +5,9 @@ Never commit or paste secret values into issues, logs, documentation, or chat.
 
 ## 1. Cloudflare Pages token
 
-1. Open Cloudflare Dashboard -> My Profile -> API Tokens.
+1. Open Cloudflare Dashboard -> My Profile -> API Tokens. Official token guide: https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
 2. Create a Custom API token restricted to the account that will own this project.
-3. Grant **Account -> Cloudflare Pages -> Edit** (Cloudflare API permission name: Pages Write).
+3. Grant **Account -> Cloudflare Pages -> Edit** (Cloudflare API permission name: Pages Write). Pages Direct Upload guide: https://developers.cloudflare.com/pages/get-started/direct-upload/
 4. In GitHub, open this repository -> Settings -> Secrets and variables -> Actions.
 5. Create the secret **CLOUDFLARE_API_TOKEN**.
 
@@ -17,7 +17,7 @@ This token is used only for Pages project management/deployment.
 
 The dashboard is never published unless Access can be inspected and configured first.
 
-1. Create a separate Cloudflare Custom API token for the same account.
+1. Create a separate Cloudflare Custom API token for the same account. Cloudflare Zero Trust API/Terraform guide: https://developers.cloudflare.com/cloudflare-one/api-terraform/
 2. Grant:
    - **Account -> Access: Apps and Policies -> Edit**
    - **Account -> Access: Identity Providers -> Edit**
