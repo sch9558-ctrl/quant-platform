@@ -191,11 +191,23 @@ class PaperBrokerBase(BrokerInterface):
         if quantity <= 0 or price <= 0:
             return OrderRejection(symbol, quantity, ["invalid quantity or price"])
 
-        session = (
-            pd.Timestamp(session).normalize()
-            if session is not None
-            else pd.Timestamp(default_as_of(self.market)).normalize()
-        )
+        if session is not None:
+            session = pd.Timestamp(session).normalize()
+        else:
+            known_sessions = [
+                pd.Timestamp(date).normalize()
+                for date, _ in self.equity_history
+            ]
+            known_sessions.extend(
+                pd.Timestamp(fill.session).normalize()
+                for fill in self.fills
+                if fill.session is not None
+            )
+            session = (
+                max(known_sessions)
+                if known_sessions
+                else pd.Timestamp(default_as_of(self.market)).normalize()
+            )
         self._assert_session_not_before_state(session)
         nav = self.get_account_value({symbol: price})
         if nav <= 0:
