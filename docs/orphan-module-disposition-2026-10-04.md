@@ -28,7 +28,7 @@ reported as "feature delivered".
 | `tax_optimizer.py` | **B — hold** | Needs private tax-lot/cost-basis records, FX basis and jurisdiction/account rules. Do not infer these inputs. |
 | `trading/exit_engine.py` | **B — hold / consolidation candidate** | Trailing-stop authority already lives in RiskGuard. Time-stop policy must be reconciled into one risk authority before this module can be called. |
 | `trading/paper_trader.py` | **B — hold / consolidation candidate** | Production already has KoreaPaperBroker/USPaperBroker. A second ledger would create conflicting NAV/trade histories until a migration/reconciliation plan exists. |
-| `volatility_targeting.py` | **B — hold** | Needs an explicit portfolio target-vol policy, calibrated horizon and interaction tests with BL/HRP, cash floor and RiskGuard. |
+| `volatility_targeting.py` | **A — wired** | `run_paper.py` consumes persistent paper NAV history and applies the 12% EWMA target only after 20 return observations. `max_scale=1.0` means the overlay can only reduce risky weights; base PortfolioConstructor/RiskManager remain authoritative. |
 
 ## Rules for future promotion from B to A
 
@@ -55,8 +55,8 @@ cluster around three shared prerequisites:
 
 | Priority | Shared prerequisite | Difficulty | Modules unlocked | Count | Status |
 |---|---|---:|---|---:|---|
-| **1** | **Point-in-time external observation archive** with publication timestamps, provenance, revision preservation and as-of queries | 4/5 | attribution, consensus_acceleration, index_rebalancing, institutional_flow, supply_chain, report_sentiment, customs_tracker, residual_alpha | **8** | **Started** in the existing ResearchDB |
-| **2** | **Persistent position/execution state**: entry session, highest-high-since-entry, tax lots/cost basis, marked NAV, manual-review/order lifecycle | 3/5 | exit_engine production time-stop, tax_optimizer, volatility_targeting, broker_gateway, telegram_alert | **5** | Partial: paper broker NAV exists; duplicate PaperTrader authority removed |
+| **1** | **Point-in-time external observation archive** with publication timestamps, provenance, revision preservation and as-of queries | 4/5 | attribution, consensus_acceleration, index_rebalancing, institutional_flow, supply_chain, report_sentiment, customs_tracker, residual_alpha | **8** | **Completed foundation** in the existing ResearchDB; immutable revisions and as-of queries are enforced |
+| **2** | **Persistent position/execution state**: entry session, highest-high-since-entry, tax lots/cost basis, marked NAV, manual-review/order lifecycle | 3/5 | exit_engine production time-stop, tax_optimizer, volatility_targeting, broker_gateway, telegram_alert | **5** | **Started and production-backed**: broker remains authoritative; ResearchDB stores immutable fills and session snapshots. `volatility_targeting` is now wired. Highest-high/tax-lot/manual-review lifecycle remain outstanding. |
 | **3** | **Research-to-production promotion protocol** using existing Walk-Forward -> DSR/CPCV gates and an explicit strategy registration contract | 3/5 | pairs_trading, wavelet_filter, agent_committee | **3** | Not started |
 
 Priority 1 ranks first despite the higher implementation difficulty because one
@@ -118,3 +118,31 @@ RiskGuard. Independent commission/slippage/tax overrides are rejected because
 the shared CostModel is authoritative. This removes the duplicate-account
 reason for deferral; remaining production promotion depends only on the manual
 review/order lifecycle under prerequisite 2.
+
+
+### Priority 2 implementation status — persistent paper state
+
+The operational authority remains `KoreaPaperBroker` / `USPaperBroker` and
+their existing state file. ResearchDB is an append-only audit/validation
+projection, not a third trading ledger.
+
+Persisted records:
+- immutable fills with explicit market session and actual fill timestamp;
+- account snapshots with session, cash, NAV, peak NAV and loss streak;
+- position snapshots with symbol, quantity, average cost and entry session.
+
+Historical queries are session bounded. `latest_paper_state_as_of`,
+`paper_nav_history` and `paper_fills_as_of` never include later sessions.
+
+The first module unlocked is `volatility_targeting.py`. `run_paper.py`
+uses persistent NAV only when at least 20 return observations exist. The
+overlay cannot lever up because `max_scale=1.0`; it can only reduce risky
+target weights. When history is insufficient it records that the overlay was
+not applied instead of fabricating volatility.
+
+Still blocked under prerequisite 2:
+- production time-stop needs persistent highest-high-since-entry / mark history;
+- tax optimizer needs tax lots, FX basis and jurisdiction/account rules;
+- broker gateway remains blocked by the permanent live-trading lock;
+- Telegram needs explicit notification routing and may only surface existing
+  manual-review states.
