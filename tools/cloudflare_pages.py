@@ -131,9 +131,10 @@ def probe_access_permissions(client: Client) -> tuple[list[dict[str, Any]], list
         if exc.status in (401, 403):
             raise AccessPermissionError(
                 "Cloudflare Access management is not authorized by the configured token. "
-                "Set CLOUDFLARE_ACCESS_API_TOKEN (or grant the existing token Access "
-                "Apps/Policies and Identity Providers write permissions). No Pages "
-                "project was created and no public fallback was attempted."
+                "Create or update CLOUDFLARE_ACCESS_API_TOKEN for this account with "
+                "Access: Apps and Policies Edit and Access: Identity Providers Edit. "
+                "Store it in GitHub repository Settings -> Secrets and variables -> Actions. "
+                "No Pages project was created and no public fallback was attempted."
             ) from exc
         raise
     return apps, idps
@@ -293,7 +294,21 @@ def main() -> int:
     pages_token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
     access_token = os.getenv("CLOUDFLARE_ACCESS_API_TOKEN", "").strip() or pages_token
     if not account_id or not pages_token:
-        print("Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN", file=sys.stderr)
+        missing = []
+        if not account_id:
+            missing.append(
+                "CLOUDFLARE_ACCOUNT_ID (Cloudflare Dashboard -> Workers & Pages -> Account Details)"
+            )
+        if not pages_token:
+            missing.append(
+                "CLOUDFLARE_API_TOKEN (Custom API token with Account -> Cloudflare Pages -> Edit)"
+            )
+        print(
+            "Missing Cloudflare configuration: " + "; ".join(missing)
+            + ". Store the value(s) in GitHub repository Settings -> Secrets and variables -> Actions. "
+              "Token values must never be printed.",
+            file=sys.stderr,
+        )
         return 2
 
     pages_client = Client(account_id=account_id, token=pages_token)
