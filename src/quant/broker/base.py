@@ -25,6 +25,7 @@ class Position:
     symbol: str
     quantity: float
     avg_cost: float
+    entry_session: str | None = None
 
     @property
     def market_value(self) -> float:
@@ -42,6 +43,7 @@ class Fill:
     tax_or_fee: float
     filled_at: pd.Timestamp
     reason: str = ""    # e.g. "rebalance", "stop_loss", "manual"
+    session: pd.Timestamp | None = None
 
 
 @dataclass
@@ -67,7 +69,7 @@ class BrokerInterface(ABC):
     @abstractmethod
     def submit_order(
         self, symbol: str, side: str, quantity: float, price: float, sector: str | None = None,
-        reason: str = "manual",
+        reason: str = "manual", session: pd.Timestamp | None = None,
     ) -> Fill | OrderRejection: ...
 
     @abstractmethod
