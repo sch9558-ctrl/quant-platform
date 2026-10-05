@@ -2,6 +2,7 @@ import pytest
 
 from quant.broker.base import Fill, OrderRejection
 from quant.broker.kr_paper import KoreaPaperBroker
+from quant.research_db.db import ResearchDB
 
 
 @pytest.fixture
@@ -97,3 +98,125 @@ def test_reset_clears_state(broker):
     broker.reset()
     assert broker.get_positions() == {}
     assert broker.get_cash() == broker.initial_capital
+
+
+
+def test_research_db_projection_survives_restart_and_is_as_of_safe(tmp_path):
+    import pandas as pd
+
+    state_path = tmp_path / "paper_korea.json"
+    research_db = ResearchDB(path=tmp_path / "research.sqlite")
+
+    first = KoreaPaperBroker(
+        initial_capital=10_000_000,
+        state_path=state_path,
+        research_db=research_db,
+    )
+    fill = first.submit_order(
+        "AAA", "buy", quantity=100, price=1000,
+        session=pd.Timestamp("2026-01-05"),
+    )
+    assert isinstance(fill, Fill)
+    first.record_daily_equity(
+        {"AAA": 1010},
+        as_of=pd.Timestamp("2026-01-05"),
+    )
+
+    january = research_db.latest_paper_state_as_of(
+        market="korea",
+        as_of="2026-01-05",
+    )
+    assert january is not None
+    assert january["positions"]["AAA"]["quantity"] == pytest.approx(100)
+    assert january["positions"]["AAA"]["entry_session"] == "2026-01-05"
+    january_nav = january["nav"]
+    january_cash = january["cash"]
+
+    restarted = KoreaPaperBroker(
+        initial_capital=10_000_000,
+        state_path=state_path,
+        research_db=research_db,
+    )
+    assert restarted.get_cash() == pytest.approx(first.get_cash())
+    assert restarted.get_positions()["AAA"].entry_session == "2026-01-05"
+
+    sell = restarted.submit_order(
+        "AAA", "sell", quantity=50, price=1100,
+        session=pd.Timestamp("2026-02-02"),
+    )
+    assert isinstance(sell, Fill)
+    restarted.record_daily_equity(
+        {"AAA": 1100},
+        as_of=pd.Timestamp("2026-02-02"),
+    )
+
+    january_after_future_fill = research_db.latest_paper_state_as_of(
+        market="korea",
+        as_of="2026-01-05",
+    )
+    assert january_after_future_fill is not None
+    assert january_after_future_fill["nav"] == pytest.approx(january_nav)
+    assert january_after_future_fill["cash"] == pytest.approx(january_cash)
+    assert january_after_future_fill["positions"]["AAA"]["quantity"] == pytest.approx(100)
+
+    february = research_db.latest_paper_state_as_of(
+        market="korea",
+        as_of="2026-02-02",
+    )
+    assert february is not None
+    assert february["positions"]["AAA"]["quantity"] == pytest.approx(50)
+
+    old_fills = research_db.paper_fills_as_of(
+        market="korea",
+        as_of="2026-01-31",
+    )
+    assert list(old_fills["side"]) == ["buy"]
+    all_fills = research_db.paper_fills_as_of(
+        market="korea",
+        as_of="2026-02-02",
+    )
+    assert list(all_fills["side"]) == ["buy", "sell"]
+
+
+def test_repeated_identical_mark_keeps_persistent_state_values_stable(tmp_path):
+    import pandas as pd
+
+    research_db = ResearchDB(path=tmp_path / "research.sqlite")
+    broker = KoreaPaperBroker(
+        initial_capital=10_000_000,
+        state_path=tmp_path / "paper_korea.json",
+        research_db=research_db,
+    )
+    broker.submit_order(
+        "AAA", "buy", quantity=50, price=1000,
+        session=pd.Timestamp("2026-01-05"),
+    )
+    broker.record_daily_equity({"AAA": 1050}, as_of=pd.Timestamp("2026-01-06"))
+    first = research_db.latest_paper_state_as_of(market="korea", as_of="2026-01-06")
+
+    broker.record_daily_equity({"AAA": 1050}, as_of=pd.Timestamp("2026-01-06"))
+    second = research_db.latest_paper_state_as_of(market="korea", as_of="2026-01-06")
+
+    assert first is not None and second is not None
+    assert second["cash"] == pytest.approx(first["cash"])
+    assert second["nav"] == pytest.approx(first["nav"])
+    assert second["positions"] == first["positions"]
+
+
+def test_persistent_nav_history_excludes_future_sessions(tmp_path):
+    import pandas as pd
+
+    research_db = ResearchDB(path=tmp_path / "research.sqlite")
+    broker = KoreaPaperBroker(
+        initial_capital=10_000_000,
+        state_path=tmp_path / "paper_korea.json",
+        research_db=research_db,
+    )
+    broker.record_daily_equity({}, as_of=pd.Timestamp("2026-01-05"))
+    broker.record_daily_equity({}, as_of=pd.Timestamp("2026-02-02"))
+
+    january = research_db.paper_nav_history(
+        market="korea",
+        as_of="2026-01-31",
+    )
+    assert list(january.index.strftime("%Y-%m-%d")) == ["2026-01-05"]
