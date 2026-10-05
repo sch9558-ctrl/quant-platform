@@ -220,3 +220,50 @@ def test_persistent_nav_history_excludes_future_sessions(tmp_path):
         as_of="2026-01-31",
     )
     assert list(january.index.strftime("%Y-%m-%d")) == ["2026-01-05"]
+
+
+
+def test_persistent_nav_volatility_target_reduces_only_with_enough_history():
+    import pandas as pd
+    from run_paper import apply_persistent_nav_volatility_target
+
+    class FakeDB:
+        def __init__(self, nav):
+            self.nav = nav
+
+        def paper_nav_history(self, *, market, as_of):
+            return self.nav.loc[:pd.Timestamp(as_of)]
+
+    class FakeBroker:
+        market = "korea"
+
+        def __init__(self, nav):
+            self.research_db = FakeDB(nav)
+
+    index = pd.bdate_range("2026-01-02", periods=30)
+    # Deliberately volatile but positive NAV path: enough evidence should
+    # cause the 12% target-vol overlay to de-risk, never lever up.
+    nav = pd.Series(
+        [100.0 * (1.04 if i % 2 == 0 else 0.96) ** (i + 1) for i in range(30)],
+        index=index,
+    )
+    weights = {"AAA": 0.08, "BBB": 0.07}
+    adjusted, meta = apply_persistent_nav_volatility_target(
+        weights,
+        FakeBroker(nav),
+        as_of=str(index[-1].date()),
+    )
+    assert meta["applied"] is True
+    assert 0.0 <= meta["risky_weight"] < 1.0
+    assert adjusted["AAA"] < weights["AAA"]
+    assert adjusted["BBB"] < weights["BBB"]
+
+    short_nav = nav.iloc[:10]
+    unchanged, short_meta = apply_persistent_nav_volatility_target(
+        weights,
+        FakeBroker(short_nav),
+        as_of=str(short_nav.index[-1].date()),
+    )
+    assert short_meta["applied"] is False
+    assert short_meta["reason"] == "INSUFFICIENT_PERSISTENT_NAV_HISTORY"
+    assert unchanged == weights
