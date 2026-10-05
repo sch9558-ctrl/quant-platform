@@ -19,8 +19,8 @@ The dashboard is never published unless Access can be inspected and configured f
 
 1. Create a separate Cloudflare Custom API token for the same account. Cloudflare Zero Trust API/Terraform guide: https://developers.cloudflare.com/cloudflare-one/api-terraform/
 2. Grant:
-   - **Account -> Access: Apps and Policies -> Edit**
-   - **Account -> Access: Identity Providers -> Edit**
+   - **Account -> Access: Apps and Policies -> Edit** (API: `Access: Apps and Policies Write`)
+   - **Account -> Access: Organizations, Identity Providers, and Groups -> Edit** (API: `Access: Organizations, Identity Providers, and Groups Write`)
 3. Save it in GitHub Actions secrets as **CLOUDFLARE_ACCESS_API_TOKEN**.
 
 Using a separate Access token is preferable to broadening the Pages token.
