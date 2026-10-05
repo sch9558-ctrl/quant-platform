@@ -148,6 +148,22 @@ class PaperBrokerBase(BrokerInterface):
                 fills=projected_fills,
             )
 
+    def _assert_session_not_before_state(self, session: pd.Timestamp) -> None:
+        """Reject backdated mutations once the paper ledger has moved forward."""
+        latest = []
+        if self.equity_history:
+            latest.append(pd.Timestamp(self.equity_history[-1][0]).normalize())
+        latest.extend(
+            pd.Timestamp(fill.session).normalize()
+            for fill in self.fills
+            if fill.session is not None
+        )
+        if latest and session < max(latest):
+            raise ValueError(
+                f"paper ledger cannot mutate past session {session.date()} after "
+                f"state has reached {max(latest).date()}"
+            )
+
     def reset(self) -> None:
         """Wipe paper-trading state back to a fresh starting balance."""
         if self.state_path.exists():
@@ -180,6 +196,7 @@ class PaperBrokerBase(BrokerInterface):
             if session is not None
             else pd.Timestamp(default_as_of(self.market)).normalize()
         )
+        self._assert_session_not_before_state(session)
         nav = self.get_account_value({symbol: price})
         if nav <= 0:
             return OrderRejection(symbol, quantity, ["account value is zero or negative"])
@@ -286,6 +303,8 @@ class PaperBrokerBase(BrokerInterface):
 
     def record_daily_equity(self, prices: dict[str, float], as_of: pd.Timestamp | None = None) -> float:
         as_of = pd.Timestamp(as_of) if as_of is not None else pd.Timestamp(default_as_of(self.market))
+        as_of = as_of.normalize()
+        self._assert_session_not_before_state(as_of)
         equity = self.get_account_value(prices)
         prev_equity = self.equity_history[-1][1] if self.equity_history else self.initial_capital
         self.equity_history.append((as_of, equity))
