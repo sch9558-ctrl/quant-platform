@@ -30,7 +30,7 @@ jobs:
           CF_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
         run: |
           if [ -z "$CF_TOKEN" ]; then
-            echo "::error::Missing CLOUDFLARE_API_TOKEN"
+            echo "::error::CLOUDFLARE_API_TOKEN is missing. Create a Cloudflare Custom API token for this account with Account -> Cloudflare Pages -> Edit (API: Pages Write), then save it in GitHub repository Settings -> Secrets and variables -> Actions as CLOUDFLARE_API_TOKEN. Never print the token."
             exit 1
           fi
 
@@ -75,7 +75,7 @@ jobs:
           fi
           if [ "$rc" -eq 3 ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Cloudflare Access permission is not configured; private dashboard deployment is safely skipped."
+            echo "::warning::Cloudflare Access permission is insufficient. Configure CLOUDFLARE_ACCESS_API_TOKEN with Account -> Access: Apps and Policies -> Edit and Account -> Access: Identity Providers -> Edit. Private deployment is safely skipped; no public fallback was attempted."
             exit 0
           fi
           exit "$rc"
@@ -114,4 +114,4 @@ jobs:
         run: |
           echo "## Private dashboard deployment skipped" >> "$GITHUB_STEP_SUMMARY"
           echo "Cloudflare Pages was not published because Access management permission is not configured." >> "$GITHUB_STEP_SUMMARY"
-          echo "Add CLOUDFLARE_ACCESS_API_TOKEN (or CF_ACCESS_API_TOKEN) with Access management scope to enable private deployment." >> "$GITHUB_STEP_SUMMARY"
+          echo "Add CLOUDFLARE_ACCESS_API_TOKEN with Access: Apps and Policies Edit + Access: Identity Providers Edit for this account." >> "$GITHUB_STEP_SUMMARY"
