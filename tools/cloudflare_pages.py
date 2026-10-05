@@ -132,7 +132,7 @@ def probe_access_permissions(client: Client) -> tuple[list[dict[str, Any]], list
             raise AccessPermissionError(
                 "Cloudflare Access management is not authorized by the configured token. "
                 "Create or update CLOUDFLARE_ACCESS_API_TOKEN for this account with "
-                "Access: Apps and Policies Edit and Access: Identity Providers Edit. "
+                "Access: Apps and Policies Write and Access: Organizations, Identity Providers, and Groups Write. "
                 "Store it in GitHub repository Settings -> Secrets and variables -> Actions. "
                 "No Pages project was created and no public fallback was attempted."
             ) from exc
