@@ -267,3 +267,21 @@ def test_persistent_nav_volatility_target_reduces_only_with_enough_history():
     assert short_meta["applied"] is False
     assert short_meta["reason"] == "INSUFFICIENT_PERSISTENT_NAV_HISTORY"
     assert unchanged == weights
+
+
+
+def test_backdated_paper_mutation_is_rejected(tmp_path):
+    import pandas as pd
+
+    broker = KoreaPaperBroker(
+        initial_capital=10_000_000,
+        state_path=tmp_path / "paper_korea.json",
+        research_db=ResearchDB(path=tmp_path / "research.sqlite"),
+    )
+    broker.record_daily_equity({}, as_of=pd.Timestamp("2026-02-02"))
+
+    with pytest.raises(ValueError, match="cannot mutate past session"):
+        broker.submit_order(
+            "AAA", "buy", quantity=10, price=1000,
+            session=pd.Timestamp("2026-01-05"),
+        )
