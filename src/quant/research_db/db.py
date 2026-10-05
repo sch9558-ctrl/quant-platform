@@ -3,6 +3,8 @@ experiment run, so past results can be found, compared, and reproduced.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 from pathlib import Path
 
@@ -56,6 +58,47 @@ CREATE INDEX IF NOT EXISTS idx_pit_type ON point_in_time_observations(observatio
 CREATE INDEX IF NOT EXISTS idx_pit_source ON point_in_time_observations(source);
 CREATE INDEX IF NOT EXISTS idx_pit_market_symbol ON point_in_time_observations(market, symbol);
 CREATE INDEX IF NOT EXISTS idx_pit_published ON point_in_time_observations(published_at);
+
+CREATE TABLE IF NOT EXISTS paper_fills (
+    fill_id TEXT PRIMARY KEY,
+    market TEXT NOT NULL,
+    session_date TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    side TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    price REAL NOT NULL,
+    commission REAL NOT NULL,
+    tax_or_fee REAL NOT NULL,
+    filled_at TEXT NOT NULL,
+    reason TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_paper_fills_market_session
+ON paper_fills(market, session_date);
+
+CREATE TABLE IF NOT EXISTS paper_account_snapshots (
+    snapshot_id TEXT PRIMARY KEY,
+    market TEXT NOT NULL,
+    session_date TEXT NOT NULL,
+    event_seq INTEGER NOT NULL,
+    cash REAL NOT NULL,
+    nav REAL NOT NULL,
+    peak_nav REAL NOT NULL,
+    consecutive_losses INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_paper_snapshots_market_session
+ON paper_account_snapshots(market, session_date, event_seq);
+
+CREATE TABLE IF NOT EXISTS paper_position_snapshots (
+    snapshot_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    avg_cost REAL NOT NULL,
+    entry_session TEXT,
+    PRIMARY KEY(snapshot_id, symbol),
+    FOREIGN KEY(snapshot_id) REFERENCES paper_account_snapshots(snapshot_id)
+);
+CREATE INDEX IF NOT EXISTS idx_paper_positions_symbol
+ON paper_position_snapshots(symbol);
 """
 
 
@@ -233,6 +276,211 @@ class ResearchDB:
         params.append(int(limit))
         with self._connect() as conn:
             return pd.read_sql_query(sql, conn, params=params)
+
+
+    @staticmethod
+    def _paper_snapshot_id(
+        *,
+        market: str,
+        session: str | pd.Timestamp,
+        event_seq: int,
+        cash: float,
+        nav: float,
+        peak_nav: float,
+        consecutive_losses: int,
+        positions: dict[str, dict],
+    ) -> str:
+        normalized = {
+            "market": str(market),
+            "session": pd.Timestamp(session).normalize().date().isoformat(),
+            "event_seq": int(event_seq),
+            "cash": round(float(cash), 10),
+            "nav": round(float(nav), 10),
+            "peak_nav": round(float(peak_nav), 10),
+            "consecutive_losses": int(consecutive_losses),
+            "positions": {
+                str(symbol): {
+                    "quantity": round(float(row["quantity"]), 10),
+                    "avg_cost": round(float(row["avg_cost"]), 10),
+                    "entry_session": row.get("entry_session"),
+                }
+                for symbol, row in sorted(positions.items())
+            },
+        }
+        payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
+
+    def save_paper_state(
+        self,
+        *,
+        market: str,
+        session: str | pd.Timestamp,
+        event_seq: int,
+        cash: float,
+        nav: float,
+        peak_nav: float,
+        consecutive_losses: int,
+        positions: dict[str, dict],
+        fills: list[dict],
+    ) -> str:
+        """Persist an immutable audit projection of the authoritative paper broker.
+
+        The broker remains the operational ledger. ResearchDB keeps reproducible
+        session/fill history for long-horizon validation and historical queries.
+        """
+        session_date = pd.Timestamp(session).normalize().date().isoformat()
+        snapshot_id = self._paper_snapshot_id(
+            market=market,
+            session=session_date,
+            event_seq=event_seq,
+            cash=cash,
+            nav=nav,
+            peak_nav=peak_nav,
+            consecutive_losses=consecutive_losses,
+            positions=positions,
+        )
+        with self._connect() as conn:
+            for fill in fills:
+                fill_session = pd.Timestamp(fill["session"]).normalize().date().isoformat()
+                row = (
+                    str(fill["fill_id"]), str(market), fill_session, str(fill["symbol"]),
+                    str(fill["side"]), float(fill["quantity"]), float(fill["price"]),
+                    float(fill["commission"]), float(fill["tax_or_fee"]),
+                    pd.Timestamp(fill["filled_at"]).isoformat(), str(fill.get("reason") or ""),
+                )
+                existing = conn.execute(
+                    "SELECT market, session_date, symbol, side, quantity, price, commission, "
+                    "tax_or_fee, filled_at, reason FROM paper_fills WHERE fill_id = ?",
+                    (row[0],),
+                ).fetchone()
+                if existing is not None:
+                    existing_tuple = tuple(existing)
+                    if existing_tuple != row[1:]:
+                        raise ValueError(
+                            f"paper fill_id {row[0]!r} already exists with different contents"
+                        )
+                    continue
+                conn.execute(
+                    "INSERT INTO paper_fills "
+                    "(fill_id, market, session_date, symbol, side, quantity, price, "
+                    "commission, tax_or_fee, filled_at, reason) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    row,
+                )
+
+            existing_snapshot = conn.execute(
+                "SELECT 1 FROM paper_account_snapshots WHERE snapshot_id = ?",
+                (snapshot_id,),
+            ).fetchone()
+            if existing_snapshot is None:
+                conn.execute(
+                    "INSERT INTO paper_account_snapshots "
+                    "(snapshot_id, market, session_date, event_seq, cash, nav, peak_nav, consecutive_losses) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        snapshot_id, str(market), session_date, int(event_seq),
+                        float(cash), float(nav), float(peak_nav), int(consecutive_losses),
+                    ),
+                )
+                for symbol, position in sorted(positions.items()):
+                    conn.execute(
+                        "INSERT INTO paper_position_snapshots "
+                        "(snapshot_id, symbol, quantity, avg_cost, entry_session) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (
+                            snapshot_id, str(symbol), float(position["quantity"]),
+                            float(position["avg_cost"]), position.get("entry_session"),
+                        ),
+                    )
+        return snapshot_id
+
+    def latest_paper_state_as_of(
+        self,
+        *,
+        market: str,
+        as_of: str | pd.Timestamp,
+    ) -> dict | None:
+        """Return the latest persisted broker projection visible by as_of session."""
+        cutoff = pd.Timestamp(as_of).normalize().date().isoformat()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM paper_account_snapshots "
+                "WHERE market = ? AND session_date <= ? "
+                "ORDER BY session_date DESC, event_seq DESC, rowid DESC LIMIT 1",
+                (market, cutoff),
+            ).fetchone()
+            if row is None:
+                return None
+            positions = conn.execute(
+                "SELECT symbol, quantity, avg_cost, entry_session "
+                "FROM paper_position_snapshots WHERE snapshot_id = ? ORDER BY symbol",
+                (row["snapshot_id"],),
+            ).fetchall()
+        return {
+            "snapshot_id": row["snapshot_id"],
+            "market": row["market"],
+            "session": row["session_date"],
+            "event_seq": int(row["event_seq"]),
+            "cash": float(row["cash"]),
+            "nav": float(row["nav"]),
+            "peak_nav": float(row["peak_nav"]),
+            "consecutive_losses": int(row["consecutive_losses"]),
+            "positions": {
+                p["symbol"]: {
+                    "quantity": float(p["quantity"]),
+                    "avg_cost": float(p["avg_cost"]),
+                    "entry_session": p["entry_session"],
+                }
+                for p in positions
+            },
+        }
+
+    def paper_nav_history(
+        self,
+        *,
+        market: str,
+        as_of: str | pd.Timestamp | None = None,
+        since: str | pd.Timestamp | None = None,
+    ) -> pd.Series:
+        """Latest marked NAV per session, suitable for multi-month validation."""
+        clauses = ["market = ?"]
+        params: list[object] = [market]
+        if as_of is not None:
+            clauses.append("session_date <= ?")
+            params.append(pd.Timestamp(as_of).normalize().date().isoformat())
+        if since is not None:
+            clauses.append("session_date >= ?")
+            params.append(pd.Timestamp(since).normalize().date().isoformat())
+        sql = (
+            "SELECT session_date, event_seq, nav FROM paper_account_snapshots WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY session_date ASC, event_seq ASC, rowid ASC"
+        )
+        with self._connect() as conn:
+            frame = pd.read_sql_query(sql, conn, params=params)
+        if frame.empty:
+            return pd.Series(dtype=float, name="nav")
+        latest = frame.drop_duplicates(subset=["session_date"], keep="last")
+        return pd.Series(
+            latest["nav"].astype(float).to_numpy(),
+            index=pd.to_datetime(latest["session_date"]),
+            name="nav",
+        )
+
+    def paper_fills_as_of(
+        self,
+        *,
+        market: str,
+        as_of: str | pd.Timestamp,
+    ) -> pd.DataFrame:
+        cutoff = pd.Timestamp(as_of).normalize().date().isoformat()
+        with self._connect() as conn:
+            return pd.read_sql_query(
+                "SELECT * FROM paper_fills WHERE market = ? AND session_date <= ? "
+                "ORDER BY session_date, filled_at, fill_id",
+                conn,
+                params=[market, cutoff],
+            )
 
 
     def count(self) -> int:
