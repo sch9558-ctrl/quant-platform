@@ -44,14 +44,65 @@ from quant.broker.us_paper import USPaperBroker  # noqa: E402
 from quant.data.factory import get_provider  # noqa: E402
 from quant.portfolio.constructor import PortfolioConstructor, PortfolioItem  # noqa: E402
 from quant.quality.pipeline_gate import run_gated_scan  # noqa: E402
+from quant.research_db.db import ResearchDB  # noqa: E402
 from quant.utils.calendar import default_as_of  # noqa: E402
+from quant.volatility_targeting import VolatilityTargeting  # noqa: E402
 from quant.utils.logging import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 
 
 def build_broker(market: str):
-    return KoreaPaperBroker() if market == "korea" else USPaperBroker()
+    db = ResearchDB()
+    return (
+        KoreaPaperBroker(research_db=db)
+        if market == "korea"
+        else USPaperBroker(research_db=db)
+    )
+
+
+def apply_persistent_nav_volatility_target(
+    target_weights: dict[str, float],
+    broker,
+    *,
+    as_of: str,
+    min_return_observations: int = 20,
+) -> tuple[dict[str, float], dict]:
+    """De-risk target weights when persistent paper NAV has enough history.
+
+    This overlay can only reduce risky exposure (VolatilityTargeting.max_scale
+    defaults to 1.0). Insufficient history does not fabricate volatility; the
+    existing PortfolioConstructor/RiskManager sizing remains authoritative until
+    enough paper sessions have accumulated.
+    """
+    if broker.research_db is None:
+        return dict(target_weights), {
+            "applied": False,
+            "reason": "RESEARCH_DB_UNAVAILABLE",
+            "return_observations": 0,
+        }
+    nav = broker.research_db.paper_nav_history(market=broker.market, as_of=as_of)
+    returns = nav.pct_change().dropna()
+    if len(returns) < min_return_observations:
+        return dict(target_weights), {
+            "applied": False,
+            "reason": "INSUFFICIENT_PERSISTENT_NAV_HISTORY",
+            "return_observations": int(len(returns)),
+        }
+    result = VolatilityTargeting().target(returns)
+    scale = min(1.0, max(0.0, float(result.risky_weight)))
+    return (
+        {symbol: float(weight) * scale for symbol, weight in target_weights.items()},
+        {
+            "applied": True,
+            "reason": "VOLATILITY_TARGET_APPLIED",
+            "return_observations": int(len(returns)),
+            "realized_vol": float(result.realized_vol),
+            "target_vol": float(result.target_vol),
+            "risky_weight": scale,
+            "cash_weight": float(result.cash_weight),
+        },
+    )
 
 
 def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = None) -> None:
@@ -93,7 +144,29 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
     allocation = PortfolioConstructor().compute_weights(items)
     prices = {c.symbol: c.price for c in scan.top_candidates}
 
-    results = broker.rebalance_to_target_weights(allocation.weights.to_dict(), prices)
+    target_weights, vol_target = apply_persistent_nav_volatility_target(
+        allocation.weights.to_dict(),
+        broker,
+        as_of=as_of,
+    )
+    if vol_target["applied"]:
+        print(
+            f"[{market}] persistent-NAV volatility target: "
+            f"realized={vol_target['realized_vol']:.1%} "
+            f"target={vol_target['target_vol']:.1%} "
+            f"risky_weight={vol_target['risky_weight']:.1%}"
+        )
+    else:
+        print(
+            f"[{market}] volatility target not applied: {vol_target['reason']} "
+            f"(returns={vol_target['return_observations']})"
+        )
+
+    results = broker.rebalance_to_target_weights(
+        target_weights,
+        prices,
+        session=pd.Timestamp(as_of),
+    )
     n_filled = sum(1 for r in results if hasattr(r, "fill_id"))
     n_rejected = len(results) - n_filled
     print(
