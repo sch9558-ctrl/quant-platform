@@ -21,6 +21,7 @@ from quant import config
 from quant.backtest.costs import CostModel
 from quant.broker.base import BrokerInterface, Fill, OrderRejection, Position
 from quant.risk.manager import PortfolioState, RiskManager
+from quant.research_db.db import ResearchDB
 from quant.utils.calendar import default_as_of
 
 
@@ -33,10 +34,12 @@ class PaperBrokerBase(BrokerInterface):
         initial_capital: float,
         state_path: Path | None = None,
         risk_manager: RiskManager | None = None,
+        research_db: ResearchDB | None = None,
     ):
         self.market = market
         self.cost_model = CostModel(market)
         self.risk_manager = risk_manager or RiskManager()
+        self.research_db = research_db
         self.state_path = state_path or (
             config.resolve_path(config.settings()["paths"]["db_dir"]) / f"paper_{market}.json"
         )
@@ -50,7 +53,12 @@ class PaperBrokerBase(BrokerInterface):
             self.cash = data["cash"]
             self.positions = {s: Position(**p) for s, p in data["positions"].items()}
             self.fills = [
-                Fill(**{**f, "filled_at": pd.Timestamp(f["filled_at"])}) for f in data["fills"]
+                Fill(**{
+                    **f,
+                    "filled_at": pd.Timestamp(f["filled_at"]),
+                    "session": pd.Timestamp(f["session"]) if f.get("session") else None,
+                })
+                for f in data["fills"]
             ]
             self.equity_history = [(pd.Timestamp(e["date"]), e["equity"]) for e in data["equity_history"]]
             self.peak_nav = data.get("peak_nav", self.initial_capital)
@@ -64,15 +72,36 @@ class PaperBrokerBase(BrokerInterface):
             self.consecutive_losses = 0
             self._save()
 
-    def _save(self) -> None:
+    def _save(
+        self,
+        *,
+        session: pd.Timestamp | None = None,
+        nav: float | None = None,
+    ) -> None:
         data = {
             "cash": self.cash,
-            "positions": {s: {"symbol": p.symbol, "quantity": p.quantity, "avg_cost": p.avg_cost}
-                          for s, p in self.positions.items()},
+            "positions": {
+                s: {
+                    "symbol": p.symbol,
+                    "quantity": p.quantity,
+                    "avg_cost": p.avg_cost,
+                    "entry_session": p.entry_session,
+                }
+                for s, p in self.positions.items()
+            },
             "fills": [
-                {"fill_id": f.fill_id, "symbol": f.symbol, "side": f.side, "quantity": f.quantity,
-                 "price": f.price, "commission": f.commission, "tax_or_fee": f.tax_or_fee,
-                 "filled_at": f.filled_at.isoformat(), "reason": f.reason}
+                {
+                    "fill_id": f.fill_id,
+                    "symbol": f.symbol,
+                    "side": f.side,
+                    "quantity": f.quantity,
+                    "price": f.price,
+                    "commission": f.commission,
+                    "tax_or_fee": f.tax_or_fee,
+                    "filled_at": f.filled_at.isoformat(),
+                    "reason": f.reason,
+                    "session": f.session.isoformat() if f.session is not None else None,
+                }
                 for f in self.fills
             ],
             "equity_history": [{"date": d.isoformat(), "equity": e} for d, e in self.equity_history],
@@ -81,6 +110,43 @@ class PaperBrokerBase(BrokerInterface):
         }
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         self.state_path.write_text(json.dumps(data, indent=2))
+
+        if self.research_db is not None and session is not None:
+            session = pd.Timestamp(session).normalize()
+            projected_fills = [
+                {
+                    "fill_id": f.fill_id,
+                    "symbol": f.symbol,
+                    "side": f.side,
+                    "quantity": f.quantity,
+                    "price": f.price,
+                    "commission": f.commission,
+                    "tax_or_fee": f.tax_or_fee,
+                    "filled_at": f.filled_at,
+                    "reason": f.reason,
+                    "session": f.session,
+                }
+                for f in self.fills
+                if f.session is not None
+            ]
+            self.research_db.save_paper_state(
+                market=self.market,
+                session=session,
+                event_seq=len(projected_fills) + len(self.equity_history),
+                cash=self.cash,
+                nav=float(nav if nav is not None else self.get_account_value()),
+                peak_nav=self.peak_nav,
+                consecutive_losses=self.consecutive_losses,
+                positions={
+                    symbol: {
+                        "quantity": position.quantity,
+                        "avg_cost": position.avg_cost,
+                        "entry_session": position.entry_session,
+                    }
+                    for symbol, position in self.positions.items()
+                },
+                fills=projected_fills,
+            )
 
     def reset(self) -> None:
         """Wipe paper-trading state back to a fresh starting balance."""
@@ -104,16 +170,21 @@ class PaperBrokerBase(BrokerInterface):
 
     def submit_order(
         self, symbol: str, side: str, quantity: float, price: float, sector: str | None = None,
-        reason: str = "manual",
+        reason: str = "manual", session: pd.Timestamp | None = None,
     ) -> Fill | OrderRejection:
         if quantity <= 0 or price <= 0:
             return OrderRejection(symbol, quantity, ["invalid quantity or price"])
 
+        session = (
+            pd.Timestamp(session).normalize()
+            if session is not None
+            else pd.Timestamp(default_as_of(self.market)).normalize()
+        )
         nav = self.get_account_value({symbol: price})
         if nav <= 0:
             return OrderRejection(symbol, quantity, ["account value is zero or negative"])
 
-        current_pos = self.positions.get(symbol, Position(symbol, 0.0, 0.0))
+        current_pos = self.positions.get(symbol, Position(symbol, 0.0, 0.0, None))
         signed_requested = quantity if side == "buy" else -quantity
         requested_new_qty = current_pos.quantity + signed_requested
         target_weight = max(requested_new_qty * price / nav, 0.0)
@@ -159,19 +230,29 @@ class PaperBrokerBase(BrokerInterface):
         if abs(new_qty) < 1e-9:
             self.positions.pop(symbol, None)
         else:
-            self.positions[symbol] = Position(symbol=symbol, quantity=new_qty, avg_cost=new_avg_cost)
+            entry_session = current_pos.entry_session
+            if actual_delta > 0 and current_pos.quantity <= 1e-9:
+                entry_session = session.date().isoformat()
+            self.positions[symbol] = Position(
+                symbol=symbol,
+                quantity=new_qty,
+                avg_cost=new_avg_cost,
+                entry_session=entry_session,
+            )
 
         fill = Fill(
             fill_id=uuid.uuid4().hex[:12], symbol=symbol, side="sell" if is_sell else "buy",
             quantity=abs(actual_delta), price=price, commission=fill_cost.commission,
             tax_or_fee=fill_cost.tax_or_fee, filled_at=pd.Timestamp.now(), reason=reason,
+            session=session,
         )
         self.fills.append(fill)
-        self._save()
+        self._save(session=session, nav=self.get_account_value({symbol: price}))
         return fill
 
     def rebalance_to_target_weights(
-        self, target_weights: dict[str, float], prices: dict[str, float], sectors: dict[str, str] | None = None,
+        self, target_weights: dict[str, float], prices: dict[str, float],
+        sectors: dict[str, str] | None = None, session: pd.Timestamp | None = None,
     ) -> list[Fill | OrderRejection]:
         """Convenience: given a target weight per symbol and current prices,
         compute and submit the buy/sell orders needed to get there from the
@@ -192,7 +273,12 @@ class PaperBrokerBase(BrokerInterface):
             if abs(delta * price) < 1.0:  # skip dust-sized rebalances
                 continue
             side = "buy" if delta > 0 else "sell"
-            results.append(self.submit_order(symbol, side, abs(delta), price, sector=sectors.get(symbol), reason="rebalance"))
+            results.append(
+                self.submit_order(
+                    symbol, side, abs(delta), price,
+                    sector=sectors.get(symbol), reason="rebalance", session=session,
+                )
+            )
         return results
 
     def get_fill_history(self) -> list[Fill]:
@@ -208,7 +294,7 @@ class PaperBrokerBase(BrokerInterface):
             self.consecutive_losses += 1
         else:
             self.consecutive_losses = 0
-        self._save()
+        self._save(session=as_of, nav=equity)
         return equity
 
     def get_equity_curve(self) -> pd.Series:
