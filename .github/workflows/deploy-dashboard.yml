@@ -75,7 +75,7 @@ jobs:
           fi
           if [ "$rc" -eq 3 ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Cloudflare Access permission is insufficient. Configure CLOUDFLARE_ACCESS_API_TOKEN with Account -> Access: Apps and Policies -> Edit and Account -> Access: Identity Providers -> Edit. Private deployment is safely skipped; no public fallback was attempted."
+            echo "::warning::Cloudflare Access permission is insufficient. Configure CLOUDFLARE_ACCESS_API_TOKEN with Account -> Access: Apps and Policies -> Edit (API: Access: Apps and Policies Write) and Account -> Access: Organizations, Identity Providers, and Groups -> Edit (API: Access: Organizations, Identity Providers, and Groups Write). Private deployment is safely skipped; no public fallback was attempted."
             exit 0
           fi
           exit "$rc"
