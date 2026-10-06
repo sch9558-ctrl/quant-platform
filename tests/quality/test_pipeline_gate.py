@@ -1,4 +1,4 @@
-from quant.quality.pipeline_gate import validate_market
+from quant.quality.pipeline_gate import validate_market, _apply_quality_quarantine_to_snapshot
 
 
 def test_validate_market_demo_mode_passes_and_produces_canonical_data(tmp_path, monkeypatch):
@@ -39,3 +39,39 @@ def test_without_secondary_cross_source_is_skipped_not_failed(tmp_path, monkeypa
     cross_source_check = next(c for c in result.report.checks if c.check == "cross_source")
     assert not cross_source_check.mandatory
     assert cross_source_check.details["secondary_available"] is False
+
+
+def test_quality_quarantine_is_removed_from_downstream_universe():
+    import pandas as pd
+    from quant.quality.models import CheckResult, DataQualityReport
+    from quant.universe.engine import UniverseMember, UniverseSnapshot
+
+    snapshot = UniverseSnapshot(
+        market="us",
+        as_of=pd.Timestamp("2026-10-05"),
+        members=[
+            UniverseMember("FISV", "FISV", "NASDAQ", "equity", 1.0, 1.0, 1.0, 100, True, []),
+            UniverseMember("AAPL", "AAPL", "NASDAQ", "equity", 1.0, 1.0, 1.0, 100, True, []),
+        ],
+    )
+    report = DataQualityReport(
+        market="us",
+        as_of="2026-10-05",
+        generated_at="2026-10-06T00:00:00+00:00",
+        checks=[
+            CheckResult(
+                "missing_sessions",
+                mandatory=True,
+                passed=True,
+                details={"quarantined_symbols": ["FISV"]},
+            )
+        ],
+        overall_status="PASS",
+    )
+
+    _apply_quality_quarantine_to_snapshot(snapshot, report)
+
+    assert snapshot.included_symbols() == ["AAPL"]
+    fisv = next(m for m in snapshot.members if m.symbol == "FISV")
+    assert fisv.included is False
+    assert "quality quarantine: missing_sessions" in fisv.exclusion_reasons
