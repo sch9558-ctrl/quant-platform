@@ -66,6 +66,9 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path.cwd() / "src"))
           from quant.quality.pipeline_gate import validate_market
           result = validate_market("us", demo=False)
           missing = next(
