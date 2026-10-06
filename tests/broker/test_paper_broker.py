@@ -87,7 +87,7 @@ def test_record_daily_equity_and_curve(broker):
 def test_consecutive_losses_tracked(broker):
     import pandas as pd
     broker.record_daily_equity({}, as_of=pd.Timestamp("2023-01-01"))
-    broker.submit_order("AAA", "buy", quantity=100, price=1000, session=pd.Timestamp("2026-01-05"))
+    broker.submit_order("AAA", "buy", quantity=100, price=1000, session=pd.Timestamp("2023-01-01"))
     broker.record_daily_equity({"AAA": 900}, as_of=pd.Timestamp("2023-01-02"))  # price dropped
     assert broker.consecutive_losses >= 1
     broker.record_daily_equity({"AAA": 1200}, as_of=pd.Timestamp("2023-01-03"))  # price recovered
