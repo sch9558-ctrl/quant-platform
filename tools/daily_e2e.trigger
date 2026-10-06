@@ -11,3 +11,4 @@ Round 5 real-data E2E after dashboard-access diagnostics: 2026-10-05
 round5-2026-10-06-approved
 round5-2026-10-06-retry
 round5-final-head-2
+round6-us-missing-session-diagnostics
