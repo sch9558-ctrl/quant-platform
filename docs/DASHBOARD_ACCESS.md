@@ -47,9 +47,7 @@ For security, use an independent high-entropy secret named
 **DASHBOARD_ARTIFACT_KEY** in GitHub Actions. Do not reuse a Cloudflare API token
 as an encryption key.
 
-The current workflow still supports a legacy Cloudflare-token fallback for
-compatibility. Removing that fallback and making this secret mandatory is a
-separate security change and is not enabled without explicit approval.
+The workflow requires this as an explicit, independent secret. It does not fall back to a Cloudflare API token.
 
 ## 6. How to confirm success
 
@@ -67,7 +65,7 @@ Success means all of the following:
 If Access permission is missing, the workflow must continue to say:
 **No public fallback was attempted.**
 
-## Temporary private access while Cloudflare is not ready — analysis only
+## Temporary private access while Cloudflare is not ready
 
 The workflow already uploads `encrypted-dashboard-site-<run_id>` as a GitHub
 Actions artifact with a **1-day retention period**. The artifact is encrypted
@@ -88,5 +86,23 @@ Risks:
 - The decryption key must be transferred to the user's local environment without
   putting it into shell history, logs, documentation, or chat.
 
-No new artifact distribution or deployment path is enabled by this document.
-Activation or workflow changes require explicit user approval first.
+To view the encrypted dashboard locally:
+
+1. Open the completed **Daily Research Pipeline & Private Dashboard** run in GitHub Actions.
+2. Download the artifact named `encrypted-dashboard-site-<run_id>` before its 1-day retention expires.
+3. Put `DASHBOARD_ARTIFACT_KEY` into your local environment without echoing it or committing it.
+4. Decrypt and extract:
+
+```bash
+export DASHBOARD_ARTIFACT_KEY='set-this-locally'
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+  -pass env:DASHBOARD_ARTIFACT_KEY \
+  -in dashboard-site.tgz.enc \
+  -out dashboard-site.tgz
+tar -xzf dashboard-site.tgz
+python -m http.server 8000 --directory site
+```
+
+5. Open `http://127.0.0.1:8000/`.
+
+This is a local private viewing path only. It does not publish plaintext and does not create a public fallback.
