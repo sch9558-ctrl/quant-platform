@@ -117,6 +117,28 @@ def _strategy_validation_status(mrr: MarketResearchResult | None) -> str:
     return "PASS"
 
 
+def _quality_quarantine_summary(mrr: MarketResearchResult | None) -> dict:
+    if mrr is None or mrr.quality_report is None:
+        return {"count": 0, "symbols": [], "reasons": []}
+    missing = next(
+        (c for c in mrr.quality_report.checks if c.check == "missing_sessions"),
+        None,
+    )
+    if missing is None:
+        return {"count": 0, "symbols": [], "reasons": []}
+    details = missing.details or {}
+    symbols = list(details.get("quarantined_symbols") or [])
+    reasons = ["missing_sessions"] if symbols else []
+    return {
+        "count": len(symbols),
+        "symbols": symbols,
+        "reasons": reasons,
+        "resolution": details.get("resolution"),
+        "fraction": details.get("quarantine_fraction"),
+        "max_fraction": details.get("max_symbol_quarantine_fraction"),
+    }
+
+
 def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
     if mrr is None:
         return {"market": market, "label": _MARKET_LABEL[market], "status": "NO DATA", "blocked": True,
@@ -125,7 +147,7 @@ def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
         return {
             "market": market, "label": _MARKET_LABEL[market], "status": "DATA VALIDATION FAILED",
             "blocked": True, "block_reason": mrr.block_reason, "candidates": [],
-            "universe_size": 0,
+            "universe_size": 0, "quality_quarantine": _quality_quarantine_summary(mrr),
         }
     scan = mrr.scan
     return {
@@ -143,6 +165,7 @@ def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
         ),
         "universe_size": scan.universe_size,
         "excluded_for_quality": len(scan.excluded_for_quality),
+        "quality_quarantine": _quality_quarantine_summary(mrr),
         "candidates": [_candidate_to_dict(i, c, mrr.institutional_overlays.get(c.symbol)) for i, c in enumerate(scan.top_candidates, 1)],
     }
 
