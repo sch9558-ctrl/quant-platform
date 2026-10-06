@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -10,6 +11,7 @@ from quant.dashboard_export.export import (
 from quant.dashboard_export.publishability import NotPublishableError
 from quant.pipeline import research_pipeline
 from quant.quality.system_status import compute_system_status
+from quant.quality.models import CheckResult, DataQualityReport, ValidationIssue
 from quant.research_db.db import ResearchDB
 from quant.strategy import registry
 
@@ -180,3 +182,43 @@ def test_write_dashboard_json_and_append_history_idempotent(tmp_path, dashboard_
     hist_path = append_history(data, tmp_path)  # run twice for the same as_of
     rows = json.loads(hist_path.read_text())
     assert sum(1 for r in rows if r["as_of"] == "2022-06-01") == 1  # replaced, not duplicated
+
+
+def test_market_section_exposes_missing_session_quarantine_details():
+    issue = ValidationIssue(
+        "missing_sessions", "FATAL", "No row for expected trading session",
+        "us", "FISV", "2025-11-12",
+    )
+    check = CheckResult(
+        "missing_sessions", mandatory=True, passed=True, issues=[issue],
+        details={
+            "resolution": "PASS_AFTER_WHOLE_SYMBOL_QUARANTINE",
+            "quarantined_symbols": ["FISV"],
+            "quarantined_symbol_count": 1,
+            "quarantine_fraction": 0.0025,
+            "max_symbol_quarantine_fraction": 0.20,
+        },
+    )
+    report = DataQualityReport(
+        market="us", as_of="2026-10-05", generated_at="2026-10-06T00:00:00+00:00",
+        checks=[check], overall_status="PASS",
+    )
+    scan = SimpleNamespace(
+        as_of=pd.Timestamp("2026-10-05"),
+        regime=None,
+        universe_size=399,
+        excluded_for_quality=[],
+        top_candidates=[],
+    )
+    result = research_pipeline.MarketResearchResult(
+        market="us", scan=scan, walk_forward_results={}, ranking_df=pd.DataFrame(),
+        experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
+        portfolio_allocation=None, risk_checks=[], quality_report=report,
+        blocked=False, block_reason=None,
+    )
+
+    section = _market_section("us", result)
+    assert section["quality_quarantine"]["count"] == 1
+    assert section["quality_quarantine"]["symbols"] == ["FISV"]
+    assert section["quality_quarantine"]["reasons"] == ["missing_sessions"]
+    assert section["quality_quarantine"]["resolution"] == "PASS_AFTER_WHOLE_SYMBOL_QUARANTINE"
