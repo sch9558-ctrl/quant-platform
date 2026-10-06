@@ -78,17 +78,41 @@ class PaperTrader:
         curve=self._broker.get_equity_curve()
         return list(zip(curve.index, curve.values))
 
-    def buy(self, symbol, quantity, price, *, timestamp=None):
+    @staticmethod
+    def _resolve_session_and_fill_time(*, session=None, filled_at=None, timestamp=None):
+        """Resolve the compatibility timestamp without consulting wall-clock state.
+
+        New callers should pass session= explicitly. The legacy timestamp= argument
+        remains supported and means both the market session and actual fill time.
+        It never falls back to today's session.
+        """
+        if session is None and timestamp is not None:
+            session = timestamp
+        if filled_at is None and timestamp is not None:
+            filled_at = timestamp
+        if session is None:
+            raise ValueError("paper mutation requires explicit session")
+        return pd.Timestamp(session).normalize(), (pd.Timestamp(filled_at) if filled_at is not None else None)
+
+    def buy(self, symbol, quantity, price, *, session=None, filled_at=None, timestamp=None):
+        session, filled_at = self._resolve_session_and_fill_time(
+            session=session, filled_at=filled_at, timestamp=timestamp,
+        )
         fill=self._broker.submit_order(
-            str(symbol),"buy",float(quantity),float(price),reason="paper_compat_buy"
+            str(symbol),"buy",float(quantity),float(price),reason="paper_compat_buy",
+            session=session,filled_at=filled_at,
         )
         if isinstance(fill,OrderRejection):
             raise ValueError("; ".join(fill.reasons) or "paper order rejected")
         return fill
 
-    def sell(self, symbol, quantity, price, *, timestamp=None):
+    def sell(self, symbol, quantity, price, *, session=None, filled_at=None, timestamp=None):
+        session, filled_at = self._resolve_session_and_fill_time(
+            session=session, filled_at=filled_at, timestamp=timestamp,
+        )
         fill=self._broker.submit_order(
-            str(symbol),"sell",float(quantity),float(price),reason="paper_compat_sell"
+            str(symbol),"sell",float(quantity),float(price),reason="paper_compat_sell",
+            session=session,filled_at=filled_at,
         )
         if isinstance(fill,OrderRejection):
             raise ValueError("; ".join(fill.reasons) or "paper order rejected")
@@ -97,9 +121,12 @@ class PaperTrader:
     def equity(self, marks=None):
         return float(self._broker.get_account_value(marks or {}))
 
-    def mark(self, marks, *, timestamp=None):
-        as_of=pd.Timestamp(timestamp) if timestamp is not None else None
-        return float(self._broker.record_daily_equity(marks or {},as_of=as_of))
+    def mark(self, marks, *, session=None, timestamp=None):
+        if session is None and timestamp is not None:
+            session = timestamp
+        if session is None:
+            raise ValueError("paper equity mark requires explicit session")
+        return float(self._broker.record_daily_equity(marks or {},as_of=pd.Timestamp(session)))
 
     def _closed_trade_pnls(self) -> list[float]:
         positions={}
