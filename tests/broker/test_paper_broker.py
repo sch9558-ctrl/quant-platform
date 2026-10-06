@@ -1,4 +1,5 @@
 import pytest
+import pandas as pd
 
 from quant.broker.base import Fill, OrderRejection
 from quant.broker.kr_paper import KoreaPaperBroker
@@ -17,7 +18,7 @@ def test_initial_state(broker):
 
 
 def test_buy_order_reduces_cash_and_creates_position(broker):
-    fill = broker.submit_order("AAA", "buy", quantity=100, price=1000)
+    fill = broker.submit_order("AAA", "buy", quantity=100, price=1000, session=pd.Timestamp("2026-01-05"))
     assert isinstance(fill, Fill)
     assert fill.side == "buy"
     positions = broker.get_positions()
@@ -29,7 +30,7 @@ def test_buy_order_reduces_cash_and_creates_position(broker):
 def test_buy_exceeding_position_cap_gets_reduced(broker):
     # default risk config caps a single position at 10% of NAV; requesting
     # a huge quantity should get scaled down, not fully rejected
-    fill = broker.submit_order("AAA", "buy", quantity=5000, price=1000)  # 5,000,000 notional = 50% of NAV
+    fill = broker.submit_order("AAA", "buy", quantity=5000, price=1000, session=pd.Timestamp("2026-01-05"))  # 5,000,000 notional = 50% of NAV
     assert isinstance(fill, Fill)
     notional = fill.quantity * fill.price
     assert notional <= 10_000_000 * 0.10 * 1.01
@@ -40,27 +41,27 @@ def test_sell_reduces_position():
     import tempfile
     with tempfile.TemporaryDirectory() as d:
         broker = KoreaPaperBroker(initial_capital=10_000_000, state_path=Path(d) / "state.json")
-        broker.submit_order("AAA", "buy", quantity=50, price=1000)
-        fill = broker.submit_order("AAA", "sell", quantity=20, price=1100)
+        broker.submit_order("AAA", "buy", quantity=50, price=1000, session=pd.Timestamp("2026-01-05"))
+        fill = broker.submit_order("AAA", "sell", quantity=20, price=1100, session=pd.Timestamp("2026-01-06"))
         assert fill.side == "sell"
         assert broker.get_positions()["AAA"].quantity == pytest.approx(30)
 
 
 def test_sell_full_position_removes_it(broker):
-    broker.submit_order("AAA", "buy", quantity=50, price=1000)
-    broker.submit_order("AAA", "sell", quantity=50, price=1000)
+    broker.submit_order("AAA", "buy", quantity=50, price=1000, session=pd.Timestamp("2026-01-05"))
+    broker.submit_order("AAA", "sell", quantity=50, price=1000, session=pd.Timestamp("2026-01-06"))
     assert "AAA" not in broker.get_positions()
 
 
 def test_invalid_order_rejected(broker):
-    result = broker.submit_order("AAA", "buy", quantity=-5, price=1000)
+    result = broker.submit_order("AAA", "buy", quantity=-5, price=1000, session=pd.Timestamp("2026-01-05"))
     assert isinstance(result, OrderRejection)
 
 
 def test_state_persists_across_broker_instances(tmp_path):
     path = tmp_path / "paper_korea.json"
     b1 = KoreaPaperBroker(initial_capital=5_000_000, state_path=path)
-    b1.submit_order("AAA", "buy", quantity=10, price=1000)
+    b1.submit_order("AAA", "buy", quantity=10, price=1000, session=pd.Timestamp("2026-01-05"))
 
     b2 = KoreaPaperBroker(initial_capital=5_000_000, state_path=path)
     assert "AAA" in b2.get_positions()
@@ -68,7 +69,7 @@ def test_state_persists_across_broker_instances(tmp_path):
 
 
 def test_rebalance_to_target_weights(broker):
-    results = broker.rebalance_to_target_weights({"AAA": 0.05, "BBB": 0.03}, {"AAA": 1000, "BBB": 2000})
+    results = broker.rebalance_to_target_weights({"AAA": 0.05, "BBB": 0.03}, {"AAA": 1000, "BBB": 2000}, session=pd.Timestamp("2026-01-05"))
     assert len(results) == 2
     assert all(isinstance(r, Fill) for r in results)
     positions = broker.get_positions()
@@ -77,7 +78,7 @@ def test_rebalance_to_target_weights(broker):
 
 def test_record_daily_equity_and_curve(broker):
     broker.record_daily_equity({}, as_of=__import__("pandas").Timestamp("2023-01-01"))
-    broker.submit_order("AAA", "buy", quantity=10, price=1000)
+    broker.submit_order("AAA", "buy", quantity=10, price=1000, session=pd.Timestamp("2023-01-01"))
     broker.record_daily_equity({"AAA": 1000}, as_of=__import__("pandas").Timestamp("2023-01-02"))
     curve = broker.get_equity_curve()
     assert len(curve) == 2
@@ -86,7 +87,7 @@ def test_record_daily_equity_and_curve(broker):
 def test_consecutive_losses_tracked(broker):
     import pandas as pd
     broker.record_daily_equity({}, as_of=pd.Timestamp("2023-01-01"))
-    broker.submit_order("AAA", "buy", quantity=100, price=1000)
+    broker.submit_order("AAA", "buy", quantity=100, price=1000, session=pd.Timestamp("2026-01-05"))
     broker.record_daily_equity({"AAA": 900}, as_of=pd.Timestamp("2023-01-02"))  # price dropped
     assert broker.consecutive_losses >= 1
     broker.record_daily_equity({"AAA": 1200}, as_of=pd.Timestamp("2023-01-03"))  # price recovered
@@ -94,7 +95,7 @@ def test_consecutive_losses_tracked(broker):
 
 
 def test_reset_clears_state(broker):
-    broker.submit_order("AAA", "buy", quantity=10, price=1000)
+    broker.submit_order("AAA", "buy", quantity=10, price=1000, session=pd.Timestamp("2023-01-01"))
     broker.reset()
     assert broker.get_positions() == {}
     assert broker.get_cash() == broker.initial_capital
@@ -285,3 +286,36 @@ def test_backdated_paper_mutation_is_rejected(tmp_path):
             "AAA", "buy", quantity=10, price=1000,
             session=pd.Timestamp("2026-01-05"),
         )
+
+
+def test_persistent_paper_mutations_require_explicit_session(tmp_path):
+    broker = KoreaPaperBroker(
+        initial_capital=10_000_000,
+        state_path=tmp_path / "paper_korea.json",
+    )
+    with pytest.raises(ValueError, match="explicit session"):
+        broker.submit_order("AAA", "buy", quantity=10, price=1000)
+    with pytest.raises(ValueError, match="explicit session"):
+        broker.rebalance_to_target_weights({"AAA": 0.05}, {"AAA": 1000})
+    with pytest.raises(ValueError, match="explicit as_of session"):
+        broker.record_daily_equity({})
+
+
+@pytest.mark.parametrize("fake_today", ["2026-01-15", "2026-06-30", "2027-03-02"])
+def test_explicit_paper_session_is_independent_of_fake_today(tmp_path, monkeypatch, fake_today):
+    import quant.utils.calendar as market_calendar
+
+    monkeypatch.setattr(market_calendar, "default_as_of", lambda market: fake_today)
+    broker = KoreaPaperBroker(
+        initial_capital=10_000_000,
+        state_path=tmp_path / f"paper_{fake_today}.json",
+    )
+    fill = broker.submit_order(
+        "AAA", "buy", quantity=10, price=1000,
+        session=pd.Timestamp("2026-01-05"),
+        filled_at=pd.Timestamp("2026-01-05T15:30:00+09:00"),
+    )
+    assert isinstance(fill, Fill)
+    assert fill.session == pd.Timestamp("2026-01-05")
+    assert fill.filled_at == pd.Timestamp("2026-01-05T15:30:00+09:00")
+    assert broker.get_positions()["AAA"].entry_session == "2026-01-05"
