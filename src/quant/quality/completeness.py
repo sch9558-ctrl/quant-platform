@@ -53,6 +53,8 @@ def validate_missing_sessions(
     issues: list[ValidationIssue] = []
     total_missing = 0
     inferred_listing_boundaries: dict[str, str] = {}
+    missing_by_symbol: dict[str, int] = {}
+    missing_by_date: dict[str, int] = {}
 
     if df is None or df.empty:
         issues.append(ValidationIssue("missing_sessions", "FATAL", "No data to check for missing sessions", market))
@@ -77,7 +79,12 @@ def validate_missing_sessions(
 
         missing = expected.difference(present)
         if len(missing) > 0:
-            total_missing += len(missing)
+            count = int(len(missing))
+            total_missing += count
+            missing_by_symbol[str(symbol)] = count
+            for d in missing:
+                key = str(pd.Timestamp(d).date())
+                missing_by_date[key] = missing_by_date.get(key, 0) + 1
             for d in missing[:20]:
                 issues.append(ValidationIssue(
                     "missing_sessions", "FATAL",
@@ -86,11 +93,25 @@ def validate_missing_sessions(
                 ))
 
     passed = total_missing == 0
+    affected = len(missing_by_symbol)
+    top_missing_dates = sorted(
+        missing_by_date.items(), key=lambda item: (-item[1], item[0])
+    )[:5]
     return CheckResult(
         "missing_sessions", mandatory=True, passed=passed, issues=issues,
         details={
             "total_missing_sessions": total_missing,
             "expected_sessions": len(all_expected),
+            "symbols_checked": int(df["symbol"].nunique()),
+            "symbols_with_missing": affected,
+            "avg_missing_sessions_per_affected_symbol": (
+                float(total_missing / affected) if affected else 0.0
+            ),
+            "top_missing_dates": [
+                {"date": date, "symbols_missing": count}
+                for date, count in top_missing_dates
+            ],
+            "missing_by_symbol": missing_by_symbol,
             "inferred_listing_boundaries": inferred_listing_boundaries,
         },
     )
