@@ -1,5 +1,7 @@
 # Private dashboard access checklist
 
+> **지금 당신에게 남은 것은 이것 하나(현재 로그에서 확정된 다음 조치): `CLOUDFLARE_ACCOUNT_ID` 등록.** 등록 후 다음 실행의 Access preflight와 bootstrap이 토큰 권한까지 실제로 검증해야 Cloudflare 설정 완료를 확정할 수 있습니다.
+
 > **Current repository status (2026-10-06):** the latest completed deploy attempt reached a valid encrypted Dashboard Build and then stopped because `CLOUDFLARE_ACCOUNT_ID` was empty. The Pages token environment was non-empty. The masked log does **not** prove that the Access token or artifact key are separate dedicated secrets, because the workflow can fall back to the Pages token. Add `CLOUDFLARE_ACCOUNT_ID` first; then the next run must pass Access preflight and bootstrap before we can say no additional Cloudflare permission work remains.
 
 This page lists only the user actions required to view the private dashboard.
