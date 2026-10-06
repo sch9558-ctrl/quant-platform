@@ -17,3 +17,4 @@ round6-us-missing-session-measurement-3
 round6-us-missing-session-measurement-isolated
 round6-us-missing-session-pattern-final-measurement
 round6-post-quarantine-e2e-final
+round6-head-combined-validation
