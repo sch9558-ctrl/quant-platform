@@ -24,11 +24,11 @@ concurrency:
 env:
   PYTHON_VERSION: "3.11"
   NODE_VERSION: "24"
-  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || '301c3fbffec59a5d5827040ff30eb62f' }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID }}
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
   CLOUDFLARE_ACCESS_API_TOKEN: ${{ secrets.CLOUDFLARE_ACCESS_API_TOKEN || secrets.CF_ACCESS_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
   CLOUDFLARE_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PROJECT_NAME || 'quant-platform' }}
-  DASHBOARD_ARTIFACT_KEY: ${{ secrets.DASHBOARD_ARTIFACT_KEY || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
+  DASHBOARD_ARTIFACT_KEY: ${{ secrets.DASHBOARD_ARTIFACT_KEY }}
 
 jobs:
   research:
@@ -57,7 +57,7 @@ jobs:
       - name: Require private artifact encryption key
         run: |
           if [ -z "$DASHBOARD_ARTIFACT_KEY" ]; then
-            echo "::error::DASHBOARD_ARTIFACT_KEY (or Cloudflare token fallback) is required."
+            echo "::error::DASHBOARD_ARTIFACT_KEY is missing. Create a strong independent repository secret in Settings -> Secrets and variables -> Actions. It encrypts research/dashboard workflow artifacts and must not reuse a Cloudflare API token."
             exit 1
           fi
 
