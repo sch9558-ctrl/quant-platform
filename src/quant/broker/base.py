@@ -70,6 +70,7 @@ class BrokerInterface(ABC):
     def submit_order(
         self, symbol: str, side: str, quantity: float, price: float, sector: str | None = None,
         reason: str = "manual", session: pd.Timestamp | None = None,
+        filled_at: pd.Timestamp | None = None,
     ) -> Fill | OrderRejection: ...
 
     @abstractmethod
