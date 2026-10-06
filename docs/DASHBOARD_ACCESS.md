@@ -47,7 +47,7 @@ For security, use an independent high-entropy secret named
 **DASHBOARD_ARTIFACT_KEY** in GitHub Actions. Do not reuse a Cloudflare API token
 as an encryption key.
 
-The workflow requires this as an explicit, independent secret. It does not fall back to a Cloudflare API token.
+The workflow prefers this as an explicit, independent secret. For backward compatibility it can still fall back to an existing Cloudflare API token, but that coupling is not recommended.
 
 ## 6. How to confirm success
 
