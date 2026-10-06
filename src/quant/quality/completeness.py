@@ -54,6 +54,8 @@ def validate_missing_sessions(
     total_missing = 0
     inferred_listing_boundaries: dict[str, str] = {}
     missing_by_symbol: dict[str, int] = {}
+    internal_missing_by_symbol: dict[str, int] = {}
+    trailing_missing_by_symbol: dict[str, int] = {}
     missing_by_date: dict[str, int] = {}
 
     if df is None or df.empty:
@@ -81,7 +83,16 @@ def validate_missing_sessions(
         if len(missing) > 0:
             count = int(len(missing))
             total_missing += count
-            missing_by_symbol[str(symbol)] = count
+            symbol_key = str(symbol)
+            missing_by_symbol[symbol_key] = count
+            last_present = present.max() if len(present) else None
+            if last_present is not None:
+                internal_count = int((missing <= last_present).sum())
+                trailing_count = int((missing > last_present).sum())
+                if internal_count:
+                    internal_missing_by_symbol[symbol_key] = internal_count
+                if trailing_count:
+                    trailing_missing_by_symbol[symbol_key] = trailing_count
             for d in missing:
                 key = str(pd.Timestamp(d).date())
                 missing_by_date[key] = missing_by_date.get(key, 0) + 1
@@ -112,6 +123,10 @@ def validate_missing_sessions(
                 for date, count in top_missing_dates
             ],
             "missing_by_symbol": missing_by_symbol,
+            "internal_missing_by_symbol": internal_missing_by_symbol,
+            "trailing_missing_by_symbol": trailing_missing_by_symbol,
+            "symbols_with_internal_missing": len(internal_missing_by_symbol),
+            "symbols_with_trailing_missing": len(trailing_missing_by_symbol),
             "inferred_listing_boundaries": inferred_listing_boundaries,
         },
     )
