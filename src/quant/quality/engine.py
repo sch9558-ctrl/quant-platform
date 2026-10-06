@@ -118,6 +118,63 @@ class DataQualityEngine:
         missing_result = completeness.validate_missing_sessions(
             primary, self.market, start, end, self.cfg, listing_dates, delisting_dates,
         )
+
+        # US sparse-gap policy: missing data remains FATAL for every affected
+        # symbol. When only a bounded minority of symbols is affected, remove
+        # those symbols wholesale from the canonical candidate set rather
+        # than weakening the completeness rule for their rows. The fraction
+        # is a provider-health circuit breaker, not a missing-data tolerance:
+        # above the cap the entire market remains Fail-Closed.
+        missing_cfg = self.cfg.get("missing_sessions", {})
+        affected_symbols = set((missing_result.details or {}).get("missing_by_symbol", {}))
+        symbols_checked = int((missing_result.details or {}).get("symbols_checked", 0) or 0)
+        quarantine_fraction = (
+            len(affected_symbols) / symbols_checked if symbols_checked else 0.0
+        )
+        quarantine_enabled = (
+            self.market == "us"
+            and bool(missing_cfg.get("us_symbol_quarantine_enabled", False))
+        )
+        max_quarantine_fraction = float(
+            missing_cfg.get("max_symbol_quarantine_fraction", 0.0) or 0.0
+        )
+
+        if affected_symbols:
+            missing_result.details["quarantine_candidate_symbols"] = sorted(affected_symbols)
+            missing_result.details["quarantine_fraction"] = quarantine_fraction
+            missing_result.details["max_symbol_quarantine_fraction"] = max_quarantine_fraction
+
+        if (
+            not missing_result.passed
+            and quarantine_enabled
+            and affected_symbols
+            and quarantine_fraction <= max_quarantine_fraction
+        ):
+            # Keep each ValidationIssue FATAL, but mark the check as resolved
+            # only after every row of every affected symbol is quarantined.
+            # This preserves verifiability while allowing the unaffected
+            # canonical universe to continue.
+            mask = classified["symbol"].astype(str).isin(affected_symbols)
+            classified.loc[mask, "outlier_status"] = "QUARANTINED"
+            missing_result.details["raw_passed"] = False
+            missing_result.details["resolution"] = "PASS_AFTER_WHOLE_SYMBOL_QUARANTINE"
+            missing_result.details["quarantined_symbols"] = sorted(affected_symbols)
+            missing_result.details["quarantined_symbol_count"] = len(affected_symbols)
+            missing_result.passed = True
+        elif affected_symbols:
+            missing_result.details["resolution"] = "MARKET_FAIL_CLOSED"
+            missing_result.details["quarantined_symbols"] = []
+            missing_result.details["quarantined_symbol_count"] = 0
+
+        # Recompute row classifications after whole-symbol quarantine so the
+        # integrity score and dashboard counts describe the data that is
+        # actually eligible for canonical construction.
+        if not classified.empty:
+            recomputed = classified["outlier_status"].value_counts().to_dict()
+            for s in ("VALID", "REVIEW", "QUARANTINED", "REJECTED"):
+                recomputed.setdefault(s, 0)
+            outlier_counts = {k: int(v) for k, v in recomputed.items()}
+
         checks.append(missing_result)
 
         freshness_result = completeness.validate_freshness(primary, self.market, as_of, self.cfg)
