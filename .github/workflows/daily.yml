@@ -61,6 +61,31 @@ jobs:
             exit 1
           fi
 
+      - name: Measure US missing sessions on trigger runs
+        if: github.event_name == 'push'
+        run: |
+          python - <<'PY'
+          import json
+          from quant.quality.pipeline_gate import validate_market
+          result = validate_market("us", demo=False)
+          missing = next(
+              c for c in result.report.checks if c.check == "missing_sessions"
+          )
+          details = missing.details or {}
+          print("MISSING_SESSIONS_DIAGNOSTIC", json.dumps({
+              "market": "us",
+              "as_of": result.report.as_of,
+              "passed": missing.passed,
+              "total_missing_sessions": details.get("total_missing_sessions"),
+              "expected_sessions": details.get("expected_sessions"),
+              "symbols_checked": details.get("symbols_checked"),
+              "symbols_with_missing": details.get("symbols_with_missing"),
+              "avg_missing_sessions_per_affected_symbol": details.get("avg_missing_sessions_per_affected_symbol"),
+              "top_missing_dates": details.get("top_missing_dates"),
+              "missing_by_symbol": details.get("missing_by_symbol"),
+          }, ensure_ascii=False, sort_keys=True))
+          PY
+
       - name: Run real research and dashboard-data generation
         id: research-run
         run: |
