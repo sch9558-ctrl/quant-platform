@@ -32,12 +32,18 @@ duplicates:
   key_columns: [market, symbol, date]
 
 missing_sessions:
-  # any real (non-holiday, non-weekend) trading session with no row for a
-  # symbol that was listed and not-yet-delisted on that date is FATAL by
-  # default -- exceptions are handled via each symbol's listing/delisting
-  # date, not via a tolerance percentage.
+  # A missing real trading session is always FATAL for the affected symbol.
+  # For the US only, a small number of affected symbols may be removed
+  # wholesale from the validated universe. This is NOT a missing-data
+  # tolerance: no incomplete symbol survives into canonical data.
+  #
+  # If more than 20% of the checked universe would need whole-symbol
+  # quarantine, treat that as a provider/calendar incident and Fail-Closed
+  # the entire market instead of silently shrinking the universe.
   allow_missing_before_listing: true
   allow_missing_after_delisting: true
+  us_symbol_quarantine_enabled: true
+  max_symbol_quarantine_fraction: 0.20
 
 freshness:
   # data must be current as of this many completed trading sessions ago
