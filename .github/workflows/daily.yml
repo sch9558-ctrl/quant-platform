@@ -66,6 +66,10 @@ jobs:
               "avg_missing_sessions_per_affected_symbol": d.get("avg_missing_sessions_per_affected_symbol"),
               "top_missing_dates": d.get("top_missing_dates"),
               "missing_by_symbol": d.get("missing_by_symbol"),
+              "internal_missing_by_symbol": d.get("internal_missing_by_symbol"),
+              "trailing_missing_by_symbol": d.get("trailing_missing_by_symbol"),
+              "symbols_with_internal_missing": d.get("symbols_with_internal_missing"),
+              "symbols_with_trailing_missing": d.get("symbols_with_trailing_missing"),
           }, ensure_ascii=False, sort_keys=True))
           PY
 
