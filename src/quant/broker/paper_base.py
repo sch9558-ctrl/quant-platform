@@ -22,7 +22,6 @@ from quant.backtest.costs import CostModel
 from quant.broker.base import BrokerInterface, Fill, OrderRejection, Position
 from quant.risk.manager import PortfolioState, RiskManager
 from quant.research_db.db import ResearchDB
-from quant.utils.calendar import default_as_of
 
 
 class PaperBrokerBase(BrokerInterface):
@@ -187,27 +186,16 @@ class PaperBrokerBase(BrokerInterface):
     def submit_order(
         self, symbol: str, side: str, quantity: float, price: float, sector: str | None = None,
         reason: str = "manual", session: pd.Timestamp | None = None,
+        filled_at: pd.Timestamp | None = None,
     ) -> Fill | OrderRejection:
         if quantity <= 0 or price <= 0:
             return OrderRejection(symbol, quantity, ["invalid quantity or price"])
 
-        if session is not None:
-            session = pd.Timestamp(session).normalize()
-        else:
-            known_sessions = [
-                pd.Timestamp(date).normalize()
-                for date, _ in self.equity_history
-            ]
-            known_sessions.extend(
-                pd.Timestamp(fill.session).normalize()
-                for fill in self.fills
-                if fill.session is not None
-            )
-            session = (
-                max(known_sessions)
-                if known_sessions
-                else pd.Timestamp(default_as_of(self.market)).normalize()
-            )
+        if session is None:
+            raise ValueError("paper mutation requires explicit session")
+        session = pd.Timestamp(session).normalize()
+        if pd.isna(session):
+            raise ValueError("paper session cannot be NaT")
         self._assert_session_not_before_state(session)
         nav = self.get_account_value({symbol: price})
         if nav <= 0:
@@ -272,8 +260,9 @@ class PaperBrokerBase(BrokerInterface):
         fill = Fill(
             fill_id=uuid.uuid4().hex[:12], symbol=symbol, side="sell" if is_sell else "buy",
             quantity=abs(actual_delta), price=price, commission=fill_cost.commission,
-            tax_or_fee=fill_cost.tax_or_fee, filled_at=pd.Timestamp.now(), reason=reason,
-            session=session,
+            tax_or_fee=fill_cost.tax_or_fee,
+            filled_at=pd.Timestamp(filled_at) if filled_at is not None else pd.Timestamp.now(tz="UTC"),
+            reason=reason, session=session,
         )
         self.fills.append(fill)
         self._save(session=session, nav=self.get_account_value({symbol: price}))
@@ -287,6 +276,8 @@ class PaperBrokerBase(BrokerInterface):
         compute and submit the buy/sell orders needed to get there from the
         current portfolio (spec section 23: apply scanner/portfolio-engine
         output directly)."""
+        if session is None:
+            raise ValueError("paper mutation requires explicit session")
         sectors = sectors or {}
         nav = self.get_account_value(prices)
         results: list[Fill | OrderRejection] = []
@@ -314,8 +305,11 @@ class PaperBrokerBase(BrokerInterface):
         return list(self.fills)
 
     def record_daily_equity(self, prices: dict[str, float], as_of: pd.Timestamp | None = None) -> float:
-        as_of = pd.Timestamp(as_of) if as_of is not None else pd.Timestamp(default_as_of(self.market))
-        as_of = as_of.normalize()
+        if as_of is None:
+            raise ValueError("paper equity mark requires explicit as_of session")
+        as_of = pd.Timestamp(as_of).normalize()
+        if pd.isna(as_of):
+            raise ValueError("paper equity session cannot be NaT")
         self._assert_session_not_before_state(as_of)
         equity = self.get_account_value(prices)
         prev_equity = self.equity_history[-1][1] if self.equity_history else self.initial_capital
