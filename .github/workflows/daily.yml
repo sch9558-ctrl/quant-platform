@@ -31,48 +31,6 @@ env:
   DASHBOARD_ARTIFACT_KEY: ${{ secrets.DASHBOARD_ARTIFACT_KEY || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
 
 jobs:
-  us-quality-measurement:
-    name: US missing-session measurement
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
-      - name: Measure missing-session pattern without changing the gate
-        run: |
-          python - <<'PY'
-          import json
-          import sys
-          from pathlib import Path
-          sys.path.insert(0, str(Path.cwd() / "src"))
-          from quant.quality.pipeline_gate import validate_market
-          result = validate_market("us", demo=False)
-          missing = next(c for c in result.report.checks if c.check == "missing_sessions")
-          d = missing.details or {}
-          print("MISSING_SESSIONS_DIAGNOSTIC", json.dumps({
-              "market": "us",
-              "as_of": result.report.as_of,
-              "passed": missing.passed,
-              "total_missing_sessions": d.get("total_missing_sessions"),
-              "expected_sessions": d.get("expected_sessions"),
-              "symbols_checked": d.get("symbols_checked"),
-              "symbols_with_missing": d.get("symbols_with_missing"),
-              "avg_missing_sessions_per_affected_symbol": d.get("avg_missing_sessions_per_affected_symbol"),
-              "top_missing_dates": d.get("top_missing_dates"),
-              "missing_by_symbol": d.get("missing_by_symbol"),
-              "internal_missing_by_symbol": d.get("internal_missing_by_symbol"),
-              "trailing_missing_by_symbol": d.get("trailing_missing_by_symbol"),
-              "symbols_with_internal_missing": d.get("symbols_with_internal_missing"),
-              "symbols_with_trailing_missing": d.get("symbols_with_trailing_missing"),
-          }, ensure_ascii=False, sort_keys=True))
-          PY
-
   research:
     name: Research Pipeline
     runs-on: ubuntu-latest
@@ -103,40 +61,11 @@ jobs:
             exit 1
           fi
 
-      - name: Measure US missing sessions on trigger runs
-        if: github.event_name == 'push'
-        run: |
-          python - <<'PY'
-          import json
-          import sys
-          from pathlib import Path
-          sys.path.insert(0, str(Path.cwd() / "src"))
-          from quant.quality.pipeline_gate import validate_market
-          result = validate_market("us", demo=False)
-          missing = next(
-              c for c in result.report.checks if c.check == "missing_sessions"
-          )
-          details = missing.details or {}
-          print("MISSING_SESSIONS_DIAGNOSTIC", json.dumps({
-              "market": "us",
-              "as_of": result.report.as_of,
-              "passed": missing.passed,
-              "total_missing_sessions": details.get("total_missing_sessions"),
-              "expected_sessions": details.get("expected_sessions"),
-              "symbols_checked": details.get("symbols_checked"),
-              "symbols_with_missing": details.get("symbols_with_missing"),
-              "avg_missing_sessions_per_affected_symbol": details.get("avg_missing_sessions_per_affected_symbol"),
-              "top_missing_dates": details.get("top_missing_dates"),
-              "missing_by_symbol": details.get("missing_by_symbol"),
-          }, ensure_ascii=False, sort_keys=True))
-          PY
-
       - name: Run real research and dashboard-data generation
         id: research-run
         run: |
           set +e
-          MARKETS="${{ github.event_name == 'push' && 'us' || github.event.inputs.markets || 'korea us' }}"
-          python generate_dashboard_data.py --real --markets $MARKETS
+          python generate_dashboard_data.py --real --markets ${{ github.event.inputs.markets || 'korea us' }}
           rc=$?
           set -e
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
@@ -147,31 +76,6 @@ jobs:
           if [ "$rc" -ne 0 ]; then
             echo "::warning::Research/status returned $rc; the quality job will inspect the honest blocked-state payload."
           fi
-
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          payload = json.loads(Path("site/data/dashboard.json").read_text())
-          for market in ("us",):
-              report = (payload.get("data_quality") or {}).get(market) or {}
-              missing = next(
-                  (c for c in report.get("checks_detail", []) if c.get("check") == "missing_sessions"),
-                  None,
-              )
-              if missing:
-                  details = missing.get("details") or {}
-                  print("MISSING_SESSIONS_DIAGNOSTIC", json.dumps({
-                      "market": market,
-                      "passed": missing.get("passed"),
-                      "total_missing_sessions": details.get("total_missing_sessions"),
-                      "expected_sessions": details.get("expected_sessions"),
-                      "symbols_checked": details.get("symbols_checked"),
-                      "symbols_with_missing": details.get("symbols_with_missing"),
-                      "avg_missing_sessions_per_affected_symbol": details.get("avg_missing_sessions_per_affected_symbol"),
-                      "top_missing_dates": details.get("top_missing_dates"),
-                      "missing_by_symbol": details.get("missing_by_symbol"),
-                  }, ensure_ascii=False, sort_keys=True))
-          PY
 
       - name: Build analyst/IB credibility dataset
         run: |
