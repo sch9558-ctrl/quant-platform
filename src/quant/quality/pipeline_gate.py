@@ -36,6 +36,28 @@ class MarketValidationResult:
     provenance: list
 
 
+def _apply_quality_quarantine_to_snapshot(
+    snapshot: UniverseSnapshot,
+    report: DataQualityReport,
+) -> None:
+    """Mirror whole-symbol quality quarantine into the downstream universe.
+
+    DataQualityEngine has already removed these symbols from canonical data.
+    Marking the same members excluded here keeps scanner universe counts and
+    metadata consistent with the investable canonical set.
+    """
+    missing = next((c for c in report.checks if c.check == "missing_sessions"), None)
+    quarantined = set((missing.details or {}).get("quarantined_symbols", [])) if missing else set()
+    if not quarantined:
+        return
+    for member in snapshot.members:
+        if member.symbol in quarantined:
+            member.included = False
+            reason = "quality quarantine: missing_sessions"
+            if reason not in member.exclusion_reasons:
+                member.exclusion_reasons.append(reason)
+
+
 def validate_market(
     market: str,
     demo: bool = True,
@@ -94,6 +116,7 @@ def validate_market(
         version_store=version_store,
         audit_log=audit_log,
     )
+    _apply_quality_quarantine_to_snapshot(snapshot, report)
 
     return MarketValidationResult(
         market=market, report=report, canonical_ohlcv_map=canonical_map,
