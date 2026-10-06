@@ -23,6 +23,7 @@ from quant.data.factory import get_provider
 from quant.research_db.db import ResearchDB
 from quant.scanner.scanner import DailyScanner, ScanResult
 from quant.strategy import registry
+from quant.utils.calendar import default_as_of
 
 
 def run_scan(market: str, as_of: str, demo: bool = True, top_n: int = 20) -> ScanResult:
@@ -88,7 +89,7 @@ def run_paper_rebalance(market: str, demo: bool = True, top_n: int = 10):
     weight."""
     provider = get_provider(market, demo=demo)
     scanner = DailyScanner(market, provider)
-    as_of = pd.Timestamp.today().strftime("%Y-%m-%d")
+    as_of = default_as_of(market)
     scan = scanner.run(as_of=as_of, top_n=top_n)
 
     broker = get_paper_broker(market)
@@ -98,6 +99,7 @@ def run_paper_rebalance(market: str, demo: bool = True, top_n: int = 10):
     weight_each = 1.0 / len(scan.top_candidates) * 0.9  # keep 10% cash buffer
     target_weights = {c.symbol: weight_each for c in scan.top_candidates}
     prices = {c.symbol: c.price for c in scan.top_candidates}
-    results = broker.rebalance_to_target_weights(target_weights, prices)
-    broker.record_daily_equity(prices)
+    session = pd.Timestamp(as_of)
+    results = broker.rebalance_to_target_weights(target_weights, prices, session=session)
+    broker.record_daily_equity(prices, as_of=session)
     return broker, scan, results
