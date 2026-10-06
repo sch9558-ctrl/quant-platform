@@ -27,10 +27,14 @@ def test_paper_trader_delegates_to_authoritative_paper_broker(tmp_path):
     buy=t.buy("005930",10,70_000,timestamp="2026-10-01")
     assert isinstance(buy,Fill)
     assert buy.price==pytest.approx(70_000)
+    assert buy.session==pd.Timestamp("2026-10-01")
+    assert buy.filled_at==pd.Timestamp("2026-10-01")
     assert t.positions["005930"].quantity==pytest.approx(10)
     t.mark({"005930":72_000},timestamp="2026-10-02")
     sell=t.sell("005930",10,75_000,timestamp="2026-10-05")
     assert isinstance(sell,Fill)
+    assert sell.session==pd.Timestamp("2026-10-05")
+    assert sell.filled_at==pd.Timestamp("2026-10-05")
     s=t.summary({"005930":75_000})
     assert s["closed_trades"]==1
     assert s["realized_pnl"]>0
@@ -40,6 +44,20 @@ def test_paper_trader_delegates_to_authoritative_paper_broker(tmp_path):
     payload=json.loads(p.read_text())
     assert payload["ledger_authority"]=="KoreaPaperBroker"
     assert payload["closed_trades"]==1
+
+
+def test_paper_trader_requires_explicit_session_for_mutations(tmp_path):
+    t=PaperTrader(
+        10_000_000,
+        currency="KRW",
+        state_path=tmp_path/"paper_korea.json",
+    )
+    with pytest.raises(ValueError,match="explicit session"):
+        t.buy("005930",1,70_000)
+    with pytest.raises(ValueError,match="explicit session"):
+        t.sell("005930",1,70_000)
+    with pytest.raises(ValueError,match="explicit session"):
+        t.mark({"005930":70_000})
 
 
 def test_paper_trader_rejects_independent_cost_overrides():
