@@ -1,5 +1,7 @@
 # Private dashboard access checklist
 
+> **Current repository status (2026-10-06):** the latest completed deploy attempt reached a valid encrypted Dashboard Build and then stopped because `CLOUDFLARE_ACCOUNT_ID` was empty. The Pages token environment was non-empty. The masked log does **not** prove that the Access token or artifact key are separate dedicated secrets, because the workflow can fall back to the Pages token. Add `CLOUDFLARE_ACCOUNT_ID` first; then the next run must pass Access preflight and bootstrap before we can say no additional Cloudflare permission work remains.
+
 This page lists only the user actions required to view the private dashboard.
 Never commit or paste secret values into issues, logs, documentation, or chat.
 
@@ -73,10 +75,10 @@ before upload.
 
 Security properties:
 
-- GitHub repository/Actions authorization controls who can download the artifact.
-- The payload remains encrypted at rest as an artifact.
-- Decryption requires `DASHBOARD_ARTIFACT_KEY`.
-- No public URL or public Pages fallback is created.
+- The repository is public, so do not treat artifact discoverability/access controls as the confidentiality boundary.
+- The payload itself is encrypted before upload; confidentiality relies on the encryption key remaining secret.
+- Decryption requires the same effective `DASHBOARD_ARTIFACT_KEY` used by the workflow (prefer a dedicated secret rather than the Cloudflare-token fallback).
+- No public plaintext URL or public Pages fallback is created.
 
 Risks:
 
@@ -86,12 +88,14 @@ Risks:
 - The decryption key must be transferred to the user's local environment without
   putting it into shell history, logs, documentation, or chat.
 
+The recovery path is exercised by CI: on run `37423714535`, the deploy job successfully downloaded `encrypted-dashboard-site-37423714535`, decrypted it, extracted `site/`, and verified both `site/index.html` and `site/data/dashboard.json` before the Cloudflare credential gate stopped the deployment. Commits `a241470` and `b357182` document/preserve this encrypted fallback.
+
 To view the encrypted dashboard locally:
 
 1. Open the completed **Daily Research Pipeline & Private Dashboard** run in GitHub Actions.
 2. Download the artifact named `encrypted-dashboard-site-<run_id>` before its 1-day retention expires.
-3. Put `DASHBOARD_ARTIFACT_KEY` into your local environment without echoing it or committing it.
-4. Decrypt and extract:
+3. Put the exact artifact-encryption secret used by the workflow into your local environment without committing or printing it. Prefer the dedicated `DASHBOARD_ARTIFACT_KEY`; if the workflow still relied on the legacy Cloudflare-token fallback, the same effective value is required for decryption.
+4. From the directory containing `dashboard-site.tgz.enc`, decrypt and extract:
 
 ```bash
 export DASHBOARD_ARTIFACT_KEY='set-this-locally'
