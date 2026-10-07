@@ -187,8 +187,8 @@ def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
             "institutional_overlay_summary": {"actions": {}, "reasons": {}},
         }
     scan = mrr.scan
-    candidates = list(scan.top_candidates or [])
-    all_candidates = list(scan.all_candidates or [])
+    candidates = list(getattr(scan, "top_candidates", []) or [])
+    all_candidates = list(getattr(scan, "all_candidates", []) or [])
     if candidates:
         zero_stage = None
         zero_reasons = []
