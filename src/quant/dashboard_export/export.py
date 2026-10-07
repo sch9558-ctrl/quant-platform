@@ -119,23 +119,53 @@ def _strategy_validation_status(mrr: MarketResearchResult | None) -> str:
 
 def _quality_quarantine_summary(mrr: MarketResearchResult | None) -> dict:
     if mrr is None or mrr.quality_report is None:
-        return {"count": 0, "symbols": [], "reasons": []}
+        return {"count": 0, "symbols": [], "reasons": [], "warning": False}
     missing = next(
         (c for c in mrr.quality_report.checks if c.check == "missing_sessions"),
         None,
     )
     if missing is None:
-        return {"count": 0, "symbols": [], "reasons": []}
+        return {"count": 0, "symbols": [], "reasons": [], "warning": False}
     details = missing.details or {}
     symbols = list(details.get("quarantined_symbols") or [])
     reasons = ["missing_sessions"] if symbols else []
+    fraction = details.get("quarantine_fraction")
+    warning_fraction = float(
+        config.quality_config().get("missing_sessions", {}).get(
+            "quarantine_warning_fraction", 0.15
+        )
+    )
+    raw_passed = details.get("raw_passed")
+    post_quarantine_pass = raw_passed is False and missing.passed is True
+    history = dict(getattr(mrr, "quality_quarantine_history", {}) or {})
+    warning = (
+        fraction is not None and float(fraction) >= warning_fraction
+    )
     return {
         "count": len(symbols),
         "symbols": symbols,
         "reasons": reasons,
+        "reason_label_ko": "데이터 누락으로 제외된 종목" if symbols else None,
         "resolution": details.get("resolution"),
-        "fraction": details.get("quarantine_fraction"),
+        "raw_passed": raw_passed,
+        "post_quarantine_pass": post_quarantine_pass,
+        "explanation_ko": (
+            "원 missing_sessions 검사는 FAIL이었으나, 누락 종목 전체를 "
+            "격리한 뒤 나머지 데이터가 필수 검증을 통과했습니다."
+            if post_quarantine_pass else None
+        ),
+        "fraction": fraction,
         "max_fraction": details.get("max_symbol_quarantine_fraction"),
+        "warning_fraction": warning_fraction,
+        "warning": warning,
+        "warning_ko": (
+            f"품질 격리 비율이 사전 경고선 {warning_fraction:.0%} 이상입니다. "
+            "시장 전체 차단 상한에 가까워지고 있으므로 공급자·유니버스 상태를 점검해야 합니다."
+            if warning else None
+        ),
+        "consecutive_streaks": history.get("streaks", {}),
+        "consecutive_alert_sessions": history.get("alert_sessions"),
+        "consecutive_alert_symbols": history.get("alert_symbols", []),
     }
 
 
@@ -148,8 +178,37 @@ def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
             "market": market, "label": _MARKET_LABEL[market], "status": "DATA VALIDATION FAILED",
             "blocked": True, "block_reason": mrr.block_reason, "candidates": [],
             "universe_size": 0, "quality_quarantine": _quality_quarantine_summary(mrr),
+            "candidate_diagnostics": {
+                "candidate_count": 0,
+                "scored_candidate_count": 0,
+                "zero_candidate_stage": "DATA_QUALITY",
+                "zero_candidate_reasons": [mrr.block_reason] if mrr.block_reason else [],
+            },
+            "institutional_overlay_summary": {"actions": {}, "reasons": {}},
         }
     scan = mrr.scan
+    candidates = list(scan.top_candidates or [])
+    all_candidates = list(scan.all_candidates or [])
+    if candidates:
+        zero_stage = None
+        zero_reasons = []
+    elif all_candidates:
+        zero_stage = "TOP_N_SELECTION"
+        zero_reasons = ["스코어링 후보는 존재하지만 최종 후보 선택 결과가 0개입니다."]
+    else:
+        zero_stage = "SCREENING"
+        zero_reasons = ["검증된 유니버스에서 스크리닝/특징 계산 후 후보가 생성되지 않았습니다."]
+
+    overlay_actions: dict[str, int] = {}
+    overlay_reasons: dict[str, int] = {}
+    for candidate in candidates:
+        overlay = mrr.institutional_overlays.get(candidate.symbol) or {}
+        action = str(overlay.get("action") or "UNKNOWN")
+        overlay_actions[action] = overlay_actions.get(action, 0) + 1
+        for reason in overlay.get("reasons") or []:
+            key = str(reason)
+            overlay_reasons[key] = overlay_reasons.get(key, 0) + 1
+
     return {
         "market": market, "label": _MARKET_LABEL[market], "status": "OK", "blocked": False, "block_reason": None,
         "as_of": str(scan.as_of.date()) if scan.as_of is not None else None,
@@ -166,7 +225,17 @@ def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
         "universe_size": scan.universe_size,
         "excluded_for_quality": len(scan.excluded_for_quality),
         "quality_quarantine": _quality_quarantine_summary(mrr),
-        "candidates": [_candidate_to_dict(i, c, mrr.institutional_overlays.get(c.symbol)) for i, c in enumerate(scan.top_candidates, 1)],
+        "candidate_diagnostics": {
+            "candidate_count": len(candidates),
+            "scored_candidate_count": len(all_candidates),
+            "zero_candidate_stage": zero_stage,
+            "zero_candidate_reasons": zero_reasons,
+        },
+        "institutional_overlay_summary": {
+            "actions": dict(sorted(overlay_actions.items())),
+            "reasons": dict(sorted(overlay_reasons.items())),
+        },
+        "candidates": [_candidate_to_dict(i, candidate, mrr.institutional_overlays.get(candidate.symbol)) for i, candidate in enumerate(candidates, 1)],
     }
 
 
@@ -292,8 +361,15 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int = 250
     from quant.broker.us_paper import USPaperBroker
 
     broker = KoreaPaperBroker() if market == "korea" else USPaperBroker()
-    sessions = len(broker.equity_history)
-    equity_tail = [{"date": d.isoformat(), "equity": e} for d, e in broker.equity_history[-90:]]
+    curve = broker.get_equity_curve()
+    if not curve.empty:
+        curve = curve[~curve.index.duplicated(keep="last")].sort_index()
+    sessions = int(len(curve))
+    start_date = str(curve.index.min().date()) if sessions else None
+    equity_tail = [
+        {"date": pd.Timestamp(d).isoformat(), "equity": float(e)}
+        for d, e in curve.tail(90).items()
+    ]
     positions = {
         s: {"quantity": p.quantity, "avg_cost": p.avg_cost} for s, p in broker.get_positions().items()
     }
@@ -306,6 +382,12 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int = 250
         "sessions_completed": sessions,
         "sessions_required": required_sessions,
         "sessions_progress_label": f"{sessions}/{required_sessions}",
+        "start_date": start_date,
+        "progress_pct": round(min(1.0, sessions / required_sessions) * 100, 1),
+        "validation_label_ko": (
+            f"실데이터 페이퍼 검증 {sessions}/{required_sessions}거래일 / "
+            f"시작일 {start_date or '아직 시작 전'}"
+        ),
     }
 
 
@@ -355,8 +437,26 @@ def _overview(markets: dict[str, MarketResearchResult], status: SystemStatus) ->
     order = {"FAIL": 2, "WARNING": 1, "PASS": 0}
     strategy_validation = max(strategy_statuses, key=lambda s: order[s]) if strategy_statuses else "WARNING"
 
+    quarantine = {
+        market: _quality_quarantine_summary(result)
+        for market, result in markets.items()
+    }
+    quarantine_count = sum(int(v.get("count") or 0) for v in quarantine.values())
+    quarantine_alerts = sorted({
+        symbol
+        for v in quarantine.values()
+        for symbol in (v.get("consecutive_alert_symbols") or [])
+    })
+
     return {
         "data_integrity": "PASS" if status.data_quality_pass else "FAIL",
+        "quality_quarantine_count": quarantine_count,
+        "quality_quarantine_alert_symbols": quarantine_alerts,
+        "quality_quarantine_note_ko": (
+            f"데이터 누락으로 제외된 종목: {quarantine_count}개. "
+            "격리된 종목은 후보·포트폴리오에서 완전히 제외됩니다."
+            if quarantine_count else "데이터 누락으로 격리된 종목 없음"
+        ),
         "mandatory_validation_pass_rate": (
             100.0 if status.data_quality_pass else 0.0
         ),
