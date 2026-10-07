@@ -44,6 +44,10 @@ missing_sessions:
   allow_missing_after_delisting: true
   us_symbol_quarantine_enabled: true
   max_symbol_quarantine_fraction: 0.20
+  # Maintenance/visibility alerts only. These do NOT relax validation or
+  # allow missing rows back into canonical data.
+  quarantine_warning_fraction: 0.15
+  consecutive_quarantine_alert_sessions: 3
 
 freshness:
   # data must be current as of this many completed trading sessions ago
