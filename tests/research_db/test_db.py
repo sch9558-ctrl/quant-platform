@@ -210,3 +210,61 @@ def test_point_in_time_query_excludes_future_publications(db):
     )
     assert latest is not None
     assert latest.payload["target"] == 80_000.0
+
+
+def test_quality_quarantine_history_detects_consecutive_sessions(db):
+    for session, symbols in [
+        ("2026-10-01", ["AAA"]),
+        ("2026-10-02", ["AAA", "BBB"]),
+        ("2026-10-05", ["AAA"]),
+    ]:
+        db.save_quality_quarantine_snapshot(
+            market="us",
+            session=session,
+            quarantined_symbols=symbols,
+            resolution="PASS_AFTER_WHOLE_SYMBOL_QUARANTINE",
+            raw_passed=False,
+            validation_pass=True,
+            quarantine_fraction=len(symbols) / 400,
+        )
+    state = db.quality_quarantine_streaks(
+        market="us", as_of="2026-10-05", alert_sessions=3,
+    )
+    assert state["streaks"]["AAA"] == 3
+    assert state["streaks"].get("BBB") is None
+    assert state["alert_symbols"] == ["AAA"]
+
+
+def test_quality_quarantine_failed_market_breaks_streak(db):
+    db.save_quality_quarantine_snapshot(
+        market="us", session="2026-10-01", quarantined_symbols=["AAA"],
+        resolution="PASS_AFTER_WHOLE_SYMBOL_QUARANTINE", raw_passed=False,
+        validation_pass=True, quarantine_fraction=0.0025,
+    )
+    db.save_quality_quarantine_snapshot(
+        market="us", session="2026-10-02", quarantined_symbols=[],
+        resolution="MARKET_FAIL_CLOSED", raw_passed=False,
+        validation_pass=False, quarantine_fraction=0.3,
+    )
+    state = db.quality_quarantine_streaks(
+        market="us", as_of="2026-10-02", alert_sessions=3,
+    )
+    assert state["streaks"] == {}
+    assert state["alert_symbols"] == []
+
+
+def test_quality_quarantine_same_session_same_verdict_is_idempotent(db):
+    kwargs = dict(
+        market="us", session="2026-10-01", quarantined_symbols=["AAA"],
+        resolution="PASS_AFTER_WHOLE_SYMBOL_QUARANTINE", raw_passed=False,
+        validation_pass=True, quarantine_fraction=0.0025,
+    )
+    first = db.save_quality_quarantine_snapshot(**kwargs)
+    second = db.save_quality_quarantine_snapshot(**kwargs)
+    assert first == second
+    frame = db.query_observations_as_of(
+        observation_type="quality_quarantine_snapshot",
+        source="data_quality_engine",
+        market="us", symbol=None, as_of="2026-10-01",
+    )
+    assert len(frame) == 1
