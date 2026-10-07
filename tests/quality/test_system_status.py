@@ -1,4 +1,6 @@
-from quant.quality.system_status import SystemStatus, compute_system_status
+from quant.quality.system_status import (
+    SystemStatus, _completed_paper_session_count, compute_system_status,
+)
 
 
 def test_compute_system_status_skip_tests_marks_buckets_as_none(tmp_path, monkeypatch):
@@ -55,3 +57,44 @@ def test_compute_system_status_blocked_market_yields_data_invalid(tmp_path, monk
     status = compute_system_status(["korea"], demo=True, as_of="2022-06-01", run_tests=False)
     assert status.data_quality_pass is False
     assert status.readiness.level == "DATA_INVALID"
+
+
+
+def test_completed_paper_session_count_uses_distinct_completed_nav_marks(tmp_path, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from quant import config as quant_config
+
+    monkeypatch.setattr(quant_config, "resolve_path", lambda rel: tmp_path)
+    (tmp_path / "paper_us.json").write_text(json.dumps({
+        "equity_history": [
+            {"date": "2026-10-06T00:00:00", "equity": 99980.0},
+            {"date": "2026-10-06T00:00:00", "equity": 99980.0},
+            {"date": "2026-10-07T00:00:00", "equity": 100100.0},
+        ]
+    }))
+    reports = {"us": SimpleNamespace(as_of="2026-10-06")}
+    assert _completed_paper_session_count(["us"], reports, demo=False) == 1
+    assert _completed_paper_session_count(["us"], reports, demo=True) == 0
+
+
+def test_completed_paper_session_count_is_conservative_across_markets(tmp_path, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from quant import config as quant_config
+
+    monkeypatch.setattr(quant_config, "resolve_path", lambda rel: tmp_path)
+    (tmp_path / "paper_us.json").write_text(json.dumps({
+        "equity_history": [
+            {"date": "2026-10-06T00:00:00", "equity": 99980.0},
+            {"date": "2026-10-07T00:00:00", "equity": 100100.0},
+        ]
+    }))
+    (tmp_path / "paper_korea.json").write_text(json.dumps({
+        "equity_history": [{"date": "2026-10-06T00:00:00", "equity": 10000000.0}]
+    }))
+    reports = {
+        "us": SimpleNamespace(as_of="2026-10-07"),
+        "korea": SimpleNamespace(as_of="2026-10-07"),
+    }
+    assert _completed_paper_session_count(["us", "korea"], reports, demo=False) == 1
