@@ -51,7 +51,9 @@ jobs:
       - name: Measure FISV and universe exclusions before remediation
         run: |
           python - <<'PY'
-          import json
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path.cwd() / "src"))
           from collections import Counter
           import pandas as pd
           from quant.data.us_provider import USDataProvider
