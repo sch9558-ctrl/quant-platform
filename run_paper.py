@@ -52,13 +52,18 @@ from quant.utils.logging import get_logger  # noqa: E402
 logger = get_logger(__name__)
 
 
-def build_broker(market: str):
-    db = ResearchDB()
-    return (
-        KoreaPaperBroker(research_db=db)
-        if market == "korea"
-        else USPaperBroker(research_db=db)
-    )
+def build_broker(market: str, *, demo: bool = False):
+    if demo:
+        db_dir = __import__("quant").config.resolve_path(
+            __import__("quant").config.settings()["paths"]["db_dir"]
+        )
+        state_path = db_dir / f"paper_{market}_demo.json"
+        db = ResearchDB(path=db_dir / "research_demo.sqlite")
+    else:
+        state_path = None
+        db = ResearchDB()
+    broker_cls = KoreaPaperBroker if market == "korea" else USPaperBroker
+    return broker_cls(research_db=db, state_path=state_path)
 
 
 def apply_persistent_nav_volatility_target(
@@ -154,7 +159,7 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
     as_of = str(gated.as_of)
     scan = gated.scan
 
-    broker = build_broker(market)
+    broker = build_broker(market, demo=demo)
     if _paper_session_already_completed(broker, as_of):
         print(f"[{market}] as_of={as_of} paper session already completed -- idempotent skip.")
         return
