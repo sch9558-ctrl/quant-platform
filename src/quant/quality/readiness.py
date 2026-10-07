@@ -12,6 +12,8 @@ touches or can influence.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+from quant import config
 from typing import Literal
 
 Level = Literal[
@@ -25,7 +27,9 @@ DISCLAIMER = (
     "100% accuracy or that loss is impossible."
 )
 
-DEFAULT_REQUIRED_PAPER_TRADING_SESSIONS = 250
+DEFAULT_REQUIRED_PAPER_TRADING_SESSIONS = int(
+    config.settings().get("paper_trading", {}).get("required_validated_sessions", 250)
+)
 
 
 @dataclass

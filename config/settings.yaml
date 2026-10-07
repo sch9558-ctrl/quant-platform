@@ -21,6 +21,13 @@ paths:
 research_db:
   path: "data/db/research.sqlite"
 
+paper_trading:
+  daily_top_n: 10
+  # Count only distinct validated market sessions whose paper NAV was
+  # successfully persisted. No-trade days count; Fail-Closed, persist-failed,
+  # and replayed sessions do not.
+  required_validated_sessions: 250
+
 logging:
   level: "INFO"
   file: "logs/quant.log"

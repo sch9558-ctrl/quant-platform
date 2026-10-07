@@ -77,13 +77,17 @@ sessions (`broker/kr_paper.py` / `us_paper.py` already persist daily
 equity marks — counting distinct wall-clock trading days recorded there
 is the natural source for `paper_trading_sessions`).
 
-## Paper trading: 250 real sessions, never backfilled
+## Paper trading: 250 validated sessions, never backfilled
 
-`DEFAULT_REQUIRED_PAPER_TRADING_SESSIONS = 250` in `readiness.py`. A
-"session" is one real wall-clock trading day on which `run_paper.py`
-actually ran and recorded an equity mark — never a historical replay,
-never a batch of backtested days counted as if they were live days. This
-is why `run_paper.py`, when its market is Fail-Closed blocked for the day,
+The required count is configured once at
+`settings.yaml -> paper_trading.required_validated_sessions` (currently 250).
+A counted session means exactly **one distinct validated market session with a
+successfully persisted paper NAV**. A no-trade day counts when its validated
+NAV is persisted. A Fail-Closed market day, failed NAV persistence, or replay
+of an already-counted session does not add a session. Historical replay or
+backfill can never manufacture elapsed pre-live time.
+
+This is why `run_paper.py`, when its market is Fail-Closed blocked for the day,
 skips recording that day's equity mark entirely rather than recording a
 placeholder — a blocked day is not a verified paper-trading session and
 must not silently count as one.
