@@ -12,6 +12,9 @@ The order below is by immediate operational effect.
 | **3** | `KIS_APP_KEY` + `KIS_APP_SECRET` | Korea Investment & Securities Open API: https://apiportal.koreainvestment.com/about-howto | Apply for KIS Open API service and obtain APP Key / APP Secret. Only read/query capability used by this research path is needed; **live trading remains permanently disabled**. | `test_live_kis_credit_ratio_contract` can exercise Korean credit-balance/event risk inputs instead of failing as unconfigured. |
 | **4** | `STOOQ_API_KEY` | Stooq CSV key page used by the provider contract: https://stooq.com/q/d/?s=aapl.us&get_apikey | No repository-side write/trading permission. Obtain the CSV download API key accepted by Stooq and keep it secret. | `test_live_stooq_us_secondary_contract` can run the independent US secondary-source cross-check instead of failing because the key is absent. |
 
+| **5** | `SEC_USER_AGENT` | SEC EDGAR developer guidance: https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data | No API key is required for `data.sec.gov` submissions data. Configure a descriptive User-Agent identifying the application/operator contact, as required by SEC fair-access guidance. The repository treats an empty value as unavailable rather than sending an anonymous bot request. | US filing checks can execute instead of returning `FILING_DATA_UNAVAILABLE` solely because the SEC client is unconfigured. This does not by itself guarantee `BUY`; all other overlay/risk gates still apply. |
+| **6** | `DART_API_KEY` | OpenDART: https://opendart.fss.or.kr/ | OpenDART API authentication key (official guide specifies a 40-character `crtfc_key`). Read-only disclosure lookup only. | Once Korean market data itself passes Fail-Closed validation, the filing overlay can query DART rather than remaining unavailable due to missing credentials. |
+
 ## Where to register the values
 
 Repository: **Settings -> Secrets and variables -> Actions -> Repository secrets**
@@ -32,3 +35,8 @@ The latest completed pre-round-6 dashboard deploy attempt showed:
 - effective `DASHBOARD_ARTIFACT_KEY`: non-empty, **but the mask cannot prove it is a separately registered artifact key** because the workflow also has a legacy token fallback.
 
 Therefore the next confirmed user action is to add `CLOUDFLARE_ACCOUNT_ID`. The subsequent run must still prove Access preflight and bootstrap permissions before the Cloudflare setup can be called complete.
+
+
+## Round-8 filing audit
+
+The production filing path is already wired. The latest audited Daily run showed both `SEC_USER_AGENT` and `DART_API_KEY` empty. For the US path this directly explains the observed `FILING_DATA_UNAVAILABLE` overlay reason: the client fails closed before making an anonymous SEC request. SEC submissions data itself does not require an API key; the missing input is the declared User-Agent. Do not invent a contact identity in source code or CI.
