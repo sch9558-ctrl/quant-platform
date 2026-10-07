@@ -367,6 +367,8 @@ def test_run_paper_cycle_records_no_candidate_validated_session(monkeypatch):
             self.marks = []
         def get_positions(self):
             return {}
+        def get_fill_history(self):
+            return []
         def record_daily_equity(self, prices, as_of=None):
             self.marks.append((pd.Timestamp(as_of).normalize(), dict(prices)))
             self.equity_history.append((pd.Timestamp(as_of).normalize(), 100_000.0))
