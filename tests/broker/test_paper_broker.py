@@ -381,7 +381,7 @@ def test_run_paper_cycle_records_no_candidate_validated_session(monkeypatch):
     )
     monkeypatch.setattr(run_paper, "get_provider", lambda market, demo: object())
     monkeypatch.setattr(run_paper, "run_gated_scan", lambda *a, **k: gated)
-    monkeypatch.setattr(run_paper, "build_broker", lambda market: broker)
+    monkeypatch.setattr(run_paper, "build_broker", lambda market, *, demo=False: broker)
 
     run_paper.run_paper_cycle("us", demo=False, top_n=10, as_of="2026-10-06")
     run_paper.run_paper_cycle("us", demo=False, top_n=10, as_of="2026-10-06")
