@@ -1,8 +1,9 @@
 """Dynamic US index-constituent discovery (spec section 1: no hardcoded
 tickers). Fetches S&P 500 / NASDAQ-100 membership from public reference
 tables at run time, with a local JSON cache so repeated runs on the same
-day don't re-fetch, and a stale-cache fallback so a temporary network
-hiccup doesn't break a scheduled run.
+day don't re-fetch. A refresh failure may use only a still-fresh cache;
+once the cache exceeds CACHE_MAX_AGE_DAYS the universe fails closed rather
+than silently screening an obsolete constituent list.
 
 NOTE ON THIS SANDBOX: fetching Wikipedia is not reachable from this
 development environment (see README.md). `fetch_sp500_constituents` and
@@ -86,7 +87,14 @@ def _fetch_with_cache(cache_name: str, fetcher: Callable[[], list[str]]) -> list
         logger.warning("Failed to refresh %s constituents, falling back to cache if any: %s", cache_name, e)
 
     if cached is not None:
-        return cached[0]
+        symbols, fetched_at = cached
+        age_days = (time.time() - fetched_at) / 86400
+        if age_days < CACHE_MAX_AGE_DAYS:
+            return symbols
+        raise RuntimeError(
+            f"{cache_name} constituent cache is stale ({age_days:.1f}d >= "
+            f"{CACHE_MAX_AGE_DAYS}d) and refresh failed; refusing stale universe"
+        )
     return []
 
 
