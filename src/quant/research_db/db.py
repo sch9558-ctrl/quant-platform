@@ -694,6 +694,57 @@ class ResearchDB:
         }
 
 
+    def quality_quarantine_frequency(
+        self,
+        *,
+        market: str,
+        as_of: str | pd.Timestamp,
+        window_sessions: int = 20,
+        limit: int = 1000,
+    ) -> dict:
+        """Count intermittent quarantine over recent validated market sessions.
+
+        Visibility only: this method never changes the quality verdict or
+        quarantine gate. Failed validation sessions are excluded from the
+        denominator because they are not validated market sessions.
+        """
+        frame = self.query_observations_as_of(
+            observation_type="quality_quarantine_snapshot",
+            source="data_quality_engine", market=str(market), symbol=None,
+            as_of=pd.Timestamp(as_of).normalize(), limit=limit,
+        )
+        if frame.empty:
+            return {
+                "window_sessions": int(window_sessions),
+                "observed_validated_sessions": 0,
+                "counts": {}, "rates": {},
+            }
+        by_session = {}
+        for _, row in frame.iterrows():
+            session = pd.Timestamp(row["published_at"]).normalize()
+            by_session.setdefault(session, json.loads(row["payload_json"]))
+        validated = [
+            (session, payload)
+            for session, payload in sorted(by_session.items(), key=lambda x: x[0], reverse=True)
+            if bool(payload.get("validation_pass"))
+        ][:max(0, int(window_sessions))]
+        counts: dict[str, int] = {}
+        for _, payload in validated:
+            for symbol in set(payload.get("quarantined_symbols") or []):
+                counts[str(symbol)] = counts.get(str(symbol), 0) + 1
+        denom = len(validated)
+        rates = {
+            symbol: (count / denom if denom else 0.0)
+            for symbol, count in sorted(counts.items())
+        }
+        return {
+            "window_sessions": int(window_sessions),
+            "observed_validated_sessions": denom,
+            "counts": dict(sorted(counts.items())),
+            "rates": rates,
+        }
+
+
     def count(self) -> int:
         with self._connect() as conn:
             cur = conn.execute("SELECT COUNT(*) FROM experiments")
