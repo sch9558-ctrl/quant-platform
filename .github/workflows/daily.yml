@@ -123,8 +123,9 @@ jobs:
             python run_paper.py --real --market "$market" --as-of "$session"
           done < /tmp/paper-markets
           python - <<'PY'
-          import json
+          import json,sys
           from pathlib import Path
+          sys.path.insert(0, str(Path.cwd() / "src"))
           from quant.research_db.db import ResearchDB
           d=json.loads(Path("site/data/dashboard.json").read_text())
           db=ResearchDB()
@@ -145,8 +146,9 @@ jobs:
       - name: Refresh dashboard paper-verification counters
         run: |
           python - <<'PY'
-          import json
+          import json,sys
           from pathlib import Path
+          sys.path.insert(0, str(Path.cwd() / "src"))
           from quant.dashboard_export.export import _paper_trading_section
           p=Path("site/data/dashboard.json")
           d=json.loads(p.read_text())
