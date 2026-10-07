@@ -308,3 +308,23 @@ def test_market_payload_exposes_universe_membership_pit_warning():
     assert section["universe_membership"]["pit_safe"] is False
     assert section["universe_membership"]["warning"] == "UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE"
     assert section["universe_membership"]["provenance"]["membership_effective_date"] is None
+
+
+
+def test_candidate_count_stages_do_not_collapse_into_one_number():
+    scan = SimpleNamespace(
+        as_of=pd.Timestamp("2026-10-06"), regime=None, universe_size=399,
+        excluded_for_quality=[],
+        top_candidates=[SimpleNamespace(symbol="AAA")],
+        all_candidates=[SimpleNamespace(symbol="AAA"), SimpleNamespace(symbol="BBB")],
+    )
+    result = research_pipeline.MarketResearchResult(
+        market="us", scan=scan, walk_forward_results={}, ranking_df=pd.DataFrame(),
+        experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
+        portfolio_allocation=None, risk_checks=[], blocked=False, block_reason=None,
+    )
+    section = _market_section("us", result)
+    assert section["candidate_counts"] == {
+        "screened": 2, "dashboard": 1, "paper_selected": None,
+    }
+    assert section["candidate_counts"]["dashboard"] <= section["candidate_counts"]["screened"]
