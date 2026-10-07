@@ -57,7 +57,7 @@ def test_discover_major_etfs_applies_liquidity_and_aum_filters():
 def test_fresh_constituent_cache_can_cover_temporary_refresh_outage(tmp_path, monkeypatch):
     p = uc._cache_path("fresh.json")
     p.write_text('{"symbols":["AAA"],"fetched_at":0}')
-    monkeypatch.setattr(uc.time, "time", lambda: 5 * 86400)
+    monkeypatch.setattr(uc.time, "time", lambda: 0.5 * 86400)
 
     def broken():
         raise RuntimeError("network down")
