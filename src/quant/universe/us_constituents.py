@@ -30,7 +30,7 @@ from quant.utils.logging import get_logger
 logger = get_logger(__name__)
 
 SP500_WIKI_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-NASDAQ100_WIKI_URL = "https://en.wikipedia.org/wiki/Nasdaq-100"
+NASDAQ100_WIKI_URL = "https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies"
 SP500_RAW_URL = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
 NASDAQ100_RAW_URL = "https://raw.githubusercontent.com/Gary-Strauss/nasdaq100-scraper/main/data/nasdaq100_constituents.csv"
 _HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; quant-platform/1.0; +https://github.com/sch9558-ctrl/quant-platform)"}
