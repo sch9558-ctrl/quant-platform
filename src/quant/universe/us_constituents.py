@@ -95,7 +95,10 @@ def _fetch_with_cache(cache_name: str, fetcher: Callable[[], list[str]]) -> list
             f"{cache_name} constituent cache is stale ({age_days:.1f}d >= "
             f"{CACHE_MAX_AGE_DAYS}d) and refresh failed; refusing stale universe"
         )
-    return []
+    raise RuntimeError(
+        f"{cache_name} constituent refresh failed and no usable cache exists; "
+        "refusing incomplete index universe"
+    )
 
 
 def _read_html_with_headers(url: str) -> list[pd.DataFrame]:
