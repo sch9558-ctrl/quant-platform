@@ -222,3 +222,66 @@ def test_market_section_exposes_missing_session_quarantine_details():
     assert section["quality_quarantine"]["symbols"] == ["FISV"]
     assert section["quality_quarantine"]["reasons"] == ["missing_sessions"]
     assert section["quality_quarantine"]["resolution"] == "PASS_AFTER_WHOLE_SYMBOL_QUARANTINE"
+
+
+def test_zero_candidate_reason_is_structured_in_market_payload():
+    scan = SimpleNamespace(
+        as_of=pd.Timestamp("2026-10-06"),
+        regime=None,
+        universe_size=399,
+        excluded_for_quality=[],
+        top_candidates=[],
+        all_candidates=[],
+    )
+    result = research_pipeline.MarketResearchResult(
+        market="us", scan=scan, walk_forward_results={}, ranking_df=pd.DataFrame(),
+        experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
+        portfolio_allocation=None, risk_checks=[], blocked=False, block_reason=None,
+    )
+    section = _market_section("us", result)
+    diag = section["candidate_diagnostics"]
+    assert diag["candidate_count"] == 0
+    assert diag["scored_candidate_count"] == 0
+    assert diag["zero_candidate_stage"] == "SCREENING"
+    assert diag["zero_candidate_reasons"]
+
+
+def test_quarantine_payload_explains_raw_fail_and_warning_threshold():
+    issue = ValidationIssue(
+        "missing_sessions", "FATAL", "missing", "us", "AAA", "2026-10-01",
+    )
+    check = CheckResult(
+        "missing_sessions", mandatory=True, passed=True, issues=[issue],
+        details={
+            "raw_passed": False,
+            "resolution": "PASS_AFTER_WHOLE_SYMBOL_QUARANTINE",
+            "quarantined_symbols": ["AAA"],
+            "quarantine_fraction": 0.19,
+            "max_symbol_quarantine_fraction": 0.20,
+        },
+    )
+    report = DataQualityReport(
+        market="us", as_of="2026-10-06",
+        generated_at="2026-10-07T00:00:00+00:00",
+        checks=[check], overall_status="PASS",
+    )
+    scan = SimpleNamespace(
+        as_of=pd.Timestamp("2026-10-06"), regime=None, universe_size=399,
+        excluded_for_quality=[], top_candidates=[], all_candidates=[],
+    )
+    result = research_pipeline.MarketResearchResult(
+        market="us", scan=scan, walk_forward_results={}, ranking_df=pd.DataFrame(),
+        experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
+        portfolio_allocation=None, risk_checks=[], quality_report=report,
+        quality_quarantine_history={
+            "streaks": {"AAA": 3}, "alert_sessions": 3, "alert_symbols": ["AAA"],
+        },
+        blocked=False, block_reason=None,
+    )
+    q = _market_section("us", result)["quality_quarantine"]
+    assert q["post_quarantine_pass"] is True
+    assert q["raw_passed"] is False
+    assert "원 missing_sessions 검사는 FAIL" in q["explanation_ko"]
+    assert q["warning"] is True
+    assert q["warning_fraction"] == pytest.approx(0.15)
+    assert q["consecutive_alert_symbols"] == ["AAA"]
