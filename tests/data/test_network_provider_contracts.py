@@ -18,6 +18,7 @@ from quant.data.kr_data_go_provider import DataGoKrProvider
 from quant.data.kr_provider import KRDataProvider
 from quant.data.us_provider import USDataProvider
 from quant.data.us_secondary_provider import USSecondaryProvider
+from quant.risk.filing_filter import OpenDartClient, SecEdgarClient
 from quant.risk.market_traps import MarketTrapDataService
 from quant.utils.calendar import last_n_trading_days, latest_closed_session
 
@@ -155,3 +156,33 @@ def test_live_kis_credit_ratio_contract():
     assert result.source=="KIS Open API daily credit balance"
     assert result.credit_balance_pct is not None
     assert 0.0 <= float(result.credit_balance_pct) <= 100.0
+
+
+
+def test_live_sec_edgar_filing_contract():
+    _, end = _session_window("us")
+    user_agent = os.getenv("SEC_USER_AGENT", "").strip()
+    assert user_agent, (
+        "SEC_USER_AGENT is required for the production EDGAR filing path. "
+        "Configure a descriptive SEC-compliant User-Agent in GitHub Actions; "
+        "do not hardcode or invent operator contact information."
+    )
+    result = SecEdgarClient(user_agent=user_agent).fetch_recent(
+        "AAPL", as_of=end, days=14,
+    )
+    assert result.available is True, result.error
+    assert result.source == "sec_edgar"
+
+
+def test_live_opendart_filing_contract():
+    _, end = _session_window("korea")
+    api_key = os.getenv("DART_API_KEY", "").strip()
+    assert api_key, (
+        "DART_API_KEY is required for the production OpenDART filing path. "
+        "Register the issued OpenDART API key in GitHub Actions."
+    )
+    result = OpenDartClient(api_key=api_key).fetch_recent(
+        "005930", as_of=end, days=14,
+    )
+    assert result.available is True, result.error
+    assert result.source == "opendart"
