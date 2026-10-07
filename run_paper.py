@@ -39,6 +39,7 @@ if str(_SRC) not in sys.path:
 
 import pandas as pd  # noqa: E402
 
+from quant import config  # noqa: E402
 from quant.broker.kr_paper import KoreaPaperBroker  # noqa: E402
 from quant.broker.us_paper import USPaperBroker  # noqa: E402
 from quant.data.factory import get_provider  # noqa: E402
@@ -54,9 +55,7 @@ logger = get_logger(__name__)
 
 def build_broker(market: str, *, demo: bool = False):
     if demo:
-        db_dir = __import__("quant").config.resolve_path(
-            __import__("quant").config.settings()["paths"]["db_dir"]
-        )
+        db_dir = config.resolve_path(config.settings()["paths"]["db_dir"])
         state_path = db_dir / f"paper_{market}_demo.json"
         db = ResearchDB(path=db_dir / "research_demo.sqlite")
     else:
