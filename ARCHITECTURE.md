@@ -158,11 +158,15 @@ forbidden from ever claiming).
   public data endpoints for OHLCV, market cap, and fundamental
   (PER/PBR/EPS/dividend yield) tables for KOSPI/KOSDAQ, plus ETF price data.
 - **US**: [`yfinance`](https://github.com/ranaroussi/yfinance) for OHLCV,
-  corporate actions (splits/dividends) and basic fundamentals. Universe
-  constituents (S&P 500 / NASDAQ-100) are fetched dynamically from public
-  reference tables (e.g. Wikipedia) at run time and cached locally — **no
-  ticker list is hardcoded in source code.** A broader "all listed" universe
-  can be layered on later via an exchange listing endpoint.
+  corporate actions (splits/dividends) and basic fundamentals. Today's
+  S&P 500 / NASDAQ-100 constituents are fetched dynamically from public
+  reference tables and cached locally. These current tables do **not** provide
+  historical membership effective dates, so they are valid for the current
+  scan but are explicitly marked `UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE` for
+  multi-year Walk-Forward approval. Strategy approval therefore remains
+  `INSUFFICIENT_EVIDENCE` until an official/licensed dated membership archive
+  is available. No current constituent list is silently treated as historical
+  truth.
 
 Both providers sit behind a `MarketDataProvider` abstract interface
 (`src/quant/data/base.py`), so a paid data vendor can be swapped in later
