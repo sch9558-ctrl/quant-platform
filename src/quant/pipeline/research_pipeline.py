@@ -391,11 +391,15 @@ def run_market_research(
     gated = run_gated_scan(market, provider=provider, as_of=as_of, demo=demo, top_n=top_n)
     # From here on every calculation/report is dated to the bars actually used.
     as_of = gated.as_of
-    quarantine_history = _record_quality_quarantine_history(
-        db,
-        market=market,
-        as_of=as_of,
-        report=gated.validation.report,
+    quarantine_history = (
+        {}
+        if demo
+        else _record_quality_quarantine_history(
+            db,
+            market=market,
+            as_of=as_of,
+            report=gated.validation.report,
+        )
     )
     macro_snapshot = None if demo else fetch_cross_asset_snapshot(as_of)
     if gated.blocked:
