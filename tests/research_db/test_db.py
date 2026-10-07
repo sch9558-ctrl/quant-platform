@@ -295,3 +295,46 @@ def test_paper_cycle_summary_changed_same_session_is_rejected(db):
             market="us", session="2026-10-06", selected_symbols=["AAA", "BBB"],
             fills=2, rejections=0, nav=99_990.0, cash=80_000.0, positions=2,
         )
+
+
+
+def test_quality_quarantine_frequency_detects_intermittent_symbol(db):
+    schedule = [
+        ("2026-10-01", ["AAA"]),
+        ("2026-10-02", ["AAA"]),
+        ("2026-10-05", []),
+        ("2026-10-06", ["AAA"]),
+        ("2026-10-07", ["AAA"]),
+        ("2026-10-08", []),
+    ]
+    for session, symbols in schedule:
+        db.save_quality_quarantine_snapshot(
+            market="us", session=session, quarantined_symbols=symbols,
+            resolution=("PASS_AFTER_WHOLE_SYMBOL_QUARANTINE" if symbols else None),
+            raw_passed=(False if symbols else True), validation_pass=True,
+            quarantine_fraction=len(symbols) / 400,
+        )
+    freq = db.quality_quarantine_frequency(
+        market="us", as_of="2026-10-08", window_sessions=20,
+    )
+    assert freq["observed_validated_sessions"] == 6
+    assert freq["counts"]["AAA"] == 4
+    assert freq["rates"]["AAA"] == pytest.approx(4 / 6)
+
+
+def test_quality_quarantine_frequency_excludes_failed_market_sessions(db):
+    db.save_quality_quarantine_snapshot(
+        market="us", session="2026-10-01", quarantined_symbols=["AAA"],
+        resolution="PASS_AFTER_WHOLE_SYMBOL_QUARANTINE", raw_passed=False,
+        validation_pass=True, quarantine_fraction=0.0025,
+    )
+    db.save_quality_quarantine_snapshot(
+        market="us", session="2026-10-02", quarantined_symbols=["AAA"],
+        resolution="MARKET_FAIL_CLOSED", raw_passed=False,
+        validation_pass=False, quarantine_fraction=0.3,
+    )
+    freq = db.quality_quarantine_frequency(
+        market="us", as_of="2026-10-02", window_sessions=20,
+    )
+    assert freq["observed_validated_sessions"] == 1
+    assert freq["counts"]["AAA"] == 1
