@@ -465,3 +465,45 @@ def test_legacy_paper_state_reconstructs_missing_slippage(tmp_path):
     }''')
     broker = USPaperBroker(initial_capital=100_000.0, state_path=state_path)
     assert broker.get_fill_history()[0].slippage_cost == pytest.approx(5.0)
+
+
+
+def test_partial_same_session_replay_fails_closed(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import run_paper
+
+    broker = USPaperBroker(
+        initial_capital=100_000.0,
+        state_path=tmp_path / "paper_us.json",
+        research_db=ResearchDB(path=tmp_path / "research.sqlite"),
+    )
+    broker.submit_order(
+        "AAA", "buy", quantity=10, price=100.0,
+        session=pd.Timestamp("2026-10-06"),
+        filled_at=pd.Timestamp("2026-10-06T20:00:00Z"),
+    )
+    assert broker.get_equity_curve().empty
+    fills_before = len(broker.get_fill_history())
+    cash_before = broker.get_cash()
+
+    class Regime:
+        def summary_label(self):
+            return "TEST"
+
+    candidate = SimpleNamespace(
+        symbol="AAA", composite_score=0.9, volatility=0.2, price=100.0,
+    )
+    gated = SimpleNamespace(
+        blocked=False, block_reason="", market="us", as_of="2026-10-06",
+        scan=SimpleNamespace(top_candidates=[candidate], regime=Regime(), universe_size=1),
+        validation=SimpleNamespace(canonical_ohlcv_map={}),
+    )
+    monkeypatch.setattr(run_paper, "get_provider", lambda market, demo: object())
+    monkeypatch.setattr(run_paper, "run_gated_scan", lambda *a, **k: gated)
+    monkeypatch.setattr(run_paper, "build_broker", lambda market, *, demo=False: broker)
+
+    with pytest.raises(RuntimeError, match="persisted fill.*no completed NAV mark"):
+        run_paper.run_paper_cycle("us", demo=False, top_n=10, as_of="2026-10-06")
+
+    assert len(broker.get_fill_history()) == fills_before
+    assert broker.get_cash() == pytest.approx(cash_before)

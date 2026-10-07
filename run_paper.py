@@ -141,6 +141,26 @@ def _paper_session_already_completed(broker, as_of: str) -> bool:
     return any(pd.Timestamp(d).normalize() == session for d, _ in broker.equity_history)
 
 
+def _assert_no_partial_paper_session(broker, as_of: str) -> None:
+    """Fail closed if this session already has fills but no completed NAV mark.
+
+    A CI process can die after one or more fills have been persisted but before
+    record_daily_equity() closes the session. Re-running a rebalance in that
+    state may create extra fills/costs. Automatic replay is therefore unsafe:
+    the existing session must be reconciled explicitly rather than guessed.
+    """
+    session = pd.Timestamp(as_of).normalize()
+    partial = [
+        fill for fill in broker.get_fill_history()
+        if fill.session is not None and pd.Timestamp(fill.session).normalize() == session
+    ]
+    if partial and not _paper_session_already_completed(broker, as_of):
+        raise RuntimeError(
+            f"paper session {session.date()} has {len(partial)} persisted fill(s) "
+            "but no completed NAV mark; refusing automatic replay"
+        )
+
+
 def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = None) -> None:
     as_of = as_of or default_as_of(market)
     provider = get_provider(market, demo=demo)
@@ -162,6 +182,7 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
     if _paper_session_already_completed(broker, as_of):
         print(f"[{market}] as_of={as_of} paper session already completed -- idempotent skip.")
         return
+    _assert_no_partial_paper_session(broker, as_of)
     print(f"[{market}] as_of={as_of} regime={scan.regime.summary_label()} universe_size={scan.universe_size}")
     print(f"[{market}] top candidates found: {len(scan.top_candidates)}")
 
