@@ -52,3 +52,26 @@ def test_discover_major_etfs_applies_liquidity_and_aum_filters():
     # synthetic provider won't have real SPY/QQQ data, so this should
     # gracefully return an empty (not crash) list
     assert isinstance(result, list)
+
+
+def test_fresh_constituent_cache_can_cover_temporary_refresh_outage(tmp_path, monkeypatch):
+    p = uc._cache_path("fresh.json")
+    p.write_text('{"symbols":["AAA"],"fetched_at":0}')
+    monkeypatch.setattr(uc.time, "time", lambda: 5 * 86400)
+
+    def broken():
+        raise RuntimeError("network down")
+
+    assert uc._fetch_with_cache("fresh.json", broken) == ["AAA"]
+
+
+def test_stale_constituent_cache_fails_closed_when_refresh_fails(tmp_path, monkeypatch):
+    p = uc._cache_path("stale.json")
+    p.write_text('{"symbols":["OLD"],"fetched_at":0}')
+    monkeypatch.setattr(uc.time, "time", lambda: (uc.CACHE_MAX_AGE_DAYS + 1) * 86400)
+
+    def broken():
+        raise RuntimeError("network down")
+
+    with pytest.raises(RuntimeError, match="constituent cache is stale"):
+        uc._fetch_with_cache("stale.json", broken)
