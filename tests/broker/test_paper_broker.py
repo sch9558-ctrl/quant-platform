@@ -348,3 +348,75 @@ def test_same_session_equity_mark_cannot_rewrite_nav(tmp_path):
     broker.record_daily_equity({"AAA": 1000}, as_of=pd.Timestamp("2026-03-02"))
     with pytest.raises(ValueError, match="already recorded with a different NAV"):
         broker.record_daily_equity({"AAA": 1100}, as_of=pd.Timestamp("2026-03-02"))
+
+
+def test_run_paper_cycle_records_no_candidate_validated_session(monkeypatch):
+    from types import SimpleNamespace
+    import run_paper
+
+    class Regime:
+        def summary_label(self):
+            return "TEST"
+
+    class FakeBroker:
+        market = "us"
+        research_db = None
+        def __init__(self):
+            self.equity_history = []
+            self.marks = []
+        def get_positions(self):
+            return {}
+        def record_daily_equity(self, prices, as_of=None):
+            self.marks.append((pd.Timestamp(as_of).normalize(), dict(prices)))
+            self.equity_history.append((pd.Timestamp(as_of).normalize(), 100_000.0))
+            return 100_000.0
+        def get_cash(self):
+            return 100_000.0
+
+    broker = FakeBroker()
+    scan = SimpleNamespace(top_candidates=[], regime=Regime(), universe_size=399)
+    gated = SimpleNamespace(
+        blocked=False, block_reason="", scan=scan, market="us", as_of="2026-10-06",
+        validation=SimpleNamespace(canonical_ohlcv_map={}),
+    )
+    monkeypatch.setattr(run_paper, "get_provider", lambda market, demo: object())
+    monkeypatch.setattr(run_paper, "run_gated_scan", lambda *a, **k: gated)
+    monkeypatch.setattr(run_paper, "build_broker", lambda market: broker)
+
+    run_paper.run_paper_cycle("us", demo=False, top_n=10, as_of="2026-10-06")
+    run_paper.run_paper_cycle("us", demo=False, top_n=10, as_of="2026-10-06")
+
+    assert broker.marks == [(pd.Timestamp("2026-10-06"), {})]
+
+
+def test_run_paper_cycle_does_not_count_fail_closed_market(monkeypatch):
+    from types import SimpleNamespace
+    import run_paper
+
+    monkeypatch.setattr(run_paper, "get_provider", lambda market, demo: object())
+    monkeypatch.setattr(
+        run_paper, "run_gated_scan",
+        lambda *a, **k: SimpleNamespace(
+            blocked=True, block_reason="DATA VALIDATION FAILED", scan=None,
+            market="korea", as_of="2026-10-06",
+        ),
+    )
+    monkeypatch.setattr(
+        run_paper, "build_broker",
+        lambda market: (_ for _ in ()).throw(AssertionError("broker must not be mutated")),
+    )
+
+    run_paper.run_paper_cycle("korea", demo=False, top_n=10, as_of="2026-10-06")
+
+
+def test_validated_mark_prices_fail_closed_for_unpriced_holding():
+    from types import SimpleNamespace
+    import run_paper
+
+    broker = SimpleNamespace(get_positions=lambda: {"OLD": object()})
+    gated = SimpleNamespace(
+        market="us", as_of="2026-10-06",
+        validation=SimpleNamespace(canonical_ohlcv_map={}),
+    )
+    with pytest.raises(RuntimeError, match="session is not counted"):
+        run_paper._validated_mark_prices(broker, gated, {})
