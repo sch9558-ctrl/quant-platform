@@ -48,3 +48,25 @@ def test_project_name_secret_has_safe_default():
     raw=P.read_text(encoding="utf-8")
     assert "secrets.CLOUDFLARE_PROJECT_NAME" in raw
     assert "quant-platform" in raw
+
+
+def test_real_paper_verification_is_persistent_encrypted_and_ordered():
+    d=load()
+    steps=d["jobs"]["research"]["steps"]
+    names=[s.get("name","") for s in steps]
+    restore_i=names.index("Restore encrypted long-horizon state cache")
+    research_i=names.index("Run real research and dashboard-data generation")
+    paper_i=names.index("Run real paper verification for validated markets")
+    refresh_i=names.index("Refresh dashboard paper-verification counters")
+    encrypt_i=names.index("Encrypt persistent long-horizon state")
+    save_i=names.index("Save encrypted long-horizon state cache")
+    assert restore_i < research_i < paper_i < refresh_i < encrypt_i < save_i
+
+    raw=P.read_text(encoding="utf-8")
+    assert "python run_paper.py --real" in raw
+    assert "paper_nav_history" in raw
+    assert "paper-state.tgz.enc" in raw
+    assert "actions/cache/restore@v4" in raw
+    assert "actions/cache/save@v4" in raw
+    assert "retention-days: 30" in raw
+    assert "data/db" in raw
