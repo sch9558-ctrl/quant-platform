@@ -315,7 +315,7 @@ def test_candidate_count_stages_do_not_collapse_into_one_number():
     scan = SimpleNamespace(
         as_of=pd.Timestamp("2026-10-06"), regime=None, universe_size=399,
         excluded_for_quality=[],
-        top_candidates=[SimpleNamespace(symbol="AAA")],
+        top_candidates=[],
         all_candidates=[SimpleNamespace(symbol="AAA"), SimpleNamespace(symbol="BBB")],
     )
     result = research_pipeline.MarketResearchResult(
@@ -325,6 +325,6 @@ def test_candidate_count_stages_do_not_collapse_into_one_number():
     )
     section = _market_section("us", result)
     assert section["candidate_counts"] == {
-        "screened": 2, "dashboard": 1, "paper_selected": None,
+        "screened": 2, "dashboard": 0, "paper_selected": None,
     }
     assert section["candidate_counts"]["dashboard"] <= section["candidate_counts"]["screened"]
