@@ -233,6 +233,11 @@ def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
         },
         "excluded_for_quality": len(scan.excluded_for_quality),
         "quality_quarantine": _quality_quarantine_summary(mrr),
+        "candidate_counts": {
+            "screened": len(all_candidates),
+            "dashboard": len(candidates),
+            "paper_selected": None,
+        },
         "candidate_diagnostics": {
             "candidate_count": len(candidates),
             "scored_candidate_count": len(all_candidates),
@@ -361,14 +366,21 @@ def _portfolio_risk_section(mrr: MarketResearchResult | None) -> dict:
     return state
 
 
-def _paper_trading_section(market: str, demo: bool, required_sessions: int = 250) -> dict:
-    """Read-only snapshot of paper-broker state -- never submits an order.
-    Session count is `len(equity_history)`, the number of real wall-clock
-    daily equity marks actually recorded (spec: never backfilled/faked)."""
+def _paper_trading_section(market: str, demo: bool, required_sessions: int | None = None) -> dict:
+    """Read-only paper-verification state; never submits an order.
+
+    Count distinct validated market sessions with a successfully persisted NAV.
+    No-trade days count; Fail-Closed days, persist failures and session replays
+    do not add another verified session.
+    """
     from quant.broker.kr_paper import KoreaPaperBroker
     from quant.broker.us_paper import USPaperBroker
 
     broker = KoreaPaperBroker() if market == "korea" else USPaperBroker()
+    if required_sessions is None:
+        required_sessions = int(
+            config.settings().get("paper_trading", {}).get("required_validated_sessions", 250)
+        )
     curve = broker.get_equity_curve()
     if not curve.empty:
         curve = curve[~curve.index.duplicated(keep="last")].sort_index()
@@ -381,12 +393,17 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int = 250
     positions = {
         s: {"quantity": p.quantity, "avg_cost": p.avg_cost} for s, p in broker.get_positions().items()
     }
+    last_cycle = (
+        broker.research_db.latest_paper_cycle_summary(market=market, as_of=curve.index.max())
+        if broker.research_db is not None and sessions else None
+    )
     return {
         "market": market,
         "cash": broker.get_cash(),
         "positions": positions,
         "n_positions": len(positions),
         "equity_history_tail": equity_tail,
+        "last_cycle": last_cycle,
         "sessions_completed": sessions,
         "sessions_required": required_sessions,
         "sessions_progress_label": f"{sessions}/{required_sessions}",
