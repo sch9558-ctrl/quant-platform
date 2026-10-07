@@ -35,7 +35,7 @@ SP500_RAW_URL = "https://raw.githubusercontent.com/datasets/s-and-p-500-companie
 NASDAQ100_RAW_URL = "https://raw.githubusercontent.com/Gary-Strauss/nasdaq100-scraper/main/data/nasdaq100_constituents.csv"
 _HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; quant-platform/1.0; +https://github.com/sch9558-ctrl/quant-platform)"}
 
-CACHE_MAX_AGE_DAYS = 7
+CACHE_MAX_AGE_DAYS = 1
 
 # a small discovery seed of well-known broad-market ETF tickers. This is NOT
 # the final ETF universe (that's determined by the AUM/liquidity rule in
