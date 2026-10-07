@@ -166,6 +166,15 @@ def _quality_quarantine_summary(mrr: MarketResearchResult | None) -> dict:
         "consecutive_streaks": history.get("streaks", {}),
         "consecutive_alert_sessions": history.get("alert_sessions"),
         "consecutive_alert_symbols": history.get("alert_symbols", []),
+        "recent_frequency": history.get("recent_frequency", {
+            "window_sessions": int(
+                config.quality_config().get("missing_sessions", {}).get(
+                    "quarantine_frequency_window_sessions", 20
+                )
+            ),
+            "observed_validated_sessions": 0,
+            "counts": {}, "rates": {},
+        }),
     }
 
 
