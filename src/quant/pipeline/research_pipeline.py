@@ -258,16 +258,18 @@ def _record_quality_quarantine_history(
         validation_pass=(report.overall_status == "PASS"),
         quarantine_fraction=details.get("quarantine_fraction"),
     )
-    threshold = int(
-        config.quality_config().get("missing_sessions", {}).get(
-            "consecutive_quarantine_alert_sessions", 3
-        )
-    )
-    return db.quality_quarantine_streaks(
+    missing_cfg = config.quality_config().get("missing_sessions", {})
+    threshold = int(missing_cfg.get("consecutive_quarantine_alert_sessions", 3))
+    window = int(missing_cfg.get("quarantine_frequency_window_sessions", 20))
+    state = db.quality_quarantine_streaks(
         market=market,
         as_of=as_of,
         alert_sessions=threshold,
     )
+    state["recent_frequency"] = db.quality_quarantine_frequency(
+        market=market, as_of=as_of, window_sessions=window,
+    )
+    return state
 
 
 def _risk_analysis(
