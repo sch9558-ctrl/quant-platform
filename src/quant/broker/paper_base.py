@@ -312,6 +312,14 @@ class PaperBrokerBase(BrokerInterface):
             raise ValueError("paper equity session cannot be NaT")
         self._assert_session_not_before_state(as_of)
         equity = self.get_account_value(prices)
+        if self.equity_history and pd.Timestamp(self.equity_history[-1][0]).normalize() == as_of:
+            prior = float(self.equity_history[-1][1])
+            if abs(prior - float(equity)) > max(1e-8, abs(prior) * 1e-10):
+                raise ValueError(
+                    f"paper equity session {as_of.date()} is already recorded with "
+                    "a different NAV; refusing to rewrite long-horizon validation history"
+                )
+            return prior
         prev_equity = self.equity_history[-1][1] if self.equity_history else self.initial_capital
         self.equity_history.append((as_of, equity))
         self.peak_nav = max(self.peak_nav, equity)
