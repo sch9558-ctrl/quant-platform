@@ -147,10 +147,11 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
     # paper-trading session happened on unvalidated data.
     gated = run_gated_scan(market, provider=provider, as_of=as_of, demo=demo, top_n=top_n)
     if gated.blocked:
-        print(f"[{market}] as_of={as_of} DATA VALIDATION: FAIL")
+        print(f"[{market}] as_of={gated.as_of} DATA VALIDATION: FAIL")
         print(f"[{market}] ⛔ {gated.block_reason}")
         print(f"[{market}] no rebalance attempted -- today's paper-trading session is skipped, not faked.")
         return
+    as_of = str(gated.as_of)
     scan = gated.scan
 
     broker = build_broker(market)
