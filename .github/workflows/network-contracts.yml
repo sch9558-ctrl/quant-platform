@@ -20,6 +20,8 @@ jobs:
       STOOQ_API_KEY: ${{ secrets.STOOQ_API_KEY }}
       KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
       KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
