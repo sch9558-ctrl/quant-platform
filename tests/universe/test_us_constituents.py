@@ -75,3 +75,11 @@ def test_stale_constituent_cache_fails_closed_when_refresh_fails(tmp_path, monke
 
     with pytest.raises(RuntimeError, match="constituent cache is stale"):
         uc._fetch_with_cache("stale.json", broken)
+
+
+def test_missing_constituent_cache_fails_closed_when_refresh_fails():
+    def broken():
+        raise RuntimeError("network down")
+
+    with pytest.raises(RuntimeError, match="no usable cache"):
+        uc._fetch_with_cache("missing.json", broken)
