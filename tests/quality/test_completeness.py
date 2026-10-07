@@ -119,3 +119,23 @@ def test_unknown_listing_date_infers_first_observed_bar_but_internal_gap_still_f
     broken=df[df["date"] != pd.Timestamp(dates[5])]
     result2=validate_missing_sessions(broken,"korea",dates[0].strftime("%Y-%m-%d"),dates[-1].strftime("%Y-%m-%d"),CFG)
     assert not result2.passed
+
+
+def test_trailing_missing_sessions_are_classified_separately_from_internal_gaps():
+    dates = pd.bdate_range("2026-08-03", periods=8)
+    # Simulate a ticker that stops producing bars after its fifth observed
+    # session: this is trailing absence, not a one-day internal provider gap.
+    rows = [
+        {"symbol": "OLD", "date": d.strftime("%Y-%m-%d"),
+         "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1000}
+        for d in dates[:5]
+    ]
+    df = make_records(rows)
+    result = validate_missing_sessions(
+        df, "us", dates[0].strftime("%Y-%m-%d"),
+        dates[-1].strftime("%Y-%m-%d"), CFG,
+    )
+    assert not result.passed
+    assert result.details["internal_missing_by_symbol"].get("OLD", 0) == 0
+    assert result.details["trailing_missing_by_symbol"]["OLD"] == 3
+    assert result.details["symbols_with_trailing_missing"] == 1
