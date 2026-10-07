@@ -161,7 +161,13 @@ jobs:
               counts=section.get("candidate_counts")
               cycle=(d["paper_trading"].get(market) or {}).get("last_cycle") or {}
               if counts is not None and cycle.get("session") == section.get("as_of"):
-                  counts["paper_selected"]=cycle.get("selected_count")
+                  selected=int(cycle.get("selected_count") or 0)
+                  displayed=int(counts.get("dashboard") or 0)
+                  if selected > displayed:
+                      raise SystemExit(
+                          f"{market} paper-selected count {selected} exceeds dashboard candidates {displayed}"
+                      )
+                  counts["paper_selected"]=selected
           p.write_text(json.dumps(d,ensure_ascii=False,indent=2),encoding="utf-8")
           PY
 
