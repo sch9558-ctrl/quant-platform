@@ -483,6 +483,142 @@ class ResearchDB:
             )
 
 
+    def save_quality_quarantine_snapshot(
+        self,
+        *,
+        market: str,
+        session: str | pd.Timestamp,
+        quarantined_symbols: list[str],
+        resolution: str | None,
+        raw_passed: bool | None,
+        validation_pass: bool,
+        quarantine_fraction: float | None = None,
+    ) -> str:
+        """Persist one market-session quarantine verdict in the existing PIT store.
+
+        This is an audit observation, not a second quality ledger. Re-running
+        the same market/session with the same verdict is idempotent; a changed
+        verdict for an already-recorded session is rejected rather than
+        rewriting history.
+        """
+        published_at = pd.Timestamp(session).normalize()
+        payload = {
+            "quarantined_symbols": sorted({str(s) for s in quarantined_symbols}),
+            "resolution": resolution,
+            "raw_passed": raw_passed,
+            "validation_pass": bool(validation_pass),
+            "quarantine_fraction": (
+                None if quarantine_fraction is None else float(quarantine_fraction)
+            ),
+        }
+        record = PointInTimeObservation(
+            observation_type="quality_quarantine_snapshot",
+            source="data_quality_engine",
+            market=str(market),
+            symbol=None,
+            published_at=published_at,
+            collected_at=pd.Timestamp.now(tz="UTC"),
+            effective_at=published_at,
+            payload=payload,
+            provenance={"session": published_at.date().isoformat()},
+        )
+        try:
+            return self.save_observation(record)
+        except DuplicateObservationError:
+            existing = self.latest_observation_as_of(
+                observation_type="quality_quarantine_snapshot",
+                source="data_quality_engine",
+                market=str(market),
+                symbol=None,
+                as_of=published_at,
+            )
+            if (
+                existing is not None
+                and pd.Timestamp(existing.published_at).normalize() == published_at
+                and existing.payload == payload
+            ):
+                return str(existing.observation_id)
+            raise
+
+    def quality_quarantine_streaks(
+        self,
+        *,
+        market: str,
+        as_of: str | pd.Timestamp,
+        alert_sessions: int,
+        limit: int = 1000,
+    ) -> dict:
+        """Return consecutive validated-session quarantine streaks as of a session.
+
+        A market validation failure breaks every streak. Missing calendar days
+        do not matter: consecutiveness is defined over recorded market
+        validation sessions, not wall-clock days.
+        """
+        frame = self.query_observations_as_of(
+            observation_type="quality_quarantine_snapshot",
+            source="data_quality_engine",
+            market=str(market),
+            symbol=None,
+            as_of=pd.Timestamp(as_of).normalize(),
+            limit=limit,
+        )
+        if frame.empty:
+            return {
+                "latest_session": None,
+                "streaks": {},
+                "alert_sessions": int(alert_sessions),
+                "alert_symbols": [],
+            }
+
+        rows = []
+        for _, row in frame.iterrows():
+            rows.append({
+                "session": pd.Timestamp(row["published_at"]).normalize(),
+                "payload": json.loads(row["payload_json"]),
+            })
+        # Defensive de-duplication; deterministic observation identity should
+        # already ensure one row per market/session.
+        by_session = {}
+        for row in rows:
+            by_session.setdefault(row["session"], row["payload"])
+        ordered = sorted(by_session.items(), key=lambda x: x[0], reverse=True)
+        latest_session = ordered[0][0]
+
+        latest_payload = ordered[0][1]
+        if not bool(latest_payload.get("validation_pass")):
+            return {
+                "latest_session": latest_session.date().isoformat(),
+                "streaks": {},
+                "alert_sessions": int(alert_sessions),
+                "alert_symbols": [],
+            }
+
+        current = set(latest_payload.get("quarantined_symbols") or [])
+        streaks = {symbol: 1 for symbol in current}
+        for _, payload in ordered[1:]:
+            if not bool(payload.get("validation_pass")):
+                break
+            symbols = set(payload.get("quarantined_symbols") or [])
+            continuing = [symbol for symbol in streaks if streaks[symbol] > 0]
+            if not continuing:
+                break
+            for symbol in continuing:
+                if symbol in symbols:
+                    streaks[symbol] += 1
+                else:
+                    streaks[symbol] = -streaks[symbol]
+        streaks = {symbol: count for symbol, count in streaks.items() if count > 0}
+        threshold = int(alert_sessions)
+        return {
+            "latest_session": latest_session.date().isoformat(),
+            "streaks": dict(sorted(streaks.items())),
+            "alert_sessions": threshold,
+            "alert_symbols": sorted(
+                symbol for symbol, count in streaks.items() if count >= threshold
+            ),
+        }
+
+
     def count(self) -> int:
         with self._connect() as conn:
             cur = conn.execute("SELECT COUNT(*) FROM experiments")
