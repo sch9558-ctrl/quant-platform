@@ -11,11 +11,15 @@ neither caller re-implements any part of it.
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import pandas as pd
+
+from quant import config
 from quant.quality.models import DataQualityReport
 from quant.quality.pipeline_gate import validate_market
 from quant.quality.readiness import ReadinessInputs, ReadinessResult, assess_readiness
@@ -103,6 +107,34 @@ def _run_pipeline_check(markets: list[str], demo: bool, as_of: str) -> tuple[boo
     return pipeline_ok, data_quality_ok, reports, crashes
 
 
+def _completed_paper_session_count(
+    markets: list[str], reports: dict[str, DataQualityReport], *, demo: bool,
+) -> int:
+    """Count completed authoritative paper-NAV sessions conservatively."""
+    if demo or not markets:
+        return 0
+    db_dir = config.resolve_path(config.settings()["paths"]["db_dir"])
+    counts: list[int] = []
+    for market in markets:
+        path = db_dir / f"paper_{market}.json"
+        if not path.exists():
+            counts.append(0)
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            cutoff_raw = getattr(reports.get(market), "as_of", None)
+            cutoff = pd.Timestamp(cutoff_raw).normalize() if cutoff_raw is not None else None
+            sessions = set()
+            for row in payload.get("equity_history") or []:
+                session = pd.Timestamp(row["date"]).normalize()
+                if cutoff is None or session <= cutoff:
+                    sessions.add(session)
+            counts.append(len(sessions))
+        except Exception:
+            counts.append(0)
+    return min(counts) if counts else 0
+
+
 def compute_system_status(
     markets: list[str], demo: bool = True, as_of: str | None = None, run_tests: bool = True,
 ) -> SystemStatus:
@@ -126,14 +158,14 @@ def compute_system_status(
         unit_tests_pass=bool(unit_ok),
         integration_tests_pass=bool(integration_ok),
         critical_pipeline_tests_pass=bool(regression_ok) and pipeline_ok,
-        # Strategy-validation-specific inputs (OOS/walk-forward pass,
-        # cost-stress-test, overfitting risk, paper-trading session count,
-        # risk report generated) are not yet backed by a persisted
-        # readiness-state tracker in this codebase. Rather than fabricate
-        # a PASS for signals not actually tracked yet, they are left at
-        # their conservative (False/0) dataclass defaults -- so the
-        # reported ladder level is never inflated above what is actually
-        # verified. See docs/INVESTMENT_GATE.md.
+        paper_trading_sessions=_completed_paper_session_count(
+            markets, reports, demo=demo,
+        ),
+        # OOS/walk-forward pass, cost-stress-test, overfitting risk and risk
+        # report completion are not yet all backed by one persisted readiness
+        # contract, so those inputs remain conservatively False. Paper-session
+        # count is different: the authoritative broker persists completed NAV
+        # marks and can be counted without inference.
     )
     readiness = assess_readiness(readiness_inputs)
 
