@@ -161,6 +161,19 @@ def _assert_no_partial_paper_session(broker, as_of: str) -> None:
         )
 
 
+def _persist_paper_cycle_summary(
+    broker, *, as_of: str, selected_symbols: list[str], fills: int,
+    rejections: int, nav: float,
+) -> None:
+    if broker.research_db is None:
+        return
+    broker.research_db.save_paper_cycle_summary(
+        market=broker.market, session=as_of, selected_symbols=selected_symbols,
+        fills=fills, rejections=rejections, nav=nav, cash=broker.get_cash(),
+        positions=len(broker.get_positions()),
+    )
+
+
 def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = None) -> None:
     as_of = as_of or default_as_of(market)
     provider = get_provider(market, demo=demo)
@@ -188,7 +201,11 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
 
     if not scan.top_candidates:
         mark_prices = _validated_mark_prices(broker, gated, {})
-        broker.record_daily_equity(mark_prices, as_of=pd.Timestamp(as_of))
+        equity = broker.record_daily_equity(mark_prices, as_of=pd.Timestamp(as_of))
+        _persist_paper_cycle_summary(
+            broker, as_of=as_of, selected_symbols=[], fills=0,
+            rejections=0, nav=equity,
+        )
         print(f"[{market}] no candidates today -- no rebalance performed; validated NAV mark recorded.")
         return
 
@@ -238,6 +255,11 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
     )
 
     equity = broker.record_daily_equity(prices, as_of=pd.Timestamp(as_of))
+    _persist_paper_cycle_summary(
+        broker, as_of=as_of,
+        selected_symbols=[c.symbol for c in scan.top_candidates],
+        fills=n_filled, rejections=n_rejected, nav=equity,
+    )
     print(
         f"[{market}] account value={equity:,.2f} cash={broker.get_cash():,.2f} "
         f"positions={len(broker.get_positions())}"
@@ -247,7 +269,10 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--market", choices=["korea", "us"], required=True)
-    parser.add_argument("--top-n", type=int, default=10)
+    parser.add_argument(
+        "--top-n", type=int,
+        default=int(config.settings().get("paper_trading", {}).get("daily_top_n", 10)),
+    )
     parser.add_argument(
         "--demo", dest="demo", action="store_true", default=True,
         help="Use synthetic offline data (the default).",
