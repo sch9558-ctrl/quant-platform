@@ -13,8 +13,7 @@ def test_yaml_parses_and_has_four_ordered_jobs():
 
 def test_only_latest_closed_session_is_implicit():
     raw=P.read_text(encoding="utf-8")
-    assert "--as-of" not in raw
-    assert 'cron: "0 22 * * *"' in raw
+    # Research must resolve each market\'s latest closed session itself. The\n    # later paper step is allowed to pass the already-validated market session\n    # from dashboard.json explicitly; that is provenance, not wall-clock inference.\n    research_lines = [line for line in raw.splitlines() if "generate_dashboard_data.py --real" in line]\n    assert research_lines\n    assert all("--as-of" not in line for line in research_lines)\n    assert 'cron: "0 22 * * *"' in raw
 
 def test_real_market_data_and_analyst_generation_are_requested():
     raw=P.read_text(encoding="utf-8")
