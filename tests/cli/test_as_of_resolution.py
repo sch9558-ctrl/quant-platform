@@ -85,6 +85,9 @@ ALLOWED_CLOCK_CALLS = {
     ("src/quant/quality/engine.py", "pd.Timestamp.now"): (
         "quality report generated_at and audit timestamps record validation events"
     ),
+    ("src/quant/research_db/db.py", "pd.Timestamp.now"): (
+        "PIT collected_at records the actual observation-ingestion event, never the market session"
+    ),
     ("src/quant/universe/us_constituents.py", "time.time"): (
         "wall-clock seconds are used only for cache TTL age, never to select a market session"
     ),
