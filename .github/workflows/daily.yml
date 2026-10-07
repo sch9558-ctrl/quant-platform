@@ -156,6 +156,12 @@ jobs:
               market:_paper_trading_section(market,demo=False)
               for market in ("korea","us")
           }
+          for market in ("korea","us"):
+              section=(d.get("markets") or {}).get(market) or {}
+              counts=section.get("candidate_counts")
+              cycle=(d["paper_trading"].get(market) or {}).get("last_cycle") or {}
+              if counts is not None and cycle.get("session") == section.get("as_of"):
+                  counts["paper_selected"]=cycle.get("selected_count")
           p.write_text(json.dumps(d,ensure_ascii=False,indent=2),encoding="utf-8")
           PY
 
