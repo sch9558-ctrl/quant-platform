@@ -34,7 +34,7 @@ jobs:
   research:
     name: Research Pipeline
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     env:
       DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
       FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
@@ -61,6 +61,36 @@ jobs:
             exit 1
           fi
 
+      - name: Restore encrypted long-horizon state cache
+        id: paper-state-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: paper-state.tgz.enc
+          key: encrypted-paper-state-${{ github.run_id }}
+          restore-keys: |
+            encrypted-paper-state-
+
+      - name: Decrypt restored long-horizon state
+        if: steps.paper-state-cache.outputs.cache-matched-key != ''
+        run: |
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -pass env:DASHBOARD_ARTIFACT_KEY \
+            -in paper-state.tgz.enc -out paper-state.tgz
+          python - <<'PY'
+          import tarfile
+          from pathlib import Path
+          root=Path.cwd().resolve()
+          with tarfile.open("paper-state.tgz","r:gz") as tf:
+              for member in tf.getmembers():
+                  target=(root/member.name).resolve()
+                  if not str(target).startswith(str((root/"data"/"db").resolve())):
+                      raise SystemExit(f"unsafe paper-state archive member: {member.name}")
+                  if member.issym() or member.islnk():
+                      raise SystemExit(f"links are not allowed in paper-state archive: {member.name}")
+              tf.extractall(root)
+          PY
+          rm -f paper-state.tgz
+
       - name: Run real research and dashboard-data generation
         id: research-run
         run: |
@@ -76,6 +106,78 @@ jobs:
           if [ "$rc" -ne 0 ]; then
             echo "::warning::Research/status returned $rc; the quality job will inspect the honest blocked-state payload."
           fi
+
+      - name: Run real paper verification for validated markets
+        run: |
+          python - <<'PY' > /tmp/paper-markets
+          import json
+          from pathlib import Path
+          d=json.loads(Path("site/data/dashboard.json").read_text())
+          for market in ("korea","us"):
+              section=(d.get("markets") or {}).get(market) or {}
+              if not section.get("blocked") and section.get("as_of"):
+                  print(market, section["as_of"])
+          PY
+          while read -r market session; do
+            [ -n "$market" ] || continue
+            python run_paper.py --real --market "$market" --as-of "$session"
+          done < /tmp/paper-markets
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from quant.research_db.db import ResearchDB
+          d=json.loads(Path("site/data/dashboard.json").read_text())
+          db=ResearchDB()
+          for market in ("korea","us"):
+              section=(d.get("markets") or {}).get(market) or {}
+              if section.get("blocked") or not section.get("as_of"):
+                  continue
+              session=section["as_of"]
+              nav=db.paper_nav_history(market=market,as_of=session)
+              if nav.empty or str(nav.index.max().date()) != session:
+                  raise SystemExit(
+                      f"{market} passed research validation but paper NAV "
+                      f"was not recorded for {session}"
+                  )
+              print(f"{market} paper verification session recorded: {session}")
+          PY
+
+      - name: Refresh dashboard paper-verification counters
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from quant.dashboard_export.export import _paper_trading_section
+          p=Path("site/data/dashboard.json")
+          d=json.loads(p.read_text())
+          d["paper_trading"]={
+              market:_paper_trading_section(market,demo=False)
+              for market in ("korea","us")
+          }
+          p.write_text(json.dumps(d,ensure_ascii=False,indent=2),encoding="utf-8")
+          PY
+
+      - name: Encrypt persistent long-horizon state
+        run: |
+          tar -czf paper-state.tgz data/db
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \
+            -pass env:DASHBOARD_ARTIFACT_KEY \
+            -in paper-state.tgz -out paper-state.tgz.enc
+          rm -f paper-state.tgz
+
+      - name: Save encrypted long-horizon state cache
+        uses: actions/cache/save@v4
+        with:
+          path: paper-state.tgz.enc
+          key: encrypted-paper-state-${{ github.run_id }}
+
+      - name: Upload encrypted long-horizon state backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-paper-state-${{ github.run_id }}
+          path: paper-state.tgz.enc
+          retention-days: 30
+          if-no-files-found: error
 
       - name: Build analyst/IB credibility dataset
         run: |
