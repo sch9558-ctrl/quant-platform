@@ -268,3 +268,30 @@ def test_quality_quarantine_same_session_same_verdict_is_idempotent(db):
         market="us", symbol=None, as_of="2026-10-01",
     )
     assert len(frame) == 1
+
+
+
+def test_paper_cycle_summary_is_idempotent_and_queryable(db):
+    kwargs = dict(
+        market="us", session="2026-10-06", selected_symbols=["AAA", "BBB"],
+        fills=2, rejections=0, nav=99_990.0, cash=60_000.0, positions=2,
+    )
+    first = db.save_paper_cycle_summary(**kwargs)
+    second = db.save_paper_cycle_summary(**kwargs)
+    assert first == second
+    summary = db.latest_paper_cycle_summary(market="us", as_of="2026-10-06")
+    assert summary["session"] == "2026-10-06"
+    assert summary["selected_count"] == 2
+    assert summary["fills"] == 2
+
+
+def test_paper_cycle_summary_changed_same_session_is_rejected(db):
+    db.save_paper_cycle_summary(
+        market="us", session="2026-10-06", selected_symbols=["AAA"],
+        fills=1, rejections=0, nav=99_995.0, cash=90_000.0, positions=1,
+    )
+    with pytest.raises(DuplicateObservationError):
+        db.save_paper_cycle_summary(
+            market="us", session="2026-10-06", selected_symbols=["AAA", "BBB"],
+            fills=2, rejections=0, nav=99_990.0, cash=80_000.0, positions=2,
+        )
