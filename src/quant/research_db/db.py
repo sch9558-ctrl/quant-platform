@@ -503,6 +503,61 @@ class ResearchDB:
             )
 
 
+    def save_paper_cycle_summary(
+        self,
+        *,
+        market: str,
+        session: str | pd.Timestamp,
+        selected_symbols: list[str],
+        fills: int,
+        rejections: int,
+        nav: float,
+        cash: float,
+        positions: int,
+    ) -> str:
+        """Persist the completed paper-cycle funnel for one validated session."""
+        published_at = pd.Timestamp(session).normalize()
+        payload = {
+            "selected_symbols": [str(s) for s in selected_symbols],
+            "selected_count": int(len(selected_symbols)),
+            "fills": int(fills),
+            "rejections": int(rejections),
+            "nav": float(nav),
+            "cash": float(cash),
+            "positions": int(positions),
+        }
+        record = PointInTimeObservation(
+            observation_type="paper_cycle_summary", source="paper_broker",
+            market=str(market), symbol=None, published_at=published_at,
+            collected_at=pd.Timestamp.now(tz="UTC"), effective_at=published_at,
+            payload=payload, provenance={"session": published_at.date().isoformat()},
+        )
+        try:
+            return self.save_observation(record)
+        except DuplicateObservationError:
+            existing = self.latest_observation_as_of(
+                observation_type="paper_cycle_summary", source="paper_broker",
+                market=str(market), symbol=None, as_of=published_at,
+            )
+            if existing is not None and existing.payload == payload:
+                return str(existing.observation_id)
+            raise
+
+    def latest_paper_cycle_summary(
+        self, *, market: str, as_of: str | pd.Timestamp,
+    ) -> dict | None:
+        record = self.latest_observation_as_of(
+            observation_type="paper_cycle_summary", source="paper_broker",
+            market=str(market), symbol=None, as_of=as_of,
+        )
+        if record is None:
+            return None
+        return {
+            "session": pd.Timestamp(record.published_at).normalize().date().isoformat(),
+            **dict(record.payload),
+        }
+
+
     def save_quality_quarantine_snapshot(
         self,
         *,
