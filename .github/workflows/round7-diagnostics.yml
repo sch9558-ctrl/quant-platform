@@ -92,14 +92,14 @@ jobs:
               state=str(row.get("approval_state") or "UNKNOWN")
               for reason in row.get("approval_reasons") or []:
                   reason_counts[str(reason)]+=1; by_state[state][str(reason)]+=1
-          overlays=Counter(str(((c.get("institutional_overlay") or {}).get("action") or "UNKNOWN")) for c in us.get("candidates") or [])
+          overlays=Counter(str(((c.get("institutional_overlay") or {}).get("action") or "UNKNOWN")) for c in us.get("candidates") or [])\n          overlay_reasons=Counter()\n          for candidate in us.get("candidates") or []:\n              for reason in (candidate.get("institutional_overlay") or {}).get("reasons") or []: overlay_reasons[str(reason)]+=1
           pub=d.get("publishability") or {}
           print("ROUND7_DASHBOARD_DIAGNOSTIC",json.dumps({
             "overview":d.get("overview") or {},"publishable":pub.get("publishable"),
             "freshness":pub.get("markets") or {},"us_blocked":us.get("blocked"),"us_universe_size":us.get("universe_size"),
             "us_candidate_count":len(us.get("candidates") or []),"quality_quarantine":us.get("quality_quarantine") or {},
             "strategy_count":len(strategies),"approval_distribution":dict(approvals),"approval_reason_distribution":dict(reason_counts),
-            "approval_reasons_by_state":{k:dict(v) for k,v in by_state.items()},"institutional_overlay_action_distribution":dict(overlays),
+            "approval_reasons_by_state":{k:dict(v) for k,v in by_state.items()},"institutional_overlay_action_distribution":dict(overlays),\n            "institutional_overlay_reason_distribution":dict(overlay_reasons),
             "portfolio":(d.get("portfolio") or {}).get("us") or {},"portfolio_risk":(d.get("portfolio_risk") or {}).get("us") or {},
             "paper_trading":(d.get("paper_trading") or {}).get("us") or {}
           },sort_keys=True))
