@@ -43,6 +43,8 @@ class UniverseSnapshot:
     market: str
     as_of: pd.Timestamp
     members: list[UniverseMember]
+    membership_pit_safe: bool = True
+    membership_provenance: dict = field(default_factory=dict)
 
     def included_symbols(self) -> list[str]:
         return [m.symbol for m in self.members if m.included]
@@ -181,7 +183,24 @@ class UniverseEngine:
 
         members = self._apply_size_cap(members, filt.get("max_universe_size"))
 
-        snapshot = UniverseSnapshot(market=self.market, as_of=as_of_ts, members=members)
+        membership_pit_safe = not index_based_us
+        membership_provenance = {}
+        if index_based_us:
+            membership_provenance = {
+                "source": "current_public_sp500_nasdaq100_constituent_tables",
+                "requested_as_of": as_of_ts.date().isoformat(),
+                "membership_effective_date": None,
+                "status": "UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE",
+                "reason": (
+                    "Current index membership is suitable for today's scan but has no "
+                    "historical effective-date archive for the walk-forward lookback."
+                ),
+            }
+        snapshot = UniverseSnapshot(
+            market=self.market, as_of=as_of_ts, members=members,
+            membership_pit_safe=membership_pit_safe,
+            membership_provenance=membership_provenance,
+        )
         logger.info(
             "Universe[%s] as_of=%s: %d/%d symbols included",
             self.market, as_of, len(snapshot.included_symbols()), len(members),

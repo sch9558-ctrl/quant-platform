@@ -223,6 +223,14 @@ def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
             } if scan.regime is not None else None
         ),
         "universe_size": scan.universe_size,
+        "universe_membership": {
+            "pit_safe": bool(getattr(scan, "universe_membership_pit_safe", True)),
+            "provenance": dict(getattr(scan, "universe_membership_provenance", {}) or {}),
+            "warning": (
+                None if bool(getattr(scan, "universe_membership_pit_safe", True))
+                else "UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE"
+            ),
+        },
         "excluded_for_quality": len(scan.excluded_for_quality),
         "quality_quarantine": _quality_quarantine_summary(mrr),
         "candidate_diagnostics": {

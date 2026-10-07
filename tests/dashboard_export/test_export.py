@@ -285,3 +285,26 @@ def test_quarantine_payload_explains_raw_fail_and_warning_threshold():
     assert q["warning"] is True
     assert q["warning_fraction"] == pytest.approx(0.15)
     assert q["consecutive_alert_symbols"] == ["AAA"]
+
+
+
+def test_market_payload_exposes_universe_membership_pit_warning():
+    scan = SimpleNamespace(
+        as_of=pd.Timestamp("2026-10-06"), regime=None, universe_size=399,
+        excluded_for_quality=[], top_candidates=[], all_candidates=[],
+        universe_membership_pit_safe=False,
+        universe_membership_provenance={
+            "source": "current_public_sp500_nasdaq100_constituent_tables",
+            "status": "UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE",
+            "membership_effective_date": None,
+        },
+    )
+    result = research_pipeline.MarketResearchResult(
+        market="us", scan=scan, walk_forward_results={}, ranking_df=pd.DataFrame(),
+        experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
+        portfolio_allocation=None, risk_checks=[], blocked=False, block_reason=None,
+    )
+    section = _market_section("us", result)
+    assert section["universe_membership"]["pit_safe"] is False
+    assert section["universe_membership"]["warning"] == "UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE"
+    assert section["universe_membership"]["provenance"]["membership_effective_date"] is None

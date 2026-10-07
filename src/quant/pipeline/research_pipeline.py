@@ -163,9 +163,41 @@ def _evaluate_strategies(
     return results
 
 
+def _apply_universe_membership_pit_guard(
+    ranking_df: pd.DataFrame,
+    scan: ScanResult,
+) -> pd.DataFrame:
+    """Prevent current-membership survivorship bias from becoming approval.
+
+    Today's US index membership is usable for today's screening, but without
+    historical effective-date membership snapshots it cannot validate an
+    eight-year walk-forward universe. Keep the measured metrics visible while
+    conservatively downgrading approval to insufficient evidence.
+    """
+    if ranking_df is None or ranking_df.empty:
+        return ranking_df
+    if bool(getattr(scan, "universe_membership_pit_safe", True)):
+        return ranking_df
+    out = ranking_df.copy()
+    reason = (
+        "UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE: current index constituents were "
+        "used for historical walk-forward periods because dated membership "
+        "history is unavailable"
+    )
+    for idx in out.index:
+        reasons = list(out.at[idx, "approval_reasons"] or []) if "approval_reasons" in out.columns else []
+        if reason not in reasons:
+            reasons.append(reason)
+        out.at[idx, "approval_state"] = "INSUFFICIENT_EVIDENCE"
+        out.at[idx, "approval_reasons"] = reasons
+        out.at[idx, "meets_minimum_requirements"] = False
+    return out
+
+
 def _save_experiments(
     db: ResearchDB, market: str, symbols: list[str], start: str, end: str,
     wf_results: dict[str, WalkForwardResult], ranking_df: pd.DataFrame,
+    *, universe_membership_pit_safe: bool = True,
 ) -> tuple[list[str], list[str], list[str]]:
     code_version = current_code_version()
     d_version = dataset_version_tag(market, symbols, start, end)
@@ -193,7 +225,11 @@ def _save_experiments(
             code_version=code_version, dataset_version=d_version,
             composite_score=composite,
             overfitting_risk=None,
-            notes="daily research pipeline run",
+            notes=(
+                "daily research pipeline run"
+                if universe_membership_pit_safe
+                else "daily research pipeline run; UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE"
+            ),
         )
         db.save_experiment(record)
         experiment_ids.append(record.experiment_id)
@@ -424,10 +460,12 @@ def run_market_research(
 
     features = [extract_features(wf) for wf in wf_results.values()]
     ranking_df = rank_strategies(features)
+    ranking_df = _apply_universe_membership_pit_guard(ranking_df, scan)
 
     backtest_start = (pd.Timestamp(as_of) - pd.DateOffset(years=lookback_years)).strftime("%Y-%m-%d")
     experiment_ids, new_ids, updated_ids = _save_experiments(
         db, market, list(ohlcv_map), backtest_start, as_of, wf_results, ranking_df,
+        universe_membership_pit_safe=bool(getattr(scan, "universe_membership_pit_safe", True)),
     )
 
     # step 8 is the scanner's `top_candidates` (already produced above).

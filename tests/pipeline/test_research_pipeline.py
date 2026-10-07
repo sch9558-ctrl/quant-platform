@@ -149,3 +149,29 @@ def test_run_full_pipeline_writes_report(tmp_path, monkeypatch):
     assert result.report_path
     from pathlib import Path
     assert Path(result.report_path).exists()
+
+
+
+def test_current_us_constituents_cannot_produce_historical_strategy_approval():
+    from types import SimpleNamespace
+    ranking = pd.DataFrame({
+        "approval_state": ["APPROVED"],
+        "approval_reasons": [["필수 OOS 표본과 DSR/CPCV 검증 임계를 모두 통과"]],
+        "meets_minimum_requirements": [True],
+        "composite_score": [0.9],
+    }, index=["strategy_a"])
+    scan = SimpleNamespace(
+        universe_membership_pit_safe=False,
+        universe_membership_provenance={
+            "status": "UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE",
+            "membership_effective_date": None,
+        },
+    )
+    guarded = research_pipeline._apply_universe_membership_pit_guard(ranking, scan)
+    assert guarded.loc["strategy_a", "approval_state"] == "INSUFFICIENT_EVIDENCE"
+    assert guarded.loc["strategy_a", "meets_minimum_requirements"] == False
+    assert any(
+        "UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE" in reason
+        for reason in guarded.loc["strategy_a", "approval_reasons"]
+    )
+    assert ranking.loc["strategy_a", "approval_state"] == "APPROVED"

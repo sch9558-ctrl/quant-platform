@@ -4,7 +4,7 @@ entry point `run_scan.py` calls for each market.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -33,6 +33,8 @@ class ScanResult:
     top_candidates: list[CandidateResult]
     all_candidates: list[CandidateResult]
     excluded_for_quality: list[str]
+    universe_membership_pit_safe: bool = True
+    universe_membership_provenance: dict = field(default_factory=dict)
 
 
 class DailyScanner:
@@ -111,6 +113,8 @@ class DailyScanner:
             market=self.market, as_of=pd.Timestamp(as_of), regime=regime,
             universe_size=len(included), top_candidates=top_candidates(candidates, top_n),
             all_candidates=candidates, excluded_for_quality=excluded_for_quality,
+            universe_membership_pit_safe=bool(getattr(snapshot, "membership_pit_safe", True)),
+            universe_membership_provenance=dict(getattr(snapshot, "membership_provenance", {}) or {}),
         )
 
 

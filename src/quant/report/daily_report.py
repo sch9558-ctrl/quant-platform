@@ -89,10 +89,19 @@ def _strategy_section(ranking_df: pd.DataFrame | None, top_n: int = 5) -> str:
         warn_str = f" — 과최적화 경고: {'; '.join(warn)}" if warn else ""
         composite = row.get("composite_score")
         composite_str = f"{composite:.3f}" if composite is not None and pd.notna(composite) else "N/A"
+        approval_state = row.get("approval_state")
+        approval_reasons = list(row.get("approval_reasons") or [])
+        pit_warning = next(
+            (r for r in approval_reasons if "UNIVERSE_MEMBERSHIP_NOT_PIT_SAFE" in str(r)),
+            None,
+        )
         lines.append(
             f"{i}. **{strategy_id}** [{row.get('market', '')}] "
             f"— Composite Score: {composite_str}{flag}{warn_str}"
+            + (f" — approval={approval_state}" if approval_state else "")
         )
+        if pit_warning:
+            lines.append(f"   - ⚠ {pit_warning}")
     return "\n".join(lines)
 
 
