@@ -91,6 +91,7 @@ class MarketResearchResult:
     risk_checks: list[dict]
     portfolio_risk_state: dict = field(default_factory=dict)
     institutional_overlays: dict[str, dict] = field(default_factory=dict)
+    quality_quarantine_history: dict = field(default_factory=dict)
     quality_report: DataQualityReport | None = None
     blocked: bool = False
     block_reason: str | None = None
@@ -199,6 +200,38 @@ def _save_experiments(
         (updated_ids if prior is not None else new_ids).append(strategy_id)
 
     return experiment_ids, new_ids, updated_ids
+
+
+def _record_quality_quarantine_history(
+    db: ResearchDB,
+    *,
+    market: str,
+    as_of: str,
+    report: DataQualityReport,
+) -> dict:
+    """Persist and summarize whole-symbol quality quarantine for this session."""
+    missing = next((x for x in report.checks if x.check == "missing_sessions"), None)
+    details = dict((missing.details if missing is not None else {}) or {})
+    quarantined = list(details.get("quarantined_symbols") or [])
+    db.save_quality_quarantine_snapshot(
+        market=market,
+        session=as_of,
+        quarantined_symbols=quarantined,
+        resolution=details.get("resolution"),
+        raw_passed=details.get("raw_passed", missing.passed if missing is not None else None),
+        validation_pass=(report.overall_status == "PASS"),
+        quarantine_fraction=details.get("quarantine_fraction"),
+    )
+    threshold = int(
+        config.quality_config().get("missing_sessions", {}).get(
+            "consecutive_quarantine_alert_sessions", 3
+        )
+    )
+    return db.quality_quarantine_streaks(
+        market=market,
+        as_of=as_of,
+        alert_sessions=threshold,
+    )
 
 
 def _risk_analysis(
@@ -358,6 +391,12 @@ def run_market_research(
     gated = run_gated_scan(market, provider=provider, as_of=as_of, demo=demo, top_n=top_n)
     # From here on every calculation/report is dated to the bars actually used.
     as_of = gated.as_of
+    quarantine_history = _record_quality_quarantine_history(
+        db,
+        market=market,
+        as_of=as_of,
+        report=gated.validation.report,
+    )
     macro_snapshot = None if demo else fetch_cross_asset_snapshot(as_of)
     if gated.blocked:
         logger.error("Research pipeline BLOCKED for market=%s as_of=%s: %s", market, as_of, gated.block_reason)
@@ -367,6 +406,7 @@ def run_market_research(
             portfolio_allocation=None, risk_checks=[],
             portfolio_risk_state={"state": "DATA_VALIDATION_FAILED", "reasons": [gated.block_reason]},
             institutional_overlays={},
+            quality_quarantine_history=quarantine_history,
             quality_report=gated.validation.report, blocked=True, block_reason=gated.block_reason,
             as_of=as_of,
         )
@@ -567,6 +607,7 @@ def run_market_research(
         portfolio_allocation=allocation, risk_checks=risk_checks,
         portfolio_risk_state=portfolio_risk_state,
         institutional_overlays=institutional_overlays,
+        quality_quarantine_history=quarantine_history,
         quality_report=gated.validation.report, blocked=False, block_reason=None,
         as_of=as_of,
     )
