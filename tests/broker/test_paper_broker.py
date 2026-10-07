@@ -319,3 +319,32 @@ def test_explicit_paper_session_is_independent_of_fake_today(tmp_path, monkeypat
     assert fill.session == pd.Timestamp("2026-01-05")
     assert fill.filled_at == pd.Timestamp("2026-01-05T15:30:00+09:00")
     assert broker.get_positions()["AAA"].entry_session == "2026-01-05"
+
+
+def test_same_session_equity_mark_is_idempotent(tmp_path):
+    broker = KoreaPaperBroker(
+        initial_capital=10_000_000,
+        state_path=tmp_path / "paper_korea.json",
+        research_db=ResearchDB(path=tmp_path / "research.sqlite"),
+    )
+    first = broker.record_daily_equity({}, as_of=pd.Timestamp("2026-03-02"))
+    second = broker.record_daily_equity({}, as_of=pd.Timestamp("2026-03-02"))
+
+    assert second == pytest.approx(first)
+    assert list(broker.get_equity_curve().index.strftime("%Y-%m-%d")) == ["2026-03-02"]
+    nav = broker.research_db.paper_nav_history(market="korea", as_of="2026-03-02")
+    assert list(nav.index.strftime("%Y-%m-%d")) == ["2026-03-02"]
+
+
+def test_same_session_equity_mark_cannot_rewrite_nav(tmp_path):
+    broker = KoreaPaperBroker(
+        initial_capital=10_000_000,
+        state_path=tmp_path / "paper_korea.json",
+    )
+    broker.submit_order(
+        "AAA", "buy", quantity=10, price=1000,
+        session=pd.Timestamp("2026-03-02"),
+    )
+    broker.record_daily_equity({"AAA": 1000}, as_of=pd.Timestamp("2026-03-02"))
+    with pytest.raises(ValueError, match="already recorded with a different NAV"):
+        broker.record_daily_equity({"AAA": 1100}, as_of=pd.Timestamp("2026-03-02"))
