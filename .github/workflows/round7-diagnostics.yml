@@ -5,14 +5,11 @@ on:
     paths: ["tools/round7_diag.trigger"]
 permissions:
   contents: read
+  actions: read
 jobs:
-  diagnose:
+  universe:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-    env:
-      STOOQ_API_KEY: ${{ secrets.STOOQ_API_KEY }}
-      FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -58,32 +55,52 @@ jobs:
               "last_date":None if fi is None or fi.empty else str(fi.index.max().date())}}
           print("ROUND7_UNIVERSE_DIAGNOSTIC",json.dumps(payload,sort_keys=True))
           PY
-      - name: Run latest US real-data pipeline and print aggregate verdicts
+
+  payload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DASHBOARD_ARTIFACT_KEY: ${{ secrets.DASHBOARD_ARTIFACT_KEY || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require artifact key
+        run: test -n "$DASHBOARD_ARTIFACT_KEY"
+      - name: Download prior real research artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: encrypted-research-37555670664
+          repository: sch9558-ctrl/quant-platform
+          run-id: 37555670664
+          github-token: ${{ github.token }}
+      - name: Decrypt prior real research artifact
         run: |
-          set +e
-          python generate_dashboard_data.py --real --markets us --skip-tests
-          rc=$?
-          set -e
-          DIAG_RC="$rc" python - <<'PY'
-          import json,os
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:DASHBOARD_ARTIFACT_KEY -in research-output.tgz.enc -out research-output.tgz
+          tar -xzf research-output.tgz
+          test -s site/data/dashboard.json
+      - name: Print candidate and approval diagnostics
+        run: |
+          python - <<'PY'
+          import json
           from collections import Counter,defaultdict
           from pathlib import Path
           d=json.loads(Path("site/data/dashboard.json").read_text())
-          us=(d.get("markets") or {}).get("us") or {}; strategies=(d.get("strategies") or {}).get("us") or []
+          us=(d.get("markets") or {}).get("us") or {}
+          strategies=(d.get("strategies") or {}).get("us") or []
           approvals=Counter(str(x.get("approval_state") or "UNKNOWN") for x in strategies)
-          by_state=defaultdict(Counter); reason_counts=Counter()
+          reason_counts=Counter(); by_state=defaultdict(Counter)
           for row in strategies:
               state=str(row.get("approval_state") or "UNKNOWN")
-              for reason in row.get("approval_reasons") or []: reason_counts[str(reason)]+=1; by_state[state][str(reason)]+=1
+              for reason in row.get("approval_reasons") or []:
+                  reason_counts[str(reason)]+=1; by_state[state][str(reason)]+=1
           overlays=Counter(str(((c.get("institutional_overlay") or {}).get("action") or "UNKNOWN")) for c in us.get("candidates") or [])
           pub=d.get("publishability") or {}
           print("ROUND7_DASHBOARD_DIAGNOSTIC",json.dumps({
-            "research_exit_code":int(os.environ["DIAG_RC"]),"overview":d.get("overview") or {},"publishable":pub.get("publishable"),
+            "overview":d.get("overview") or {},"publishable":pub.get("publishable"),
             "freshness":pub.get("markets") or {},"us_blocked":us.get("blocked"),"us_universe_size":us.get("universe_size"),
             "us_candidate_count":len(us.get("candidates") or []),"quality_quarantine":us.get("quality_quarantine") or {},
             "strategy_count":len(strategies),"approval_distribution":dict(approvals),"approval_reason_distribution":dict(reason_counts),
             "approval_reasons_by_state":{k:dict(v) for k,v in by_state.items()},"institutional_overlay_action_distribution":dict(overlays),
-            "portfolio":(d.get("portfolio") or {}).get("us") or {},"portfolio_risk":(d.get("portfolio_risk") or {}).get("us") or {}
+            "portfolio":(d.get("portfolio") or {}).get("us") or {},"portfolio_risk":(d.get("portfolio_risk") or {}).get("us") or {},
+            "paper_trading":(d.get("paper_trading") or {}).get("us") or {}
           },sort_keys=True))
           PY
-          exit "$rc"
