@@ -5,11 +5,13 @@ filtered, config-driven investable universe, and records *why* each symbol
 was included or excluded so the decision is auditable.
 
 Point-in-time discipline: `build()` is always called for a specific `as_of`
-date and only uses data available up to and including that date. Snapshots
-are persisted under `data/processed/universe/<market>/<as_of>.parquet` so a
-backtest run on 2019-06-01 reconstructs the universe *as it looked on that
-date*, not today's list filtered backwards (which would be survivorship
-bias).
+date and price/fundamental filters use information no later than that date.
+However, the current public S&P 500 / NASDAQ-100 discovery path does not
+provide historical membership effective dates. Such US snapshots are marked
+`membership_pit_safe=False`; today's scan may use them, but historical
+Walk-Forward approval must remain INSUFFICIENT_EVIDENCE until a dated
+membership archive exists. Persisted snapshots never turn an undated current
+membership source into historical truth.
 """
 from __future__ import annotations
 
