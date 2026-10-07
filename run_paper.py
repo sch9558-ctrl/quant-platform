@@ -105,6 +105,38 @@ def apply_persistent_nav_volatility_target(
     )
 
 
+def _validated_mark_prices(broker, gated, candidate_prices: dict[str, float]) -> dict[str, float]:
+    """Return current validated prices for every held position plus candidates.
+
+    A paper session cannot count toward long-horizon verification if an
+    existing holding cannot be valued from today's canonical data.
+    """
+    prices = {str(k): float(v) for k, v in candidate_prices.items()}
+    as_of = pd.Timestamp(gated.as_of)
+    for symbol in broker.get_positions():
+        if symbol in prices:
+            continue
+        frame = gated.validation.canonical_ohlcv_map.get(symbol)
+        if frame is None or frame.empty or "close" not in frame:
+            raise RuntimeError(
+                f"cannot mark paper NAV for {gated.market}/{symbol}: "
+                "no validated current price; session is not counted"
+            )
+        close = pd.to_numeric(frame.loc[:as_of, "close"], errors="coerce").dropna()
+        if close.empty:
+            raise RuntimeError(
+                f"cannot mark paper NAV for {gated.market}/{symbol}: "
+                "validated close is unavailable; session is not counted"
+            )
+        prices[symbol] = float(close.iloc[-1])
+    return prices
+
+
+def _paper_session_already_completed(broker, as_of: str) -> bool:
+    session = pd.Timestamp(as_of).normalize()
+    return any(pd.Timestamp(d).normalize() == session for d, _ in broker.equity_history)
+
+
 def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = None) -> None:
     as_of = as_of or default_as_of(market)
     provider = get_provider(market, demo=demo)
@@ -122,12 +154,16 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
     scan = gated.scan
 
     broker = build_broker(market)
+    if _paper_session_already_completed(broker, as_of):
+        print(f"[{market}] as_of={as_of} paper session already completed -- idempotent skip.")
+        return
     print(f"[{market}] as_of={as_of} regime={scan.regime.summary_label()} universe_size={scan.universe_size}")
     print(f"[{market}] top candidates found: {len(scan.top_candidates)}")
 
     if not scan.top_candidates:
-        broker.record_daily_equity({}, as_of=pd.Timestamp(as_of))
-        print(f"[{market}] no candidates today -- no rebalance performed.")
+        mark_prices = _validated_mark_prices(broker, gated, {})
+        broker.record_daily_equity(mark_prices, as_of=pd.Timestamp(as_of))
+        print(f"[{market}] no candidates today -- no rebalance performed; validated NAV mark recorded.")
         return
 
     items = [
@@ -142,7 +178,8 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
         for c in scan.top_candidates
     ]
     allocation = PortfolioConstructor().compute_weights(items)
-    prices = {c.symbol: c.price for c in scan.top_candidates}
+    candidate_prices = {c.symbol: c.price for c in scan.top_candidates}
+    prices = _validated_mark_prices(broker, gated, candidate_prices)
 
     target_weights, vol_target = apply_persistent_nav_volatility_target(
         allocation.weights.to_dict(),
