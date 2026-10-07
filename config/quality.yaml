@@ -48,6 +48,7 @@ missing_sessions:
   # allow missing rows back into canonical data.
   quarantine_warning_fraction: 0.15
   consecutive_quarantine_alert_sessions: 3
+  quarantine_frequency_window_sessions: 20
 
 freshness:
   # data must be current as of this many completed trading sessions ago
