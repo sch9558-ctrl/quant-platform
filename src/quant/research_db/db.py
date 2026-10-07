@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS paper_fills (
     price REAL NOT NULL,
     commission REAL NOT NULL,
     tax_or_fee REAL NOT NULL,
+    slippage_cost REAL NOT NULL DEFAULT 0,
     filled_at TEXT NOT NULL,
     reason TEXT
 );
@@ -116,6 +117,24 @@ class ResearchDB:
     def _init_schema(self) -> None:
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
+            # Forward-only migration for ledgers created before slippage was
+            # persisted as a first-class fill cost. The cash ledger already
+            # paid this cost, so reconstructing the configured deterministic
+            # slippage makes historical fills reconcile to NAV instead of
+            # silently losing an audit component.
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(paper_fills)")}
+            if "slippage_cost" not in columns:
+                conn.execute(
+                    "ALTER TABLE paper_fills ADD COLUMN slippage_cost REAL NOT NULL DEFAULT 0"
+                )
+                costs = config.costs_config()
+                for market in ("korea", "us"):
+                    rate = float(costs[market].get("slippage_bps", 0.0)) / 10_000.0
+                    conn.execute(
+                        "UPDATE paper_fills SET slippage_cost = ABS(quantity * price) * ? "
+                        "WHERE market = ?",
+                        (rate, market),
+                    )
 
     def save_experiment(self, record: ExperimentRecord) -> str:
         row = record.to_row()
@@ -346,11 +365,12 @@ class ResearchDB:
                     str(fill["fill_id"]), str(market), fill_session, str(fill["symbol"]),
                     str(fill["side"]), float(fill["quantity"]), float(fill["price"]),
                     float(fill["commission"]), float(fill["tax_or_fee"]),
+                    float(fill.get("slippage_cost") or 0.0),
                     pd.Timestamp(fill["filled_at"]).isoformat(), str(fill.get("reason") or ""),
                 )
                 existing = conn.execute(
                     "SELECT market, session_date, symbol, side, quantity, price, commission, "
-                    "tax_or_fee, filled_at, reason FROM paper_fills WHERE fill_id = ?",
+                    "tax_or_fee, slippage_cost, filled_at, reason FROM paper_fills WHERE fill_id = ?",
                     (row[0],),
                 ).fetchone()
                 if existing is not None:
@@ -363,8 +383,8 @@ class ResearchDB:
                 conn.execute(
                     "INSERT INTO paper_fills "
                     "(fill_id, market, session_date, symbol, side, quantity, price, "
-                    "commission, tax_or_fee, filled_at, reason) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "commission, tax_or_fee, slippage_cost, filled_at, reason) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     row,
                 )
 

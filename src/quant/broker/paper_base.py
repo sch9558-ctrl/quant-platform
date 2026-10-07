@@ -51,14 +51,25 @@ class PaperBrokerBase(BrokerInterface):
             data = json.loads(self.state_path.read_text())
             self.cash = data["cash"]
             self.positions = {s: Position(**p) for s, p in data["positions"].items()}
-            self.fills = [
-                Fill(**{
+            self.fills = []
+            for raw_fill in data["fills"]:
+                f = dict(raw_fill)
+                # Pre-round-8 state files deducted slippage from cash but did
+                # not persist it on the Fill. Reconstruct that deterministic
+                # cost once on load so old real-paper sessions remain auditable.
+                if "slippage_cost" not in f:
+                    notional = abs(float(f["quantity"]) * float(f["price"]))
+                    f["slippage_cost"] = self.cost_model.apply(
+                        notional,
+                        is_sell=str(f.get("side", "")).lower() == "sell",
+                        asset_type="equity",
+                        exchange=None,
+                    ).slippage_cost
+                self.fills.append(Fill(**{
                     **f,
                     "filled_at": pd.Timestamp(f["filled_at"]),
                     "session": pd.Timestamp(f["session"]) if f.get("session") else None,
-                })
-                for f in data["fills"]
-            ]
+                }))
             self.equity_history = [(pd.Timestamp(e["date"]), e["equity"]) for e in data["equity_history"]]
             self.peak_nav = data.get("peak_nav", self.initial_capital)
             self.consecutive_losses = data.get("consecutive_losses", 0)
@@ -97,6 +108,7 @@ class PaperBrokerBase(BrokerInterface):
                     "price": f.price,
                     "commission": f.commission,
                     "tax_or_fee": f.tax_or_fee,
+                    "slippage_cost": f.slippage_cost,
                     "filled_at": f.filled_at.isoformat(),
                     "reason": f.reason,
                     "session": f.session.isoformat() if f.session is not None else None,
@@ -121,6 +133,7 @@ class PaperBrokerBase(BrokerInterface):
                     "price": f.price,
                     "commission": f.commission,
                     "tax_or_fee": f.tax_or_fee,
+                    "slippage_cost": f.slippage_cost,
                     "filled_at": f.filled_at,
                     "reason": f.reason,
                     "session": f.session,
@@ -262,6 +275,7 @@ class PaperBrokerBase(BrokerInterface):
             quantity=abs(actual_delta), price=price, commission=fill_cost.commission,
             tax_or_fee=fill_cost.tax_or_fee,
             filled_at=pd.Timestamp(filled_at) if filled_at is not None else pd.Timestamp.now(tz="UTC"),
+            slippage_cost=fill_cost.slippage_cost,
             reason=reason, session=session,
         )
         self.fills.append(fill)

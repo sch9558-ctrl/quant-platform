@@ -42,6 +42,7 @@ class Fill:
     commission: float
     tax_or_fee: float
     filled_at: pd.Timestamp
+    slippage_cost: float = 0.0
     reason: str = ""    # e.g. "rebalance", "stop_loss", "manual"
     session: pd.Timestamp | None = None
 

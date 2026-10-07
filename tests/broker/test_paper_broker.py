@@ -3,6 +3,7 @@ import pandas as pd
 
 from quant.broker.base import Fill, OrderRejection
 from quant.broker.kr_paper import KoreaPaperBroker
+from quant.broker.us_paper import USPaperBroker
 from quant.research_db.db import ResearchDB
 
 
@@ -420,3 +421,47 @@ def test_validated_mark_prices_fail_closed_for_unpriced_holding():
     )
     with pytest.raises(RuntimeError, match="session is not counted"):
         run_paper._validated_mark_prices(broker, gated, {})
+
+
+
+def test_us_fill_slippage_is_persisted_and_nav_reconciles(tmp_path):
+    research_db = ResearchDB(path=tmp_path / "research.sqlite")
+    broker = USPaperBroker(
+        initial_capital=100_000.0,
+        state_path=tmp_path / "paper_us.json",
+        research_db=research_db,
+    )
+    fill = broker.submit_order(
+        "AAA", "buy", quantity=100, price=100.0,
+        session=pd.Timestamp("2026-10-06"),
+        filled_at=pd.Timestamp("2026-10-06T20:00:00Z"),
+    )
+    assert isinstance(fill, Fill)
+    assert fill.commission == pytest.approx(0.0)
+    assert fill.tax_or_fee == pytest.approx(0.0)
+    assert fill.slippage_cost == pytest.approx(5.0)
+
+    nav = broker.record_daily_equity({"AAA": 100.0}, as_of=pd.Timestamp("2026-10-06"))
+    marked_positions = sum(
+        position.quantity * 100.0 for position in broker.get_positions().values()
+    )
+    assert broker.get_cash() + marked_positions == pytest.approx(nav)
+    assert nav == pytest.approx(99_995.0)
+
+    fills = research_db.paper_fills_as_of(market="us", as_of="2026-10-06")
+    assert len(fills) == 1
+    assert float(fills.iloc[0]["slippage_cost"]) == pytest.approx(5.0)
+
+
+def test_legacy_paper_state_reconstructs_missing_slippage(tmp_path):
+    state_path = tmp_path / "paper_us.json"
+    state_path.write_text('''{
+      "cash": 89995.0,
+      "positions": {"AAA": {"symbol": "AAA", "quantity": 100.0, "avg_cost": 100.0, "entry_session": "2026-10-06"}},
+      "fills": [{"fill_id":"legacy1","symbol":"AAA","side":"buy","quantity":100.0,"price":100.0,"commission":0.0,"tax_or_fee":0.0,"filled_at":"2026-10-06T20:00:00+00:00","reason":"rebalance","session":"2026-10-06T00:00:00"}],
+      "equity_history": [{"date":"2026-10-06T00:00:00","equity":99995.0}],
+      "peak_nav": 100000.0,
+      "consecutive_losses": 1
+    }''')
+    broker = USPaperBroker(initial_capital=100_000.0, state_path=state_path)
+    assert broker.get_fill_history()[0].slippage_cost == pytest.approx(5.0)
