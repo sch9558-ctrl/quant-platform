@@ -236,6 +236,9 @@ def test_persistent_nav_volatility_target_reduces_only_with_enough_history():
         def paper_nav_history(self, *, market, as_of):
             return self.nav.loc[:pd.Timestamp(as_of)]
 
+        def paper_readiness_nav_history(self, *, market, as_of):
+            return self.nav.loc[:pd.Timestamp(as_of)]
+
     class FakeBroker:
         market = "korea"
 
@@ -595,3 +598,30 @@ def test_real_paper_without_final_authorization_cannot_gain_readiness(monkeypatc
     assert summary["selected_count"] == 0
     assert summary["readiness_eligible"] is False
     assert summary["readiness_reason"] == "FINAL_RESEARCH_AUTHORIZATION_MISSING"
+
+
+def test_raw_ineligible_nav_does_not_enable_volatility_target():
+    import pandas as pd
+    from run_paper import apply_persistent_nav_volatility_target
+
+    class FakeDB:
+        def paper_nav_history(self, *, market, as_of):
+            return pd.Series(
+                range(100, 130),
+                index=pd.bdate_range("2026-01-02", periods=30),
+                dtype=float,
+            )
+        def paper_readiness_nav_history(self, *, market, as_of):
+            return pd.Series(dtype=float)
+
+    class FakeBroker:
+        market = "us"
+        research_db = FakeDB()
+
+    weights = {"AAA": 0.08}
+    adjusted, meta = apply_persistent_nav_volatility_target(
+        weights, FakeBroker(), as_of="2026-02-20",
+    )
+    assert adjusted == weights
+    assert meta["applied"] is False
+    assert meta["return_observations"] == 0
