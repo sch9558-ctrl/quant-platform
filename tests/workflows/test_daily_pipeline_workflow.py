@@ -69,3 +69,13 @@ def test_real_paper_verification_is_persistent_encrypted_and_ordered():
     assert "actions/cache/save@v4" in raw
     assert "retention-days: 30" in raw
     assert "data/db" in raw
+
+
+def test_real_paper_uses_full_research_authorization():
+    raw=P.read_text(encoding="utf-8")
+    assert "approval_state" in raw
+    assert '"APPROVED"' in raw
+    assert "institutional_overlay" in raw
+    assert '"BUY"' in raw
+    assert "--authorized-symbols-json" in raw
+    assert "paper-authorized-" in raw
