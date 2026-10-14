@@ -359,9 +359,14 @@ def test_run_paper_cycle_records_no_candidate_validated_session(monkeypatch):
         def summary_label(self):
             return "TEST"
 
+    class FakeCostModel:
+        def fill_delay_bars(self): return 1
+        def fill_price_rule(self): return "next_open"
+
     class FakeBroker:
         market = "us"
         research_db = None
+        cost_model = FakeCostModel()
         def __init__(self):
             self.equity_history = []
             self.marks = []
@@ -509,3 +514,84 @@ def test_partial_same_session_replay_fails_closed(monkeypatch, tmp_path):
 
     assert len(broker.get_fill_history()) == fills_before
     assert broker.get_cash() == pytest.approx(cash_before)
+
+
+def test_noncompliant_next_open_policy_records_audit_nav_but_no_fill(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import run_paper
+
+    broker = USPaperBroker(
+        initial_capital=100_000.0,
+        state_path=tmp_path / "paper_us.json",
+        research_db=ResearchDB(path=tmp_path / "research.sqlite"),
+    )
+
+    class Regime:
+        def summary_label(self):
+            return "TEST"
+
+    candidate = SimpleNamespace(
+        symbol="AAA", composite_score=0.9, volatility=0.2, price=100.0,
+    )
+    gated = SimpleNamespace(
+        blocked=False, block_reason="", market="us", as_of="2026-10-08",
+        scan=SimpleNamespace(top_candidates=[candidate], regime=Regime(), universe_size=1),
+        validation=SimpleNamespace(canonical_ohlcv_map={}),
+    )
+    monkeypatch.setattr(run_paper, "get_provider", lambda market, demo: object())
+    monkeypatch.setattr(run_paper, "run_gated_scan", lambda *a, **k: gated)
+    monkeypatch.setattr(run_paper, "build_broker", lambda market, *, demo=False: broker)
+
+    run_paper.run_paper_cycle(
+        "us", demo=False, top_n=10, as_of="2026-10-08",
+        authorized_symbols={"AAA"},
+    )
+
+    assert broker.get_fill_history() == []
+    assert broker.get_positions() == {}
+    assert list(broker.get_equity_curve().index.strftime("%Y-%m-%d")) == ["2026-10-08"]
+    summary = broker.research_db.latest_paper_cycle_summary(
+        market="us", as_of="2026-10-08",
+    )
+    assert summary["readiness_eligible"] is False
+    assert summary["readiness_reason"] == "DELAYED_EXECUTION_ENGINE_REQUIRED"
+    assert broker.research_db.paper_readiness_sessions(
+        market="us", as_of="2026-10-08",
+    ) == []
+
+
+def test_real_paper_without_final_authorization_cannot_gain_readiness(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import run_paper
+
+    broker = USPaperBroker(
+        initial_capital=100_000.0,
+        state_path=tmp_path / "paper_us.json",
+        research_db=ResearchDB(path=tmp_path / "research.sqlite"),
+    )
+
+    class Regime:
+        def summary_label(self): return "TEST"
+
+    gated = SimpleNamespace(
+        blocked=False, block_reason="", market="us", as_of="2026-10-08",
+        scan=SimpleNamespace(
+            top_candidates=[
+                SimpleNamespace(symbol="AAA", composite_score=0.9, volatility=0.2, price=100.0)
+            ],
+            regime=Regime(), universe_size=1,
+        ),
+        validation=SimpleNamespace(canonical_ohlcv_map={}),
+    )
+    monkeypatch.setattr(run_paper, "get_provider", lambda market, demo: object())
+    monkeypatch.setattr(run_paper, "run_gated_scan", lambda *a, **k: gated)
+    monkeypatch.setattr(run_paper, "build_broker", lambda market, *, demo=False: broker)
+
+    run_paper.run_paper_cycle("us", demo=False, top_n=10, as_of="2026-10-08")
+
+    summary = broker.research_db.latest_paper_cycle_summary(
+        market="us", as_of="2026-10-08",
+    )
+    assert summary["selected_count"] == 0
+    assert summary["readiness_eligible"] is False
+    assert summary["readiness_reason"] == "FINAL_RESEARCH_AUTHORIZATION_MISSING"
