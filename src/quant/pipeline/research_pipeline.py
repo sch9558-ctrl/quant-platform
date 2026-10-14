@@ -163,6 +163,46 @@ def _evaluate_strategies(
     return results
 
 
+def _validated_backtest_symbols(gated) -> list[str]:
+    """Return every post-quality symbol, not only today's screener winners.
+
+    Conditioning an eight-year walk-forward sample on today's endpoint scores
+    creates selection bias. Strategy research therefore starts from the full
+    canonical universe that survived the mandatory quality gate.
+    """
+    return sorted(str(symbol) for symbol in gated.validation.canonical_ohlcv_map)
+
+
+def _apply_backtest_history_quality_guard(
+    ranking_df: pd.DataFrame,
+    *,
+    demo: bool,
+    lookback_years: int,
+) -> pd.DataFrame:
+    """Keep real multi-year results diagnostic until their history is quality-audited.
+
+    The daily canonical quality gate validates its bounded daily window. The
+    longer walk-forward history is fetched separately from the provider and is
+    not yet covered by an equivalent full-history quality contract. Metrics stay
+    visible, but production approval is conservatively insufficient evidence.
+    """
+    if demo or int(lookback_years) <= 1 or ranking_df is None or ranking_df.empty:
+        return ranking_df
+    out = ranking_df.copy()
+    reason = (
+        "BACKTEST_HISTORY_NOT_FULLY_QUALITY_VALIDATED: multi-year provider history "
+        "is outside the canonical daily quality-validation window"
+    )
+    for idx in out.index:
+        reasons = list(out.at[idx, "approval_reasons"] or []) if "approval_reasons" in out.columns else []
+        if reason not in reasons:
+            reasons.append(reason)
+        out.at[idx, "approval_state"] = "INSUFFICIENT_EVIDENCE"
+        out.at[idx, "approval_reasons"] = reasons
+        out.at[idx, "meets_minimum_requirements"] = False
+    return out
+
+
 def _apply_universe_membership_pit_guard(
     ranking_df: pd.DataFrame,
     scan: ScanResult,
@@ -216,7 +256,7 @@ def _save_experiments(
             created_at=pd.Timestamp.now(),
             market=market, strategy_id=strategy_id,
             params=folds[-1].chosen_params if folds else {},
-            universe_description=f"{len(symbols)} symbols (screened universe)",
+            universe_description=f"{len(symbols)} symbols (post-quality research universe)",
             backtest_start=start, backtest_end=end,
             is_metrics=vars(is_metrics) if is_metrics else {},
             oos_metrics=vars(oos_metrics) if oos_metrics else {},
@@ -453,7 +493,7 @@ def run_market_research(
             as_of=as_of,
         )
     scan = gated.scan
-    symbols = [c.symbol for c in scan.all_candidates] or [c.symbol for c in scan.top_candidates]
+    symbols = _validated_backtest_symbols(gated)
 
     # step 6/7: major strategy evaluation (+ implicit update of any strategy
     # that already had a prior ResearchDB record for this market).
@@ -463,6 +503,9 @@ def run_market_research(
     features = [extract_features(wf) for wf in wf_results.values()]
     ranking_df = rank_strategies(features)
     ranking_df = _apply_universe_membership_pit_guard(ranking_df, scan)
+    ranking_df = _apply_backtest_history_quality_guard(
+        ranking_df, demo=demo, lookback_years=lookback_years,
+    )
 
     backtest_start = (pd.Timestamp(as_of) - pd.DateOffset(years=lookback_years)).strftime("%Y-%m-%d")
     experiment_ids, new_ids, updated_ids = _save_experiments(
