@@ -484,6 +484,11 @@ def _validation_section(status: SystemStatus) -> dict:
 
 def _overview(markets: dict[str, MarketResearchResult], status: SystemStatus) -> dict:
     strategy_statuses = [_strategy_validation_status(m) for m in markets.values()]
+    research_execution_ok = not any(
+        bool(getattr(result, "execution_error", False))
+        for result in markets.values()
+        if result is not None
+    )
     order = {"FAIL": 2, "WARNING": 1, "PASS": 0}
     strategy_validation = max(strategy_statuses, key=lambda s: order[s]) if strategy_statuses else "WARNING"
 
@@ -510,7 +515,7 @@ def _overview(markets: dict[str, MarketResearchResult], status: SystemStatus) ->
         "mandatory_validation_pass_rate": (
             100.0 if status.data_quality_pass else 0.0
         ),
-        "pipeline_health": "PASS" if status.pipeline_ok else "FAIL",
+        "pipeline_health": "PASS" if (status.pipeline_ok and research_execution_ok) else "FAIL",
         "strategy_validation": strategy_validation,
         "investment_readiness": status.readiness.level,
         "investment_readiness_reasons": status.readiness.reasons,
