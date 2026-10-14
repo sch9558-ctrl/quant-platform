@@ -175,3 +175,51 @@ def test_current_us_constituents_cannot_produce_historical_strategy_approval():
         for reason in guarded.loc["strategy_a", "approval_reasons"]
     )
     assert ranking.loc["strategy_a", "approval_state"] == "APPROVED"
+
+
+def test_walk_forward_symbol_set_uses_full_post_quality_universe_not_today_candidates():
+    from types import SimpleNamespace
+
+    gated = SimpleNamespace(
+        validation=SimpleNamespace(
+            canonical_ohlcv_map={"AAA": object(), "BBB": object(), "CCC": object()}
+        ),
+        scan=SimpleNamespace(
+            all_candidates=[SimpleNamespace(symbol="AAA")],
+            top_candidates=[SimpleNamespace(symbol="AAA")],
+        ),
+    )
+    symbols = research_pipeline._validated_backtest_symbols(gated)
+    assert symbols == ["AAA", "BBB", "CCC"]
+
+
+def test_real_multiyear_backtest_history_cannot_be_approved_before_full_quality_audit():
+    ranking = pd.DataFrame({
+        "approval_state": ["APPROVED"],
+        "approval_reasons": [["필수 OOS 표본과 DSR/CPCV 검증 임계를 모두 통과"]],
+        "meets_minimum_requirements": [True],
+        "composite_score": [0.9],
+    }, index=["strategy_a"])
+
+    guarded = research_pipeline._apply_backtest_history_quality_guard(
+        ranking, demo=False, lookback_years=8,
+    )
+    assert guarded.loc["strategy_a", "approval_state"] == "INSUFFICIENT_EVIDENCE"
+    assert guarded.loc["strategy_a", "meets_minimum_requirements"] == False
+    assert any(
+        "BACKTEST_HISTORY_NOT_FULLY_QUALITY_VALIDATED" in reason
+        for reason in guarded.loc["strategy_a", "approval_reasons"]
+    )
+    assert ranking.loc["strategy_a", "approval_state"] == "APPROVED"
+
+
+def test_demo_backtest_history_guard_does_not_change_deterministic_fixture_approval():
+    ranking = pd.DataFrame({
+        "approval_state": ["APPROVED"],
+        "approval_reasons": [["fixture"]],
+        "meets_minimum_requirements": [True],
+    }, index=["strategy_a"])
+    guarded = research_pipeline._apply_backtest_history_quality_guard(
+        ranking, demo=True, lookback_years=8,
+    )
+    assert guarded.equals(ranking)
