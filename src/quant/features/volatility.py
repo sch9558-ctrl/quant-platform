@@ -14,7 +14,12 @@ def historical_volatility(close: pd.Series, window: int = 20, annualize: int = 2
 
 
 def atr(df: pd.DataFrame, window: int = 14) -> pd.Series:
-    ind = ta_vol.AverageTrueRange(high=df["high"], low=df["low"], close=df["close"], window=window, fillna=False)
+    if len(df) < int(window):
+        return pd.Series(float("nan"), index=df.index, name=f"atr_{window}", dtype=float)
+    ind = ta_vol.AverageTrueRange(
+        high=df["high"], low=df["low"], close=df["close"],
+        window=window, fillna=False,
+    )
     return ind.average_true_range().rename(f"atr_{window}")
 
 
