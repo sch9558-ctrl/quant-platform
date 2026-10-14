@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from quant.dashboard_export.export import (
-    FORBIDDEN_PHRASES, _assert_no_forbidden_phrases, _market_section, _strategy_rows,
+    FORBIDDEN_PHRASES, _assert_no_forbidden_phrases, _market_section, _overview, _strategy_rows,
     _strategy_validation_status, append_history, build_dashboard_data, write_dashboard_json,
 )
 from quant.dashboard_export.publishability import NotPublishableError
@@ -328,3 +328,22 @@ def test_candidate_count_stages_do_not_collapse_into_one_number():
         "screened": 2, "dashboard": 0, "paper_selected": None,
     }
     assert section["candidate_counts"]["dashboard"] <= section["candidate_counts"]["screened"]
+
+
+def test_overview_pipeline_health_fails_on_market_research_execution_error():
+    from types import SimpleNamespace
+
+    market = research_pipeline.MarketResearchResult(
+        market="us", scan=None, walk_forward_results={}, ranking_df=pd.DataFrame(),
+        experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
+        portfolio_allocation=None, risk_checks=[], blocked=True,
+        block_reason="MARKET_RESEARCH_EXECUTION_ERROR", execution_error=True,
+    )
+    status = SimpleNamespace(
+        data_quality_pass=True, pipeline_ok=True,
+        readiness=SimpleNamespace(level="DATA_VERIFIED", reasons=[]),
+        unit_tests_pass=True, integration_tests_pass=True, regression_tests_pass=True,
+        label=lambda value: "PASS" if value else "FAIL",
+    )
+    overview = _overview({"us": market}, status)
+    assert overview["pipeline_health"] == "FAIL"
