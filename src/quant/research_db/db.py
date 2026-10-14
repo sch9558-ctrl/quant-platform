@@ -514,8 +514,17 @@ class ResearchDB:
         nav: float,
         cash: float,
         positions: int,
+        execution_policy: str | None = None,
+        readiness_eligible: bool = False,
+        readiness_reason: str | None = None,
     ) -> str:
-        """Persist the completed paper-cycle funnel for one validated session."""
+        """Persist the completed paper-cycle funnel for one validated session.
+
+        `readiness_eligible` is deliberately explicit. Historical cycle
+        summaries created before execution-policy compliance was audited remain
+        queryable, but they do not silently count toward long pre-live
+        verification.
+        """
         published_at = pd.Timestamp(session).normalize()
         payload = {
             "selected_symbols": [str(s) for s in selected_symbols],
@@ -525,6 +534,9 @@ class ResearchDB:
             "nav": float(nav),
             "cash": float(cash),
             "positions": int(positions),
+            "execution_policy": execution_policy,
+            "readiness_eligible": bool(readiness_eligible),
+            "readiness_reason": readiness_reason,
         }
         record = PointInTimeObservation(
             observation_type="paper_cycle_summary", source="paper_broker",
@@ -556,6 +568,28 @@ class ResearchDB:
             "session": pd.Timestamp(record.published_at).normalize().date().isoformat(),
             **dict(record.payload),
         }
+
+
+    def paper_readiness_sessions(
+        self, *, market: str, as_of: str | pd.Timestamp | None = None,
+    ) -> list[str]:
+        """Distinct paper sessions explicitly eligible for pre-live readiness."""
+        cutoff = pd.Timestamp(as_of).normalize() if as_of is not None else pd.Timestamp.max.normalize()
+        frame = self.query_observations_as_of(
+            observation_type="paper_cycle_summary",
+            source="paper_broker",
+            market=str(market),
+            symbol=None,
+            as_of=cutoff,
+        )
+        if frame.empty:
+            return []
+        sessions: set[str] = set()
+        for _, row in frame.iterrows():
+            payload = json.loads(row["payload_json"])
+            if payload.get("readiness_eligible") is True:
+                sessions.add(pd.Timestamp(row["published_at"]).normalize().date().isoformat())
+        return sorted(sessions)
 
 
     def save_quality_quarantine_snapshot(
