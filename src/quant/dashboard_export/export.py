@@ -183,8 +183,13 @@ def _market_section(market: str, mrr: MarketResearchResult | None) -> dict:
         return {"market": market, "label": _MARKET_LABEL[market], "status": "NO DATA", "blocked": True,
                 "block_reason": "No result computed for this market in this run.", "candidates": []}
     if mrr.blocked:
+        blocked_status = (
+            "RESEARCH EXECUTION FAILED"
+            if bool(getattr(mrr, "execution_error", False))
+            else "DATA VALIDATION FAILED"
+        )
         return {
-            "market": market, "label": _MARKET_LABEL[market], "status": "DATA VALIDATION FAILED",
+            "market": market, "label": _MARKET_LABEL[market], "status": blocked_status,
             "blocked": True, "block_reason": mrr.block_reason, "candidates": [],
             "universe_size": 0, "quality_quarantine": _quality_quarantine_summary(mrr),
             "candidate_diagnostics": {
