@@ -592,6 +592,21 @@ class ResearchDB:
         return sorted(sessions)
 
 
+    def paper_readiness_nav_history(
+        self, *, market: str, as_of: str | pd.Timestamp | None = None,
+    ) -> pd.Series:
+        """NAV series restricted to explicitly readiness-eligible sessions."""
+        sessions = self.paper_readiness_sessions(market=market, as_of=as_of)
+        if not sessions:
+            return pd.Series(dtype=float, name="equity")
+        nav = self.paper_nav_history(market=market, as_of=as_of)
+        wanted = {pd.Timestamp(session).normalize() for session in sessions}
+        if nav.empty:
+            return nav
+        mask = [pd.Timestamp(idx).normalize() in wanted for idx in nav.index]
+        return nav.loc[mask]
+
+
     def save_quality_quarantine_snapshot(
         self,
         *,
