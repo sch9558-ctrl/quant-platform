@@ -95,6 +95,7 @@ class MarketResearchResult:
     quality_report: DataQualityReport | None = None
     blocked: bool = False
     block_reason: str | None = None
+    execution_error: bool = False
     #: The session this market was actually analysed for. Recorded per
     #: market because the two markets legitimately differ: at 07:00 KST the
     #: latest closed Korean and US sessions are often different dates.
@@ -753,9 +754,11 @@ def run_full_pipeline(
                 experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
                 portfolio_allocation=None, risk_checks=[], institutional_overlays={}, quality_report=None,
                 blocked=True,
+                execution_error=True,
                 block_reason=(
-                    f"{market} 시장 데이터를 가져오지 못해 이 시장의 분석을 중단했습니다 "
-                    f"(데이터 소스 접근 실패: {type(e).__name__}: {e}). "
+                    f"MARKET_RESEARCH_EXECUTION_ERROR: {market} 시장 연구 실행이 실패했습니다 "
+                    f"({type(e).__name__}: {e}). 데이터 공급자 장애인지 내부 계산 오류인지 "
+                    "원인이 확인되기 전까지 데이터 소스 문제로 단정하지 않습니다. "
                     "후보 종목·전략 평가·모의매매는 생성되지 않았습니다."
                 ),
                 # Still record which session this market *would* have been
