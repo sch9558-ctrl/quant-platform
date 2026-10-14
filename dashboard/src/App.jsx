@@ -32,8 +32,8 @@ function PortfolioRiskSection({data,market}){
 }
 function PaperVerification({data,market}){
  const p=data?.paper_trading?.[market]||{}
- const done=Number(p.sessions_completed||0),required=Number(p.sessions_required||250),pct=Number(p.progress_pct||0)
- return <section className="panel"><div className="section-title"><div><span className="eyebrow">LONG PRE-LIVE VERIFICATION</span><h2>실데이터 페이퍼 검증</h2></div><p>검증 통과 후 NAV 저장까지 성공한 서로 다른 시장 세션만 누적합니다. 거래 없는 날은 포함하고 데이터 실패·NAV 저장 실패·동일 세션 재실행은 추가 가산하지 않습니다.</p></div><div className="market-summary"><div><span>누적 거래일</span><b>{done}/{required}</b></div><div><span>시작일</span><b>{p.start_date||'아직 시작 전'}</b></div><div><span>진행률</span><b>{pct.toFixed(1)}%</b></div></div><p className="source-note">{p.validation_label_ko||'페이퍼 검증 기록 없음'}</p></section>
+ const done=Number(p.sessions_completed||0),required=Number(p.sessions_required||250),pct=Number(p.progress_pct||0),raw=Number(p.raw_nav_sessions||0)
+ return <section className="panel"><div className="section-title"><div><span className="eyebrow">LONG PRE-LIVE VERIFICATION</span><h2>실데이터 페이퍼 검증</h2></div><p>데이터 검증·최종 연구 승인·설정된 체결정책을 모두 지키고 NAV 저장까지 성공한 세션만 readiness에 누적합니다. 별도 감사 NAV는 보존하되 자동으로 검증일로 승격하지 않습니다.</p></div><div className="market-summary"><div><span>readiness 거래일</span><b>{done}/{required}</b></div><div><span>감사 NAV 기록</span><b>{raw}일</b></div><div><span>시작일</span><b>{p.start_date||'아직 시작 전'}</b></div><div><span>진행률</span><b>{pct.toFixed(1)}%</b></div></div><p className="source-note">{p.validation_label_ko||'페이퍼 검증 기록 없음'}</p></section>
 }
 function SourceStatus({consensus}){
  const rows=consensus?.source_status||[]
