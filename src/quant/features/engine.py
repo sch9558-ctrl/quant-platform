@@ -24,6 +24,11 @@ from quant.features import volume as volu
 
 DEFAULT_RETURN_WINDOWS = (1, 5, 20, 60, 120, 252)
 
+# ADX(14) requires two windows in the upstream `ta` implementation. This is
+# an evidence threshold, not a data-quality tolerance: recent listings with
+# fewer rows are valid data but are not yet eligible for candidate scoring.
+MIN_CANDIDATE_HISTORY_ROWS = 28
+
 
 class FeatureEngine:
     def __init__(self, market: str):
@@ -82,7 +87,11 @@ class FeatureEngine:
         return {
             sym: self.compute_technical_features(df, benchmark_close=benchmark_close)
             for sym, df in ohlcv_map.items()
-            if df is not None and not df.empty
+            if (
+                df is not None
+                and not df.empty
+                and len(df) >= MIN_CANDIDATE_HISTORY_ROWS
+            )
         }
 
     @staticmethod
