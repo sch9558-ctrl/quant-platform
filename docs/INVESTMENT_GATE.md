@@ -59,23 +59,17 @@ not.
 This shows up concretely in
 `quant.quality.system_status.compute_system_status()`, the function that
 builds `ReadinessInputs` for the daily CLI (`validate_system.py`) and the
-dashboard (`generate_dashboard_data.py`): the strategy-validation-specific
-inputs (`oos_validation_pass`, `walk_forward_pass`, `cost_stress_test_pass`,
-`overfitting_risk_acceptable`, `paper_trading_sessions`,
-`risk_report_generated`) are **not yet backed by a persisted
-readiness-state tracker** in this codebase, and are deliberately left at
-their conservative dataclass defaults rather than inferred or fabricated.
-As a direct consequence, the automatically computed ladder currently
-tops out well below `PAPER_TRADING` in practice, even on days where every
-data-quality check and every test passes. This is a known, documented
-scope boundary — not a silent gap — and is the natural next extension
-point: a small persistence layer that records OOS/Walk-Forward pass
-history per strategy, transaction-cost stress test results, the
-overfitting-risk verdict already computed per strategy
-(`ranking/overfitting.py`), and a running count of real paper-trading
-sessions (`broker/kr_paper.py` / `us_paper.py` already persist daily
-equity marks — counting distinct wall-clock trading days recorded there
-is the natural source for `paper_trading_sessions`).
+dashboard (`generate_dashboard_data.py`). The paper-session input is now
+backed by the existing `ResearchDB`: only cycle summaries explicitly marked
+`readiness_eligible=true` are counted. Raw broker equity marks alone are not
+enough. The remaining strategy-validation-specific inputs
+(`oos_validation_pass`, `walk_forward_pass`, `cost_stress_test_pass`,
+`overfitting_risk_acceptable`, and `risk_report_generated`) are still
+deliberately left at their conservative defaults until one persisted contract
+can prove them without inference. As a result, the automatically computed
+ladder may intentionally remain below `PAPER_TRADING` even when daily data
+quality and software tests pass. This is conservative by design rather than a
+silent gap.
 
 ## Paper trading: 250 validated sessions, never backfilled
 
