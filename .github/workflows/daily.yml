@@ -186,6 +186,38 @@ jobs:
           p.write_text(json.dumps(d,ensure_ascii=False,indent=2),encoding="utf-8")
           PY
 
+      - name: Summarize validated research funnel
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+          d=json.loads(Path("site/data/dashboard.json").read_text())
+          for market in ("korea","us"):
+              section=(d.get("markets") or {}).get(market) or {}
+              strategies=((d.get("strategies") or {}).get(market) or [])
+              approvals=Counter(str(row.get("approval_state") or "UNKNOWN") for row in strategies)
+              overlay=section.get("institutional_overlay_summary") or {}
+              paper=((d.get("paper_trading") or {}).get(market) or {})
+              quarantine=section.get("quality_quarantine") or {}
+              print("VALIDATED_FUNNEL",json.dumps({
+                  "market":market,
+                  "blocked":section.get("blocked"),
+                  "as_of":section.get("as_of"),
+                  "universe_size":section.get("universe_size"),
+                  "candidate_counts":section.get("candidate_counts") or {},
+                  "approval_distribution":dict(approvals),
+                  "overlay_actions":overlay.get("actions") or {},
+                  "overlay_reasons":overlay.get("reasons") or {},
+                  "quarantine_count":quarantine.get("count",0),
+                  "quarantine_streaks":quarantine.get("consecutive_streaks") or {},
+                  "quarantine_recent_frequency":quarantine.get("recent_frequency") or {},
+                  "paper_raw_nav_sessions":paper.get("raw_nav_sessions",0),
+                  "paper_readiness_sessions":paper.get("sessions_completed",0),
+                  "paper_last_cycle":paper.get("last_cycle") or {},
+              },ensure_ascii=False,sort_keys=True))
+          PY
+
       - name: Encrypt persistent long-horizon state
         run: |
           tar -czf paper-state.tgz data/db
