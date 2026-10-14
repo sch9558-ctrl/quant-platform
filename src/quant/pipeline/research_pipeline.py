@@ -39,6 +39,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pandas as pd
+from requests import RequestException
 
 from quant import config
 from quant.data.factory import get_provider
@@ -716,6 +717,16 @@ def _safe_default_as_of(market: str) -> str | None:
         return None
 
 
+def _is_external_market_data_error(exc: Exception) -> bool:
+    """Classify only explicit transport/provider-access failures as external.
+
+    Do not infer "provider outage" from arbitrary ValueError/KeyError/etc.;
+    those can be internal calculation defects and must stay visible as
+    MARKET_RESEARCH_EXECUTION_ERROR.
+    """
+    return isinstance(exc, (ConnectionError, TimeoutError, RequestException))
+
+
 def run_full_pipeline(
     demo: bool = True, as_of: str | None = None, top_n: int = 20,
     use_param_search: bool = False, markets: tuple[str, ...] = ("korea", "us"),
@@ -737,35 +748,30 @@ def run_full_pipeline(
                 market, demo=demo, as_of=as_of, top_n=top_n, use_param_search=use_param_search, db=db,
             )
         except Exception as e:
-            # One market's data source being unreachable must not take the
-            # other market down with it. KRX, for instance, does not answer
-            # GitHub's runners at all: `list_symbols` raises before the
-            # Fail-Closed gate ever gets a report to judge, and an
-            # uncaught exception here discarded a completed US run along
-            # with it.
-            #
-            # A provider outage is not a different *kind* of event from a
-            # failed quality check -- both mean "no trustworthy data for
-            # this market today" -- so it is recorded as the same blocked
-            # result, with a reason that names the cause instead of a
-            # traceback. The dashboard then renders this market as
-            # explicitly unavailable rather than silently absent.
+            # Keep one market isolated, but distinguish explicit transport
+            # failures from internal research defects. A ConnectionError/
+            # timeout is a data-source availability failure; arbitrary
+            # ValueError/KeyError/etc. is not silently relabelled as one.
             logger.exception("Research pipeline could not run for market=%s", market)
+            external_error = _is_external_market_data_error(e)
             market_results[market] = MarketResearchResult(
                 market=market, scan=None, walk_forward_results={}, ranking_df=pd.DataFrame(),
                 experiment_ids=[], new_strategy_ids=[], updated_strategy_ids=[],
                 portfolio_allocation=None, risk_checks=[], institutional_overlays={}, quality_report=None,
                 blocked=True,
-                execution_error=True,
+                execution_error=not external_error,
                 block_reason=(
-                    f"MARKET_RESEARCH_EXECUTION_ERROR: {market} 시장 연구 실행이 실패했습니다 "
-                    f"({type(e).__name__}: {e}). 데이터 공급자 장애인지 내부 계산 오류인지 "
-                    "원인이 확인되기 전까지 데이터 소스 문제로 단정하지 않습니다. "
-                    "후보 종목·전략 평가·모의매매는 생성되지 않았습니다."
+                    (
+                        f"DATA SOURCE ACCESS FAILED for market={market}: "
+                        f"{type(e).__name__}: {e}. No investment candidates will be generated."
+                    )
+                    if external_error
+                    else (
+                        f"MARKET_RESEARCH_EXECUTION_ERROR: {market} 시장 연구 실행이 실패했습니다 "
+                        f"({type(e).__name__}: {e}). 데이터 공급자 장애로 단정하지 않습니다. "
+                        "후보 종목·전략 평가·모의매매는 생성되지 않았습니다."
+                    )
                 ),
-                # Still record which session this market *would* have been
-                # analysed for, so a blocked market is dated like any other
-                # rather than showing up undated next to a working one.
                 as_of=as_of or _safe_default_as_of(market),
             )
 
