@@ -391,7 +391,8 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int | Non
     from quant.broker.us_paper import USPaperBroker
     from quant.research_db.db import ResearchDB
 
-    db = ResearchDB()
+    db_dir = config.resolve_path(config.settings()["paths"]["db_dir"])
+    db = ResearchDB(path=db_dir / "research.sqlite")
     broker = (
         KoreaPaperBroker(research_db=db)
         if market == "korea"
