@@ -60,39 +60,51 @@ def test_compute_system_status_blocked_market_yields_data_invalid(tmp_path, monk
 
 
 
-def test_completed_paper_session_count_uses_distinct_completed_nav_marks(tmp_path, monkeypatch):
-    import json
+def test_completed_paper_session_count_requires_explicit_readiness_eligibility(tmp_path, monkeypatch):
     from types import SimpleNamespace
-    from quant import config as quant_config
+    from quant.quality import system_status as ss_module
+    from quant.research_db.db import ResearchDB
 
-    monkeypatch.setattr(quant_config, "resolve_path", lambda rel: tmp_path)
-    (tmp_path / "paper_us.json").write_text(json.dumps({
-        "equity_history": [
-            {"date": "2026-10-06T00:00:00", "equity": 99980.0},
-            {"date": "2026-10-06T00:00:00", "equity": 99980.0},
-            {"date": "2026-10-07T00:00:00", "equity": 100100.0},
-        ]
-    }))
-    reports = {"us": SimpleNamespace(as_of="2026-10-06")}
+    db = ResearchDB(path=tmp_path / "research.sqlite")
+    monkeypatch.setattr(ss_module, "ResearchDB", lambda: db)
+    # Legacy/pre-audit cycle: remains queryable but must not count.
+    db.save_paper_cycle_summary(
+        market="us", session="2026-10-06", selected_symbols=["AAA"],
+        fills=1, rejections=0, nav=99980.0, cash=90000.0, positions=1,
+        execution_policy=None, readiness_eligible=False,
+        readiness_reason="LEGACY_EXECUTION_POLICY_UNVERIFIED",
+    )
+    db.save_paper_cycle_summary(
+        market="us", session="2026-10-07", selected_symbols=[],
+        fills=0, rejections=0, nav=99980.0, cash=99980.0, positions=0,
+        execution_policy="delay_bars=1;fill_price=next_open",
+        readiness_eligible=True, readiness_reason="NO_TRADE_VALIDATED_SESSION",
+    )
+    reports = {"us": SimpleNamespace(as_of="2026-10-07")}
     assert _completed_paper_session_count(["us"], reports, demo=False) == 1
     assert _completed_paper_session_count(["us"], reports, demo=True) == 0
 
 
 def test_completed_paper_session_count_is_conservative_across_markets(tmp_path, monkeypatch):
-    import json
     from types import SimpleNamespace
-    from quant import config as quant_config
+    from quant.quality import system_status as ss_module
+    from quant.research_db.db import ResearchDB
 
-    monkeypatch.setattr(quant_config, "resolve_path", lambda rel: tmp_path)
-    (tmp_path / "paper_us.json").write_text(json.dumps({
-        "equity_history": [
-            {"date": "2026-10-06T00:00:00", "equity": 99980.0},
-            {"date": "2026-10-07T00:00:00", "equity": 100100.0},
-        ]
-    }))
-    (tmp_path / "paper_korea.json").write_text(json.dumps({
-        "equity_history": [{"date": "2026-10-06T00:00:00", "equity": 10000000.0}]
-    }))
+    db = ResearchDB(path=tmp_path / "research.sqlite")
+    monkeypatch.setattr(ss_module, "ResearchDB", lambda: db)
+    for session in ("2026-10-06", "2026-10-07"):
+        db.save_paper_cycle_summary(
+            market="us", session=session, selected_symbols=[],
+            fills=0, rejections=0, nav=100000.0, cash=100000.0, positions=0,
+            execution_policy="delay_bars=1;fill_price=next_open",
+            readiness_eligible=True, readiness_reason="NO_TRADE_VALIDATED_SESSION",
+        )
+    db.save_paper_cycle_summary(
+        market="korea", session="2026-10-06", selected_symbols=[],
+        fills=0, rejections=0, nav=100000000.0, cash=100000000.0, positions=0,
+        execution_policy="delay_bars=1;fill_price=next_open",
+        readiness_eligible=True, readiness_reason="NO_TRADE_VALIDATED_SESSION",
+    )
     reports = {
         "us": SimpleNamespace(as_of="2026-10-07"),
         "korea": SimpleNamespace(as_of="2026-10-07"),
