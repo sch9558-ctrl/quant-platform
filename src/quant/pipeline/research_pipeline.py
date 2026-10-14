@@ -354,8 +354,11 @@ def _aligned_candidate_returns(
 
 
 def _paper_nav(market: str) -> pd.Series:
-    broker = KoreaPaperBroker() if market == "korea" else USPaperBroker()
-    return broker.get_equity_curve()
+    # Risk evidence must use the same readiness-eligible session definition as
+    # the long pre-live clock. Raw audit NAV rows from legacy/noncompliant
+    # execution remain visible but cannot satisfy the minimum-history gate.
+    db = ResearchDB()
+    return db.paper_readiness_nav_history(market=market)
 
 
 def _portfolio_risk_analysis(
