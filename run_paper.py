@@ -5,14 +5,18 @@ Usage:
     python run_paper.py --market korea [--top-n 10] [--as-of 2026-08-26]
     python run_paper.py --market us --top-n 15
 
-Runs one full "adapter-level" paper trading cycle for a single market:
-    scan (Universe -> Feature -> Regime -> Screener) -> build a
-    constrained portfolio allocation from today's top candidates via
-    `PortfolioConstructor` -> submit the resulting buy/sell orders through
-    the Paper Broker (which itself routes every single order through the
-    shared `RiskManager`, exactly as a live broker adapter would have to)
-    -> record today's equity mark so the paper-trading track record grows
-    day by day.
+Runs one fail-closed paper-verification cycle for a single market:
+    validate/scan -> intersect with the full-research authorization supplied
+    by the scheduled workflow -> enforce the configured execution policy ->
+    record an audit NAV. A rebalance is eligible for the long pre-live clock
+    only when the modeled execution path actually matches that policy.
+
+The production cost configuration currently uses a one-bar delay and
+`next_open` fills. The PaperBroker adapter itself accepts caller-supplied
+prices immediately, so real mode must NOT pretend a same-session candidate
+price is a next-open fill. Until the delayed executor is represented
+faithfully, a session that would require a trade is recorded for audit only
+and receives no readiness credit. Raw legacy fills remain immutable.
 
 This is the "more complete" CLI counterpart to the dashboard's Paper
 Trading page quick-rebalance button (`dashboard/data_access.run_paper_rebalance`,
