@@ -625,3 +625,60 @@ def test_raw_ineligible_nav_does_not_enable_volatility_target():
     assert adjusted == weights
     assert meta["applied"] is False
     assert meta["return_observations"] == 0
+
+
+def test_same_session_full_paper_cycle_is_idempotent(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import run_paper
+
+    broker = USPaperBroker(
+        initial_capital=100_000.0,
+        state_path=tmp_path / "paper_us.json",
+        research_db=ResearchDB(path=tmp_path / "research.sqlite"),
+    )
+
+    class Regime:
+        def summary_label(self): return "TEST"
+
+    candidate = SimpleNamespace(
+        symbol="AAA", composite_score=0.9, volatility=0.2, price=100.0,
+    )
+    gated = SimpleNamespace(
+        blocked=False, block_reason="", market="us", as_of="2026-10-08",
+        scan=SimpleNamespace(top_candidates=[candidate], regime=Regime(), universe_size=1),
+        validation=SimpleNamespace(canonical_ohlcv_map={}),
+    )
+    monkeypatch.setattr(run_paper, "get_provider", lambda market, demo: object())
+    monkeypatch.setattr(run_paper, "run_gated_scan", lambda *a, **k: gated)
+    monkeypatch.setattr(run_paper, "build_broker", lambda market, *, demo=False: broker)
+
+    run_paper.run_paper_cycle(
+        "us", demo=False, top_n=10, as_of="2026-10-08",
+        authorized_symbols={"AAA"},
+    )
+    state_after_first = (
+        broker.get_cash(),
+        dict(broker.get_positions()),
+        list(broker.get_fill_history()),
+        broker.get_equity_curve().copy(),
+    )
+    run_paper.run_paper_cycle(
+        "us", demo=False, top_n=10, as_of="2026-10-08",
+        authorized_symbols={"AAA"},
+    )
+    state_after_second = (
+        broker.get_cash(),
+        dict(broker.get_positions()),
+        list(broker.get_fill_history()),
+        broker.get_equity_curve().copy(),
+    )
+
+    assert state_after_second[0] == pytest.approx(state_after_first[0])
+    assert state_after_second[1] == state_after_first[1]
+    assert state_after_second[2] == state_after_first[2]
+    pd.testing.assert_series_equal(state_after_second[3], state_after_first[3])
+    frame = broker.research_db.query_observations_as_of(
+        observation_type="paper_cycle_summary", source="paper_broker",
+        market="us", symbol=None, as_of="2026-10-08",
+    )
+    assert len(frame) == 1
