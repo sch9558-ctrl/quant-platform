@@ -354,11 +354,11 @@ def _aligned_candidate_returns(
     return pd.concat(series, axis=1, join="inner").replace([float("inf"), float("-inf")], pd.NA).dropna()
 
 
-def _paper_nav(market: str) -> pd.Series:
+def _paper_nav(market: str, research_db: ResearchDB | None = None) -> pd.Series:
     # Risk evidence must use the same readiness-eligible session definition as
     # the long pre-live clock. Raw audit NAV rows from legacy/noncompliant
     # execution remain visible but cannot satisfy the minimum-history gate.
-    db = ResearchDB()
+    db = research_db or ResearchDB()
     return db.paper_readiness_nav_history(market=market)
 
 
@@ -368,6 +368,7 @@ def _portfolio_risk_analysis(
     ohlcv_map: dict[str, pd.DataFrame],
     *,
     nav: pd.Series | None = None,
+    research_db: ResearchDB | None = None,
     min_return_observations: int = 60,
 ) -> dict:
     guard = RiskGuard()
@@ -380,7 +381,7 @@ def _portfolio_risk_analysis(
         pvar = hvar = None
 
     if nav is None:
-        nav = _paper_nav(market)
+        nav = _paper_nav(market, research_db=research_db)
     nav = pd.Series(nav, dtype=float).dropna() if nav is not None else pd.Series(dtype=float)
 
     reasons: list[str] = []
@@ -581,6 +582,7 @@ def run_market_research(
         market,
         allocation,
         gated.validation.canonical_ohlcv_map,
+        research_db=db,
     )
     _apply_portfolio_risk_to_scan(scan, portfolio_risk_state)
 
