@@ -338,3 +338,20 @@ def test_quality_quarantine_frequency_excludes_failed_market_sessions(db):
     )
     assert freq["observed_validated_sessions"] == 1
     assert freq["counts"]["AAA"] == 1
+
+
+def test_paper_readiness_sessions_require_explicit_eligibility(db):
+    db.save_paper_cycle_summary(
+        market="us", session="2026-10-06", selected_symbols=["AAA"],
+        fills=1, rejections=0, nav=99995.0, cash=90000.0, positions=1,
+        execution_policy=None, readiness_eligible=False,
+        readiness_reason="LEGACY_EXECUTION_POLICY_UNVERIFIED",
+    )
+    db.save_paper_cycle_summary(
+        market="us", session="2026-10-07", selected_symbols=[],
+        fills=0, rejections=0, nav=99995.0, cash=99995.0, positions=0,
+        execution_policy="delay_bars=1;fill_price=next_open",
+        readiness_eligible=True, readiness_reason="NO_TRADE_VALIDATED_SESSION",
+    )
+    assert db.paper_readiness_sessions(market="us", as_of="2026-10-07") == ["2026-10-07"]
+    assert db.paper_readiness_sessions(market="us", as_of="2026-10-06") == []
