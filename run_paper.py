@@ -163,18 +163,37 @@ def _assert_no_partial_paper_session(broker, as_of: str) -> None:
 
 def _persist_paper_cycle_summary(
     broker, *, as_of: str, selected_symbols: list[str], fills: int,
-    rejections: int, nav: float,
+    rejections: int, nav: float, execution_policy: str | None = None,
+    readiness_eligible: bool = False, readiness_reason: str | None = None,
 ) -> None:
     if broker.research_db is None:
         return
     broker.research_db.save_paper_cycle_summary(
         market=broker.market, session=as_of, selected_symbols=selected_symbols,
         fills=fills, rejections=rejections, nav=nav, cash=broker.get_cash(),
-        positions=len(broker.get_positions()),
+        positions=len(broker.get_positions()), execution_policy=execution_policy,
+        readiness_eligible=readiness_eligible, readiness_reason=readiness_reason,
     )
 
 
-def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = None) -> None:
+def _execution_policy_label(broker) -> str:
+    return (
+        f"delay_bars={broker.cost_model.fill_delay_bars()};"
+        f"fill_price={broker.cost_model.fill_price_rule()}"
+    )
+
+
+def _same_session_execution_supported(broker) -> bool:
+    return (
+        int(broker.cost_model.fill_delay_bars()) == 0
+        and str(broker.cost_model.fill_price_rule()) == "same_close"
+    )
+
+
+def run_paper_cycle(
+    market: str, demo: bool, top_n: int, as_of: str | None = None,
+    authorized_symbols: set[str] | None = None,
+) -> None:
     as_of = as_of or default_as_of(market)
     provider = get_provider(market, demo=demo)
     # Fail-Closed (spec section 2): a data-validation failure blocks new
@@ -199,14 +218,63 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
     print(f"[{market}] as_of={as_of} regime={scan.regime.summary_label()} universe_size={scan.universe_size}")
     print(f"[{market}] top candidates found: {len(scan.top_candidates)}")
 
-    if not scan.top_candidates:
+    authorization_complete = demo or authorized_symbols is not None
+    if demo:
+        selected_candidates = list(scan.top_candidates)
+    elif authorized_symbols is None:
+        selected_candidates = []
+    else:
+        selected_candidates = [
+            candidate for candidate in scan.top_candidates
+            if candidate.symbol in authorized_symbols
+        ]
+
+    policy = _execution_policy_label(broker)
+    if not _same_session_execution_supported(broker):
+        # The configured production policy is currently signal-at-close,
+        # fill-at-next-open. Do not keep fabricating same-session fills just
+        # because the paper broker accepts caller-supplied prices. Preserve a
+        # validated close NAV for audit/monitoring, but count the session toward
+        # pre-live readiness only when no execution was required.
+        mark_prices = _validated_mark_prices(broker, gated, {})
+        equity = broker.record_daily_equity(mark_prices, as_of=pd.Timestamp(as_of))
+        has_positions = bool(broker.get_positions())
+        execution_required = bool(selected_candidates) or has_positions
+        readiness_eligible = bool(authorization_complete and not execution_required)
+        if not authorization_complete:
+            reason = "FINAL_RESEARCH_AUTHORIZATION_MISSING"
+        elif execution_required:
+            reason = "DELAYED_EXECUTION_ENGINE_REQUIRED"
+        else:
+            reason = "NO_TRADE_VALIDATED_SESSION"
+        _persist_paper_cycle_summary(
+            broker, as_of=as_of,
+            selected_symbols=[c.symbol for c in selected_candidates],
+            fills=0, rejections=0, nav=equity,
+            execution_policy=policy,
+            readiness_eligible=readiness_eligible,
+            readiness_reason=reason,
+        )
+        print(
+            f"[{market}] execution policy {policy} is not simulated by immediate "
+            f"paper fills; no rebalance executed. NAV audit mark recorded; "
+            f"readiness_eligible={readiness_eligible} reason={reason}."
+        )
+        return
+
+    if not selected_candidates:
         mark_prices = _validated_mark_prices(broker, gated, {})
         equity = broker.record_daily_equity(mark_prices, as_of=pd.Timestamp(as_of))
         _persist_paper_cycle_summary(
             broker, as_of=as_of, selected_symbols=[], fills=0,
-            rejections=0, nav=equity,
+            rejections=0, nav=equity, execution_policy=policy,
+            readiness_eligible=authorization_complete,
+            readiness_reason=(
+                "NO_TRADE_VALIDATED_SESSION" if authorization_complete
+                else "FINAL_RESEARCH_AUTHORIZATION_MISSING"
+            ),
         )
-        print(f"[{market}] no candidates today -- no rebalance performed; validated NAV mark recorded.")
+        print(f"[{market}] no authorized candidates today -- validated NAV mark recorded.")
         return
 
     items = [
@@ -218,10 +286,10 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
             signal_strength=max(c.composite_score, 0.0),
             volatility=c.volatility,
         )
-        for c in scan.top_candidates
+        for c in selected_candidates
     ]
     allocation = PortfolioConstructor().compute_weights(items)
-    candidate_prices = {c.symbol: c.price for c in scan.top_candidates}
+    candidate_prices = {c.symbol: c.price for c in selected_candidates}
     prices = _validated_mark_prices(broker, gated, candidate_prices)
 
     target_weights, vol_target = apply_persistent_nav_volatility_target(
@@ -257,8 +325,10 @@ def run_paper_cycle(market: str, demo: bool, top_n: int, as_of: str | None = Non
     equity = broker.record_daily_equity(prices, as_of=pd.Timestamp(as_of))
     _persist_paper_cycle_summary(
         broker, as_of=as_of,
-        selected_symbols=[c.symbol for c in scan.top_candidates],
+        selected_symbols=[c.symbol for c in selected_candidates],
         fills=n_filled, rejections=n_rejected, nav=equity,
+        execution_policy=policy, readiness_eligible=True,
+        readiness_reason="EXECUTION_POLICY_COMPLIANT",
     )
     print(
         f"[{market}] account value={equity:,.2f} cash={broker.get_cash():,.2f} "
@@ -283,9 +353,25 @@ def main() -> int:
              "offline dataset. Requires network access to KRX / Yahoo Finance.",
     )
     parser.add_argument("--as-of", default=None, help="Override the as-of date (YYYY-MM-DD); default: today.")
+    parser.add_argument(
+        "--authorized-symbols-json", default=None,
+        help="JSON file containing the final full-research BUY-authorized symbols. "
+             "Required by the scheduled real-paper workflow; an empty list is valid.",
+    )
     args = parser.parse_args()
 
-    run_paper_cycle(args.market, demo=args.demo, top_n=args.top_n, as_of=args.as_of)
+    authorized_symbols = None
+    if args.authorized_symbols_json is not None:
+        import json
+        payload = json.loads(Path(args.authorized_symbols_json).read_text(encoding="utf-8"))
+        if not isinstance(payload, list) or not all(isinstance(x, str) for x in payload):
+            raise SystemExit("--authorized-symbols-json must contain a JSON array of symbols")
+        authorized_symbols = set(payload)
+
+    run_paper_cycle(
+        args.market, demo=args.demo, top_n=args.top_n, as_of=args.as_of,
+        authorized_symbols=authorized_symbols,
+    )
     return 0
 
 
