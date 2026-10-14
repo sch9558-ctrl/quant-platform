@@ -223,3 +223,26 @@ def test_demo_backtest_history_guard_does_not_change_deterministic_fixture_appro
         ranking, demo=True, lookback_years=8,
     )
     assert guarded.equals(ranking)
+
+
+def test_run_full_pipeline_does_not_mislabel_internal_exception_as_data_source_failure(tmp_path, monkeypatch):
+    from quant import config as quant_config
+
+    monkeypatch.setattr(research_pipeline, "ResearchDB", lambda: ResearchDB(path=tmp_path / "research.sqlite"))
+    monkeypatch.setattr(
+        research_pipeline,
+        "run_market_research",
+        lambda *a, **k: (_ for _ in ()).throw(ValueError("calculation invariant broken")),
+    )
+    monkeypatch.setattr(research_pipeline, "save_report", lambda text, as_of: tmp_path / "report.md")
+    monkeypatch.setattr(quant_config, "resolve_path", lambda rel: tmp_path)
+
+    result = research_pipeline.run_full_pipeline(
+        demo=True, as_of="2026-10-08", markets=("us",),
+    )
+    us = result.markets["us"]
+    assert us.blocked is True
+    assert us.execution_error is True
+    assert "MARKET_RESEARCH_EXECUTION_ERROR" in us.block_reason
+    assert "calculation invariant broken" in us.block_reason
+    assert "데이터 소스 접근 실패" not in us.block_reason
