@@ -115,12 +115,27 @@ jobs:
           d=json.loads(Path("site/data/dashboard.json").read_text())
           for market in ("korea","us"):
               section=(d.get("markets") or {}).get(market) or {}
-              if not section.get("blocked") and section.get("as_of"):
-                  print(market, section["as_of"])
+              if section.get("blocked") or not section.get("as_of"):
+                  continue
+              strategy_rows=((d.get("strategies") or {}).get(market) or [])
+              strategy_approved=any(
+                  row.get("approval_state") == "APPROVED"
+                  for row in strategy_rows
+              )
+              authorized=[]
+              if strategy_approved:
+                  authorized=[
+                      str(candidate.get("symbol"))
+                      for candidate in (section.get("candidates") or [])
+                      if ((candidate.get("institutional_overlay") or {}).get("action") == "BUY")
+                  ]
+              auth_path=Path(f"/tmp/paper-authorized-{market}.json")
+              auth_path.write_text(json.dumps(authorized),encoding="utf-8")
+              print(market, section["as_of"], auth_path)
           PY
-          while read -r market session; do
+          while read -r market session auth_path; do
             [ -n "$market" ] || continue
-            python run_paper.py --real --market "$market" --as-of "$session"
+            python run_paper.py --real --market "$market" --as-of "$session"               --authorized-symbols-json "$auth_path"
           done < /tmp/paper-markets
           python - <<'PY'
           import json,sys
@@ -140,7 +155,7 @@ jobs:
                       f"{market} passed research validation but paper NAV "
                       f"was not recorded for {session}"
                   )
-              print(f"{market} paper verification session recorded: {session}")
+              print(f"{market} paper audit NAV session recorded: {session}")
           PY
 
       - name: Refresh dashboard paper-verification counters
