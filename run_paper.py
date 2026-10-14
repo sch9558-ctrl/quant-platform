@@ -85,7 +85,7 @@ def apply_persistent_nav_volatility_target(
             "reason": "RESEARCH_DB_UNAVAILABLE",
             "return_observations": 0,
         }
-    nav = broker.research_db.paper_nav_history(market=broker.market, as_of=as_of)
+    nav = broker.research_db.paper_readiness_nav_history(market=broker.market, as_of=as_of)
     returns = nav.pct_change().dropna()
     if len(returns) < min_return_observations:
         return dict(target_weights), {
