@@ -384,8 +384,14 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int | Non
     """
     from quant.broker.kr_paper import KoreaPaperBroker
     from quant.broker.us_paper import USPaperBroker
+    from quant.research_db.db import ResearchDB
 
-    broker = KoreaPaperBroker() if market == "korea" else USPaperBroker()
+    db = ResearchDB()
+    broker = (
+        KoreaPaperBroker(research_db=db)
+        if market == "korea"
+        else USPaperBroker(research_db=db)
+    )
     if required_sessions is None:
         required_sessions = int(
             config.settings().get("paper_trading", {}).get("required_validated_sessions", 250)
@@ -393,8 +399,16 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int | Non
     curve = broker.get_equity_curve()
     if not curve.empty:
         curve = curve[~curve.index.duplicated(keep="last")].sort_index()
-    sessions = int(len(curve))
-    start_date = str(curve.index.min().date()) if sessions else None
+    raw_nav_sessions = int(len(curve))
+    readiness_sessions = (
+        db.paper_readiness_sessions(
+            market=market,
+            as_of=(curve.index.max() if raw_nav_sessions else None),
+        )
+        if not demo else []
+    )
+    sessions = int(len(readiness_sessions))
+    start_date = readiness_sessions[0] if readiness_sessions else None
     equity_tail = [
         {"date": pd.Timestamp(d).isoformat(), "equity": float(e)}
         for d, e in curve.tail(90).items()
@@ -403,8 +417,8 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int | Non
         s: {"quantity": p.quantity, "avg_cost": p.avg_cost} for s, p in broker.get_positions().items()
     }
     last_cycle = (
-        broker.research_db.latest_paper_cycle_summary(market=market, as_of=curve.index.max())
-        if broker.research_db is not None and sessions else None
+        db.latest_paper_cycle_summary(market=market, as_of=curve.index.max())
+        if raw_nav_sessions else None
     )
     return {
         "market": market,
@@ -413,6 +427,7 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int | Non
         "n_positions": len(positions),
         "equity_history_tail": equity_tail,
         "last_cycle": last_cycle,
+        "raw_nav_sessions": raw_nav_sessions,
         "sessions_completed": sessions,
         "sessions_required": required_sessions,
         "sessions_progress_label": f"{sessions}/{required_sessions}",
@@ -420,7 +435,8 @@ def _paper_trading_section(market: str, demo: bool, required_sessions: int | Non
         "progress_pct": round(min(1.0, sessions / required_sessions) * 100, 1),
         "validation_label_ko": (
             f"실데이터 페이퍼 검증 {sessions}/{required_sessions}거래일 / "
-            f"시작일 {start_date or '아직 시작 전'}"
+            f"시작일 {start_date or '아직 시작 전'} / "
+            f"감사 NAV 기록 {raw_nav_sessions}일"
         ),
     }
 
