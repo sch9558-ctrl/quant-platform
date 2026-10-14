@@ -82,10 +82,21 @@ is the natural source for `paper_trading_sessions`).
 The required count is configured once at
 `settings.yaml -> paper_trading.required_validated_sessions` (currently 250).
 A counted session means exactly **one distinct validated market session with a
-successfully persisted paper NAV**. A no-trade day counts when its validated
-NAV is persisted. A Fail-Closed market day, failed NAV persistence, or replay
-of an already-counted session does not add a session. Historical replay or
-backfill can never manufacture elapsed pre-live time.
+successfully persisted paper NAV whose completed cycle is explicitly marked
+readiness-eligible under the configured execution policy**. Raw NAV rows remain
+an immutable audit trail, but they are not automatically verification days.
+A no-trade day counts only when no execution was required and its validated NAV
+is persisted. A Fail-Closed market day, failed NAV persistence, final-research
+authorization failure, execution-policy mismatch, or replay of an already-counted
+session does not add a session. Historical replay or backfill can never
+manufacture elapsed pre-live time.
+
+The production cost configuration currently specifies a one-bar delay and
+`next_open` fill. The immediate caller-price PaperBroker adapter is therefore
+not allowed to manufacture readiness credit for a rebalance. Until delayed
+execution is represented faithfully, such sessions may record an audit NAV but
+must remain readiness-ineligible. Legacy pre-audit NAV rows are preserved rather
+than rewritten and are not grandfathered into the 250-session clock.
 
 This is why `run_paper.py`, when its market is Fail-Closed blocked for the day,
 skips recording that day's equity mark entirely rather than recording a
