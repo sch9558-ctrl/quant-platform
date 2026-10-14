@@ -23,6 +23,7 @@ from quant import config
 from quant.quality.models import DataQualityReport
 from quant.quality.pipeline_gate import validate_market
 from quant.quality.readiness import ReadinessInputs, ReadinessResult, assess_readiness
+from quant.research_db.db import ResearchDB
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -110,28 +111,25 @@ def _run_pipeline_check(markets: list[str], demo: bool, as_of: str) -> tuple[boo
 def _completed_paper_session_count(
     markets: list[str], reports: dict[str, DataQualityReport], *, demo: bool,
 ) -> int:
-    """Count completed authoritative paper-NAV sessions conservatively."""
+    """Count only explicitly execution-compliant paper verification sessions.
+
+    Raw broker NAV rows remain the authoritative audit trail, but readiness is
+    stricter: a session counts only when the completed paper-cycle summary says
+    it was eligible under the configured execution policy. Legacy summaries
+    without that explicit flag therefore count as zero rather than being
+    silently grandfathered into pre-live verification.
+    """
     if demo or not markets:
         return 0
-    db_dir = config.resolve_path(config.settings()["paths"]["db_dir"])
+    db = ResearchDB()
     counts: list[int] = []
     for market in markets:
-        path = db_dir / f"paper_{market}.json"
-        if not path.exists():
-            counts.append(0)
-            continue
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            cutoff_raw = getattr(reports.get(market), "as_of", None)
-            cutoff = pd.Timestamp(cutoff_raw).normalize() if cutoff_raw is not None else None
-            sessions = set()
-            for row in payload.get("equity_history") or []:
-                session = pd.Timestamp(row["date"]).normalize()
-                if cutoff is None or session <= cutoff:
-                    sessions.add(session)
-            counts.append(len(sessions))
-        except Exception:
-            counts.append(0)
+        cutoff_raw = getattr(reports.get(market), "as_of", None)
+        sessions = db.paper_readiness_sessions(
+            market=market,
+            as_of=cutoff_raw,
+        )
+        counts.append(len(sessions))
     return min(counts) if counts else 0
 
 
