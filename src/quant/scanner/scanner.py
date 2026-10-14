@@ -33,6 +33,7 @@ class ScanResult:
     top_candidates: list[CandidateResult]
     all_candidates: list[CandidateResult]
     excluded_for_quality: list[str]
+    excluded_for_feature_history: list[str] = field(default_factory=list)
     universe_membership_pit_safe: bool = True
     universe_membership_provenance: dict = field(default_factory=dict)
 
@@ -80,6 +81,12 @@ class DailyScanner:
 
         benchmark_close = index_ohlcv["close"] if not index_ohlcv.empty else None
         feature_map = self.feature_engine.compute_panel(clean_ohlcv_map, benchmark_close=benchmark_close)
+        excluded_for_feature_history = sorted(set(clean_ohlcv_map) - set(feature_map))
+        if excluded_for_feature_history:
+            logger.info(
+                "Scanner[%s] excluded %d symbol(s) for insufficient feature history",
+                self.market, len(excluded_for_feature_history),
+            )
         rank_wide = self.feature_engine.cross_sectional_momentum_rank(feature_map, ret_col="ret_120d")
         feature_map = self.feature_engine.attach_momentum_rank(feature_map, rank_wide)
 
@@ -113,6 +120,7 @@ class DailyScanner:
             market=self.market, as_of=pd.Timestamp(as_of), regime=regime,
             universe_size=len(included), top_candidates=top_candidates(candidates, top_n),
             all_candidates=candidates, excluded_for_quality=excluded_for_quality,
+            excluded_for_feature_history=excluded_for_feature_history,
             universe_membership_pit_safe=bool(getattr(snapshot, "membership_pit_safe", True)),
             universe_membership_provenance=dict(getattr(snapshot, "membership_provenance", {}) or {}),
         )
@@ -128,7 +136,11 @@ def format_report(result: ScanResult) -> str:
                       f"ann. vol: {result.regime.index_vol_annualized:.1%})"
                       if result.regime.index_return_6m is not None and result.regime.index_vol_annualized is not None
                       else f"Market Regime: {result.regime.summary_label()}")
-    lines.append(f"Universe size: {result.universe_size} (excluded for data quality: {len(result.excluded_for_quality)})")
+    lines.append(
+        f"Universe size: {result.universe_size} "
+        f"(excluded for data quality: {len(result.excluded_for_quality)}, "
+        f"insufficient feature history: {len(result.excluded_for_feature_history)})"
+    )
     lines.append("")
     lines.append(f"Top {len(result.top_candidates)} Candidates:")
     for i, c in enumerate(result.top_candidates, 1):
