@@ -44,7 +44,18 @@ def ma_cross(close: pd.Series, fast: int, slow: int, kind: str = "sma") -> pd.Da
 
 
 def adx(df: pd.DataFrame, window: int = 14) -> pd.Series:
-    """Average Directional Index using high/low/close (trend strength, not direction)."""
-    indicator = ta_trend.ADXIndicator(high=df["high"], low=df["low"], close=df["close"],
-                                       window=window, fillna=False)
+    """Average Directional Index without fabricating short-history evidence.
+
+    `ta.ADXIndicator` requires roughly two windows of observations and raises
+    a low-level NumPy "negative dimensions" error for recent listings. A short
+    history is not corrupt data, so represent the unavailable feature as NaN;
+    the scanner separately excludes symbols that do not meet its minimum
+    feature-history contract.
+    """
+    if len(df) < 2 * int(window):
+        return pd.Series(float("nan"), index=df.index, name=f"adx_{window}", dtype=float)
+    indicator = ta_trend.ADXIndicator(
+        high=df["high"], low=df["low"], close=df["close"],
+        window=window, fillna=False,
+    )
     return indicator.adx().rename(f"adx_{window}")
