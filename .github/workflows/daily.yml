@@ -214,6 +214,12 @@ jobs:
                   "quarantine_recent_frequency":quarantine.get("recent_frequency") or {},
                   "paper_raw_nav_sessions":paper.get("raw_nav_sessions",0),
                   "paper_readiness_sessions":paper.get("sessions_completed",0),
+                  "paper_cash":paper.get("cash"),
+                  "paper_positions":paper.get("n_positions",0),
+                  "paper_last_equity":(
+                      (paper.get("equity_history_tail") or [])[-1]
+                      if (paper.get("equity_history_tail") or []) else None
+                  ),
                   "paper_last_cycle":paper.get("last_cycle") or {},
               },ensure_ascii=False,sort_keys=True))
           PY
