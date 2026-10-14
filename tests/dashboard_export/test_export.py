@@ -347,3 +347,5 @@ def test_overview_pipeline_health_fails_on_market_research_execution_error():
     )
     overview = _overview({"us": market}, status)
     assert overview["pipeline_health"] == "FAIL"
+    section = _market_section("us", market)
+    assert section["status"] == "RESEARCH EXECUTION FAILED"
