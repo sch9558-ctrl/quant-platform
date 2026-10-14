@@ -355,3 +355,34 @@ def test_paper_readiness_sessions_require_explicit_eligibility(db):
     )
     assert db.paper_readiness_sessions(market="us", as_of="2026-10-07") == ["2026-10-07"]
     assert db.paper_readiness_sessions(market="us", as_of="2026-10-06") == []
+
+
+def test_paper_readiness_nav_history_excludes_ineligible_raw_nav(db):
+    # Persist raw account-state NAV for both sessions.
+    db.save_paper_state(
+        market="us", session="2026-10-06", event_seq=1,
+        cash=99995.0, nav=99995.0, peak_nav=100000.0,
+        consecutive_losses=1, positions={}, fills=[],
+    )
+    db.save_paper_state(
+        market="us", session="2026-10-07", event_seq=2,
+        cash=99990.0, nav=99990.0, peak_nav=100000.0,
+        consecutive_losses=2, positions={}, fills=[],
+    )
+    # Only the second completed cycle is explicitly execution/readiness eligible.
+    db.save_paper_cycle_summary(
+        market="us", session="2026-10-06", selected_symbols=["AAA"],
+        fills=1, rejections=0, nav=99995.0, cash=99995.0, positions=0,
+        execution_policy=None, readiness_eligible=False,
+        readiness_reason="LEGACY_EXECUTION_POLICY_UNVERIFIED",
+    )
+    db.save_paper_cycle_summary(
+        market="us", session="2026-10-07", selected_symbols=[],
+        fills=0, rejections=0, nav=99990.0, cash=99990.0, positions=0,
+        execution_policy="delay_bars=1;fill_price=next_open",
+        readiness_eligible=True, readiness_reason="NO_TRADE_VALIDATED_SESSION",
+    )
+    raw = db.paper_nav_history(market="us", as_of="2026-10-07")
+    eligible = db.paper_readiness_nav_history(market="us", as_of="2026-10-07")
+    assert len(raw) == 2
+    assert list(eligible.index.strftime("%Y-%m-%d")) == ["2026-10-07"]
